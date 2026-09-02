@@ -38,7 +38,7 @@ cd "${RDV_WORKTREE}"
 case "${CATLASS_TEST_SUITE}" in
     dsl)
         export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/workspace/AscendNPU-IR
-        bash tests/run_dsl_test.sh 0
+        bash tests/run_dsl_test.sh --device 0
         ;;
     all)
         bash tests/run_all_test.sh 3510
