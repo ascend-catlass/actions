@@ -1,16 +1,12 @@
 name: Test a GitCode pull request
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       pr_number:
         description: Pull request number in cann/catlass on GitCode
         required: true
         type: string
-    secrets:
-      GITCODE_TOKEN:
-        description: Token used to read and update the GitCode pull request
-        required: true
 
 permissions:
   contents: read
