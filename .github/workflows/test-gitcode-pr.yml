@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: test-gitcode-pr-${{ inputs.pr_number }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   merge-and-test:
