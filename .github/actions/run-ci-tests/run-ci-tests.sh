@@ -2,12 +2,16 @@
 
 set -eo pipefail
 
+CANN_VERSION="9.1.0"
+
 if [[ ! -d "${RDV_WORKTREE}" ]]; then
     echo "CATLASS worktree does not exist: ${RDV_WORKTREE}" >&2
     exit 1
 fi
 
-if [[ -f /workspace/Ascend/cann/set_env.sh ]]; then
+if [[ -f /workspace/Ascend/${CANN_VERSION}/cann/set_env.sh ]]; then
+    cann_env=/workspace/Ascend/${CANN_VERSION}/cann/set_env.sh
+elif [[ -f /workspace/Ascend/cann/set_env.sh ]]; then
     cann_env=/workspace/Ascend/cann/set_env.sh
 elif [[ -f /usr/local/Ascend/cann/set_env.sh ]]; then
     cann_env=/usr/local/Ascend/cann/set_env.sh
