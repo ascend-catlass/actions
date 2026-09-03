@@ -1,5 +1,7 @@
 name: Test a GitCode pull request
 
+run-name: "PR #${{ inputs.pr_number }} Test"
+
 on:
   workflow_dispatch:
     inputs:
