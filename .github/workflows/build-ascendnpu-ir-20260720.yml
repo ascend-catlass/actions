@@ -13,6 +13,11 @@ on:
                 required: true
                 default: a07821269ede7a5e683ac02c8a2d291608083741
                 type: string
+            use_mirror:
+                description: Use Huawei Cloud mirrors for pip/dnf
+                required: false
+                default: true
+                type: boolean
 
 run-name: Build AscendNPU IR (${{ inputs.branch }} @ ${{ inputs.ref }})
 
@@ -42,6 +47,21 @@ jobs:
                   sleep infinity
                 docker ps --filter "name=$NPUIR_CONTAINER" --format '{{.Names}} {{.Image}}'
 
+            - name: Switch package mirrors (Huawei Cloud)
+              if: ${{ inputs.use_mirror == 'true' }}
+              run: |
+                docker exec -u root "$NPUIR_CONTAINER" bash -c '
+                  set -e
+                  # pip: Huawei Cloud PyPI (global config for all pythons)
+                  printf "[global]\nindex-url = https://repo.huaweicloud.com/repository/pypi/simple\ntrusted-host = repo.huaweicloud.com\n" > /etc/pip.conf
+                  # dnf/yum: Huawei Cloud AlmaLinux mirror
+                  sed -i \
+                    -e "s|^mirrorlist=|#mirrorlist=|g" \
+                    -e "s|^#baseurl=http://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g" \
+                    /etc/yum.repos.d/*.repo
+                  dnf clean all
+                '
+
             - name: Install build dependencies
               run: |
                 docker exec -u root "$NPUIR_CONTAINER" bash -c '
@@ -52,7 +72,7 @@ jobs:
                   "$PYBIN/python" -m pip install -U "cmake>=3.28" "ninja>=1.12"
                   ln -sf "$PYBIN/cmake" /usr/local/bin/cmake
                   ln -sf "$PYBIN/ninja" /usr/local/bin/ninja
-                  dnf install -y clang lld || yum install -y clang lld
+                  dnf install -y clang lld
                   cmake --version | head -1
                   ninja --version
                   clang --version | head -1
