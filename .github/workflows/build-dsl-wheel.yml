@@ -1,0 +1,172 @@
+name: Build and Release ascend-catlass-dsl wheel
+
+on:
+  schedule:
+    # 01:00 Asia/Shanghai (17:00 UTC)
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-dsl-wheel
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ascend-catlass-dsl wheel
+    runs-on: [self-hosted, ascend950]
+    timeout-minutes: 180
+
+    outputs:
+      wheel_files: ${{ steps.build.outputs.wheel_files }}
+      build_date: ${{ steps.build.outputs.build_date }}
+
+    steps:
+      - name: Check out ascend-catlass repository
+        uses: actions/checkout@v5
+        with:
+          repository: ascend-catlass/catlass
+          ref: master
+          fetch-depth: 1
+          fetch-tags: false
+          ssh-key: ${{ secrets.CATLASS_DEPLOY_KEY }}
+          path: catlass-source
+
+      - name: Set up build environment
+        shell: bash
+        working-directory: catlass-source
+        run: |
+          set -euo pipefail
+          
+          # Install Python and build dependencies
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install cibuildwheel
+
+      - name: Build wheels using cibuildwheel
+        id: build
+        shell: bash
+        working-directory: catlass-source/python/tla_dsl
+        env:
+          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
+          CIBW_SKIP: "*-win32 *-i686 *-ppc64le *-s390x *-musllinux_*"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_ENVIRONMENT: |
+            CC=clang-19
+            CXX=clang++-19
+            CMAKE_BUILD_TYPE=Release
+        run: |
+          set -euo pipefail
+          
+          # Build wheels
+          python3 -m cibuildwheel --output-dir ../../wheelhouse .
+          
+          # Collect wheel file names
+          wheel_files=$(cd ../../wheelhouse && ls -1 *.whl | tr '\n' ' ')
+          echo "wheel_files=${wheel_files}" >> "${GITHUB_OUTPUT}"
+          
+          # Set build date
+          build_date=$(date -u +"%Y-%m-%d %H:%M UTC")
+          echo "build_date=${build_date}" >> "${GITHUB_OUTPUT}"
+          
+          # Log the built wheels
+          echo "Built wheels:"
+          ls -lh ../../wheelhouse/
+
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsl-wheels
+          path: catlass-source/wheelhouse/*.whl
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: dsl-wheels
+          path: ./wheels
+
+      - name: Create Release Tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          
+          # Create a tag with date and time
+          tag_name="dsl-release-$(date -u +%Y%m%d-%H%M%S)"
+          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          release_name: "ascend-catlass-dsl wheels - ${{ needs.build.outputs.build_date }}"
+          body: |
+            # ascend-catlass-dsl wheels release
+            
+            Built on: ${{ needs.build.outputs.build_date }}
+            
+            ## Included wheels
+            
+            ${{ needs.build.outputs.wheel_files }}
+            
+            These wheels were automatically built from the `master` branch using `cibuildwheel`.
+            
+            Supported Python versions: 3.10, 3.11, 3.12, 3.13
+          draft: false
+          prerelease: false
+
+      - name: Upload wheels to Release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPLOAD_URL: ${{ steps.create_release.outputs.upload_url }}
+        run: |
+          set -euo pipefail
+          
+          cd wheels
+          
+          for wheel_file in *.whl; do
+            echo "Uploading ${wheel_file}..."
+            
+            curl --fail --silent --show-error \
+              --request POST \
+              --header "Authorization: token ${GITHUB_TOKEN}" \
+              --header "Content-Type: application/octet-stream" \
+              --data-binary @"${wheel_file}" \
+              "${UPLOAD_URL%\{*}?name=${wheel_file}"
+            
+            echo "Successfully uploaded ${wheel_file}"
+          done
+
+  notify:
+    name: Notify on build completion
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+
+    steps:
+      - name: Build Summary
+        shell: bash
+        run: |
+          echo "## Build Summary"
+          echo "Build status: ${{ needs.build.result }}"
+          echo "Release status: ${{ needs.release.result }}"
+          echo ""
+          if [ "${{ needs.build.result }}" = "success" ]; then
+            echo "✅ Successfully built wheels: ${{ needs.build.outputs.wheel_files }}"
+            echo "📦 Release created for: ${{ needs.build.outputs.build_date }}"
+          else
+            echo "❌ Build failed. Check logs for details."
+          fi
