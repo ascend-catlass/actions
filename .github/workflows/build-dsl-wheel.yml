@@ -24,15 +24,16 @@ jobs:
       build_date: ${{ steps.build.outputs.build_date }}
 
     steps:
-      - name: Check out ascend-catlass repository
-        uses: actions/checkout@v5
-        with:
-          repository: ascend-catlass/catlass
-          ref: master
-          fetch-depth: 1
-          fetch-tags: false
-          ssh-key: ${{ secrets.CATLASS_DEPLOY_KEY }}
-          path: catlass-source
+      - name: Check out catlass from GitCode
+        shell: bash
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          git clone --quiet --depth 1 --branch master \
+            https://${GITCODE_TOKEN}:x-oauth-basic@gitcode.com/cann/catlass.git \
+            catlass-source
 
       - name: Set up build environment
         shell: bash
