@@ -8,8 +8,7 @@ on:
 
 env:
   # Host paths of the prebuilt dependencies mounted into the cibuildwheel container
-  ASCEND_HOME_PATH: /usr/local/Ascend/ascend-toolkit/latest
-  NPUIR_ROOT: /opt/AscendNPU-IR
+  ASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.0
 
 permissions:
   contents: write
@@ -49,14 +48,36 @@ jobs:
           CIBW_SKIP: "*-win32 *-i686 *-ppc64le *-s390x *-musllinux_*"
           CIBW_BUILD_VERBOSITY: 1
           # Let cibuildwheel manage its own manylinux container; only the host
-          # NPUIR/CANN trees are mapped in through its dedicated variables.
-          CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ env.ASCEND_HOME_PATH }}:${{ env.ASCEND_HOME_PATH }} -v ${{ env.NPUIR_ROOT }}:${{ env.NPUIR_ROOT }}"
+          # trees are mapped in through its dedicated variables:
+          #   - CANN toolkit at its host absolute path
+          #   - the runner workspace, so the prebuilt AscendNPU-IR built by the
+          #     AscendNPU-IR pipeline shows up at /workspace/AscendNPU-IR
+          CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ env.ASCEND_HOME_PATH }}:${{ env.ASCEND_HOME_PATH }} -v ${{ github.workspace }}:/workspace"
           CIBW_ENVIRONMENT: |
             CMAKE_BUILD_TYPE=Release
-            ASCEND_HOME_PATH=${{ env.ASCEND_HOME_PATH }}
-            CATLASS_DSL_ASCENDNPU_IR_ROOT=${{ env.NPUIR_ROOT }}
-            CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=${{ env.NPUIR_ROOT }}/build/install
-          CIBW_BEFORE_ALL: dnf install -y clang
+            CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/workspace/AscendNPU-IR
+          CIBW_BEFORE_ALL: |
+            set -euo pipefail
+
+            # Switch package sources to Huawei Cloud mirrors (pip + dnf)
+            printf '[global]\nindex-url = https://repo.huaweicloud.com/repository/pypi/simple\ntrusted-host = repo.huaweicloud.com\n' > /etc/pip.conf
+            sed -i \
+              -e 's|^mirrorlist=|#mirrorlist=|g' \
+              -e 's|^# *baseurl=https://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g' \
+              /etc/yum.repos.d/*.repo
+            dnf clean all
+
+            # Toolchain: clang + lld
+            dnf install -y clang lld
+
+            # Load the CANN environment by sourcing set_env.sh for every login
+            # shell (cibuildwheel runs build commands via bash -lc)
+            cat > /etc/profile.d/ascend-cann.sh <<'EOF'
+            source ${{ env.ASCEND_HOME_PATH }}/set_env.sh
+            EOF
+
+            # Verify the sourced env is visible to the build shells
+            bash -lc 'test -n "${ASCEND_HOME_PATH:-}" && echo "CANN env loaded: ${ASCEND_HOME_PATH}"'
         run: |
           set -euo pipefail
 
