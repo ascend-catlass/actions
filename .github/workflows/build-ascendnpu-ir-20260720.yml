@@ -48,7 +48,7 @@ jobs:
                 docker ps --filter "name=$NPUIR_CONTAINER" --format '{{.Names}} {{.Image}}'
 
             - name: Switch package mirrors (Huawei Cloud)
-              if: ${{ inputs.use_mirror == 'true' }}
+              if: ${{ inputs.use_mirror }}
               run: |
                 docker exec -u root "$NPUIR_CONTAINER" bash -c '
                   set -e
