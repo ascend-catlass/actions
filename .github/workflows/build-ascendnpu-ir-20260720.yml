@@ -1,0 +1,91 @@
+name: Build AscendNPU IR
+
+on:
+    workflow_dispatch:
+        inputs:
+            branch:
+                description: AscendNPU-IR branch
+                required: true
+                default: feature/regbase
+                type: string
+            ref:
+                description: AscendNPU-IR commit ref
+                required: true
+                default: a07821269ede7a5e683ac02c8a2d291608083741
+                type: string
+
+run-name: Build AscendNPU IR (${{ inputs.branch }} @ ${{ inputs.ref }})
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        env:
+            NPUIR_CONTAINER: npuir-build
+            NPUIR_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
+        steps:
+            - name: Check out AscendNPU-IR from GitHub
+              uses: actions/checkout@v4
+              with:
+                repository: Ascend/AscendNPU-IR
+                ref: ${{ inputs.ref }}
+                path: AscendNPU-IR
+                fetch-depth: 1
+                submodules: recursive
+
+            - name: Create build container (manylinux_2_28)
+              run: |
+                docker rm -f "$NPUIR_CONTAINER" >/dev/null 2>&1 || true
+                docker run -d --name "$NPUIR_CONTAINER" \
+                  -v "$GITHUB_WORKSPACE:/workspace" \
+                  -w /workspace \
+                  "$NPUIR_IMAGE" \
+                  sleep infinity
+                docker ps --filter "name=$NPUIR_CONTAINER" --format '{{.Names}} {{.Image}}'
+
+            - name: Install build dependencies
+              run: |
+                docker exec -u root "$NPUIR_CONTAINER" bash -c '
+                  set -e
+                  pip3 install -U "cmake>=3.28" "ninja>=1.12"
+                  dnf install -y clang lld || yum install -y clang lld
+                  cmake --version | head -1
+                  ninja --version
+                  clang --version | head -1
+                  clang++ --version | head -1
+                '
+
+            - name: Build AscendNPU-IR
+              run: |
+                # run as the runner user so artifacts are owned by a normal user
+                docker exec -u "$(id -u):$(id -g)" \
+                  -e HOME=/workspace \
+                  "$NPUIR_CONTAINER" bash -c '
+                  set -e
+                  cd /workspace/AscendNPU-IR
+                  rm -rf build
+                  ./build-tools/build.sh \
+                    --c-compiler "$(command -v clang)" \
+                    --cxx-compiler "$(command -v clang++)" \
+                    "--add-cmake-options=-DCMAKE_SYSROOT=/" \
+                    "--add-cmake-options=-DLLVM_ENABLE_ZSTD=OFF" \
+                    "--add-cmake-options=-DLLVM_ENABLE_RTTI=ON" \
+                    --build-type Release \
+                    -j "$(nproc)" \
+                    --enable-assertion \
+                    --disable-werror \
+                    --disable-mlir-werror \
+                    --disable-bishengir-werror \
+                    --build-triton \
+                    --enable-lld \
+                    --build ./build \
+                    --apply-patches
+                '
+
+            - name: Check build artifacts
+              run: |
+                # TODO: fill in artifact checks
+                ls -la AscendNPU-IR/build/install 2>/dev/null || echo "build/install not found"
+
+            - name: Clean up build container
+              run: |
+                docker rm -f "$NPUIR_CONTAINER"
