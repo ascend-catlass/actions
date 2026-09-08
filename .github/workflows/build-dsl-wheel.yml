@@ -6,6 +6,11 @@ on:
     - cron: "0 17 * * *"
   workflow_dispatch:
 
+env:
+  # Host paths of the prebuilt dependencies mounted into the cibuildwheel container
+  ASCEND_HOME_PATH: /usr/local/Ascend/ascend-toolkit/latest
+  NPUIR_ROOT: /opt/AscendNPU-IR
+
 permissions:
   contents: write
 
@@ -34,30 +39,6 @@ jobs:
           git clone --quiet --depth 1 --branch master \
             https://${GITCODE_TOKEN}:x-oauth-basic@gitcode.com/cann/catlass.git \
             catlass-source
-
-      - name: Locate NPUIR and CANN on host
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # CANN toolkit root: prefer the loaded environment, fall back to the default install path
-          ASCEND_HOME_PATH="${ASCEND_HOME_PATH:-/usr/local/Ascend/ascend-toolkit/latest}"
-          # Prebuilt AscendNPU-IR source/install tree on the host
-          NPUIR_ROOT="${CATLASS_DSL_PREBUILT_ASCENDNPU_IR:-/opt/AscendNPU-IR}"
-
-          [ -d "${ASCEND_HOME_PATH}" ] || {
-            echo "::error::CANN not found at ${ASCEND_HOME_PATH}. Set ASCEND_HOME_PATH or CATLASS_DSL_CANN_ROOT."
-            exit 1
-          }
-          [ -f "${NPUIR_ROOT}/build/install/lib/cmake/mlir/MLIRConfig.cmake" ] || {
-            echo "::error::AscendNPU-IR install tree not found at ${NPUIR_ROOT}/build/install. Set CATLASS_DSL_PREBUILT_ASCENDNPU_IR."
-            exit 1
-          }
-
-          echo "ASCEND_HOME_PATH=${ASCEND_HOME_PATH}" >> "${GITHUB_ENV}"
-          echo "NPUIR_ROOT=${NPUIR_ROOT}" >> "${GITHUB_ENV}"
-          echo "CANN:   ${ASCEND_HOME_PATH}"
-          echo "NPUIR:  ${NPUIR_ROOT}"
 
       - name: Build wheels (NPUIR/CANN mounted via cibuildwheel)
         id: build
