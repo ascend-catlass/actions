@@ -27,15 +27,19 @@ jobs:
         env:
             NPUIR_CONTAINER: npuir-build
             NPUIR_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
+            NPUIR_BRANCH: ${{ inputs.branch }}
+            NPUIR_REF: ${{ inputs.ref }}
         steps:
             - name: Check out AscendNPU-IR from GitCode
-              uses: actions/checkout@v4
-              with:
-                repository: https://gitcode.com/Ascend/AscendNPU-IR.git
-                ref: ${{ inputs.ref }}
-                path: AscendNPU-IR
-                fetch-depth: 1
-                submodules: recursive
+              # actions/checkout only accepts {owner}/{repo} (GitHub), so clone from GitCode manually
+              run: |
+                rm -rf AscendNPU-IR
+                git clone --branch "$NPUIR_BRANCH" https://gitcode.com/Ascend/AscendNPU-IR.git AscendNPU-IR
+                cd AscendNPU-IR
+                git checkout --detach "$NPUIR_REF" 2>/dev/null || {
+                  git fetch origin "$NPUIR_REF" && git checkout --detach "$NPUIR_REF"
+                }
+                git submodule update --init --recursive
 
             - name: Create build container (manylinux_2_28)
               run: |
