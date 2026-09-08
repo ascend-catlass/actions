@@ -35,45 +35,89 @@ jobs:
             https://${GITCODE_TOKEN}:x-oauth-basic@gitcode.com/cann/catlass.git \
             catlass-source
 
-      - name: Set up build environment
+      - name: Locate NPUIR and CANN on host
         shell: bash
-        working-directory: catlass-source
         run: |
           set -euo pipefail
-          
-          # Install Python and build dependencies
-          python3 -m pip install --upgrade pip setuptools wheel
-          python3 -m pip install cibuildwheel
 
-      - name: Build wheels using cibuildwheel
+          # CANN toolkit root: prefer the loaded environment, fall back to the default install path
+          ASCEND_HOME_PATH="${ASCEND_HOME_PATH:-/usr/local/Ascend/ascend-toolkit/latest}"
+          # Prebuilt AscendNPU-IR source/install tree on the host
+          NPUIR_ROOT="${CATLASS_DSL_PREBUILT_ASCENDNPU_IR:-/opt/AscendNPU-IR}"
+
+          [ -d "${ASCEND_HOME_PATH}" ] || {
+            echo "::error::CANN not found at ${ASCEND_HOME_PATH}. Set ASCEND_HOME_PATH or CATLASS_DSL_CANN_ROOT."
+            exit 1
+          }
+          [ -f "${NPUIR_ROOT}/build/install/lib/cmake/mlir/MLIRConfig.cmake" ] || {
+            echo "::error::AscendNPU-IR install tree not found at ${NPUIR_ROOT}/build/install. Set CATLASS_DSL_PREBUILT_ASCENDNPU_IR."
+            exit 1
+          }
+
+          echo "ASCEND_HOME_PATH=${ASCEND_HOME_PATH}" >> "${GITHUB_ENV}"
+          echo "NPUIR_ROOT=${NPUIR_ROOT}" >> "${GITHUB_ENV}"
+          echo "CANN:   ${ASCEND_HOME_PATH}"
+          echo "NPUIR:  ${NPUIR_ROOT}"
+
+      - name: Build wheels (NPUIR/CANN mounted via docker)
         id: build
         shell: bash
-        working-directory: catlass-source/python/tla_dsl
+        working-directory: catlass-source
         env:
-          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
-          CIBW_SKIP: "*-win32 *-i686 *-ppc64le *-s390x *-musllinux_*"
-          CIBW_BUILD_VERBOSITY: 1
-          CIBW_ENVIRONMENT: |
-            CC=clang-19
-            CXX=clang++-19
-            CMAKE_BUILD_TYPE=Release
+          WHEEL_CONTAINER: dsl-wheel-build
         run: |
           set -euo pipefail
-          
-          # Build wheels
-          python3 -m cibuildwheel --output-dir ../../wheelhouse .
-          
+
+          mkdir -p wheelhouse
+          docker rm -f "${WHEEL_CONTAINER}" >/dev/null 2>&1 || true
+
+          # Mount the host NPUIR and CANN trees into the build container at the
+          # same paths, so no in-container install/clone of these deps is needed.
+          docker run -d --name "${WHEEL_CONTAINER}" \
+            -v "${ASCEND_HOME_PATH}:${ASCEND_HOME_PATH}" \
+            -v "${NPUIR_ROOT}:${NPUIR_ROOT}" \
+            -v "${GITHUB_WORKSPACE}/catlass-source:/workspace/catlass" \
+            -v "${GITHUB_WORKSPACE}/catlass-source/wheelhouse:/wheelhouse" \
+            -w /workspace/catlass/python/tla_dsl \
+            quay.io/pypa/manylinux_2_28_x86_64 \
+            sleep infinity
+
+          trap 'docker rm -f "${WHEEL_CONTAINER}" >/dev/null 2>&1 || true' EXIT
+
+          for tag in cp310 cp311 cp312 cp313; do
+            echo "== Building ${tag} =="
+            docker exec \
+              -e ASCEND_HOME_PATH="${ASCEND_HOME_PATH}" \
+              -e CATLASS_DSL_ASCENDNPU_IR_ROOT="${NPUIR_ROOT}" \
+              -e CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR="${NPUIR_ROOT}/build/install" \
+              -e CMAKE_BUILD_TYPE=Release \
+              "${WHEEL_CONTAINER}" bash -c "
+                set -euo pipefail
+                PYBIN=/opt/python/${tag}-${tag}/bin
+                CC_BIN=\$(command -v clang-19 || command -v clang)
+                CXX_BIN=\$(command -v clang++-19 || command -v clang++)
+                export CC=\"\${CC_BIN}\" CXX=\"\${CXX_BIN}\"
+                echo \"-- Using compiler: \${CC} / \${CXX}\"
+                \"\${PYBIN}/python\" -m pip install --quiet --upgrade pip setuptools wheel auditwheel
+                \"\${PYBIN}/python\" -m pip wheel . --no-deps -w /tmp/wheels
+                \"\${PYBIN}/python\" -m auditwheel repair /tmp/wheels/*.whl -w /wheelhouse
+              "
+          done
+
+          docker rm -f "${WHEEL_CONTAINER}" >/dev/null 2>&1 || true
+          trap - EXIT
+
           # Collect wheel file names
-          wheel_files=$(cd ../../wheelhouse && ls -1 *.whl | tr '\n' ' ')
+          wheel_files=$(cd wheelhouse && ls -1 *.whl | tr '\n' ' ')
           echo "wheel_files=${wheel_files}" >> "${GITHUB_OUTPUT}"
-          
+
           # Set build date
           build_date=$(date -u +"%Y-%m-%d %H:%M UTC")
           echo "build_date=${build_date}" >> "${GITHUB_OUTPUT}"
-          
+
           # Log the built wheels
           echo "Built wheels:"
-          ls -lh ../../wheelhouse/
+          ls -lh wheelhouse/
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4

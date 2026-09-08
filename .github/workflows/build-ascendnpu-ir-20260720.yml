@@ -41,6 +41,20 @@ jobs:
                 }
                 git submodule update --init --recursive
 
+            - name: Patch LLVM headers (add cstdint include)
+              run: |
+                cd AscendNPU-IR
+                sed -i 's|#include "mlir/Support/LLVM.h"|#include "mlir/Support/LLVM.h"\n#include <cstdint>|' \
+                  third-party/llvm-project/mlir/include/mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h
+
+                sed -i 's|#include <queue>|#include <queue>\n#include <cstdint>|' \
+                  third-party/llvm-project/mlir/include/mlir/Interfaces/ValueBoundsOpInterface.h
+
+                # verify both patches were applied
+                grep -n "cstdint" \
+                  third-party/llvm-project/mlir/include/mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h \
+                  third-party/llvm-project/mlir/include/mlir/Interfaces/ValueBoundsOpInterface.h
+
             - name: Create build container (manylinux_2_28)
               run: |
                 docker rm -f "$NPUIR_CONTAINER" >/dev/null 2>&1 || true
