@@ -28,10 +28,10 @@ jobs:
             NPUIR_CONTAINER: npuir-build
             NPUIR_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
         steps:
-            - name: Check out AscendNPU-IR from GitHub
+            - name: Check out AscendNPU-IR from GitCode
               uses: actions/checkout@v4
               with:
-                repository: Ascend/AscendNPU-IR
+                repository: https://gitcode.com/Ascend/AscendNPU-IR.git
                 ref: ${{ inputs.ref }}
                 path: AscendNPU-IR
                 fetch-depth: 1
