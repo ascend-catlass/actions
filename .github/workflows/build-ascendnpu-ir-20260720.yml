@@ -46,7 +46,12 @@ jobs:
               run: |
                 docker exec -u root "$NPUIR_CONTAINER" bash -c '
                   set -e
-                  pip3 install -U "cmake>=3.28" "ninja>=1.12"
+                  # manylinux images keep pythons under /opt/python; pick the newest cp3x
+                  PYBIN=/opt/python/cp312-cp312/bin
+                  [ -x "$PYBIN/python" ] || PYBIN=$(ls -d /opt/python/cp3* | sort -V | tail -1)/bin
+                  "$PYBIN/python" -m pip install -U "cmake>=3.28" "ninja>=1.12"
+                  ln -sf "$PYBIN/cmake" /usr/local/bin/cmake
+                  ln -sf "$PYBIN/ninja" /usr/local/bin/ninja
                   dnf install -y clang lld || yum install -y clang lld
                   cmake --version | head -1
                   ninja --version
