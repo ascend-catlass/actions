@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     name: Build ascend-catlass-dsl wheel
-    runs-on: [self-hosted, ascend950]
+    runs-on: [self-hosted, ascend950, nondocker]
     timeout-minutes: 180
 
     outputs:
