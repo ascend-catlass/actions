@@ -55,9 +55,10 @@ jobs:
                   # pip: Huawei Cloud PyPI (global config for all pythons)
                   printf "[global]\nindex-url = https://repo.huaweicloud.com/repository/pypi/simple\ntrusted-host = repo.huaweicloud.com\n" > /etc/pip.conf
                   # dnf/yum: Huawei Cloud AlmaLinux mirror
+                  # official repo files use "# baseurl=" (with a space) — match both forms
                   sed -i \
                     -e "s|^mirrorlist=|#mirrorlist=|g" \
-                    -e "s|^#baseurl=http://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g" \
+                    -e "s|^# *baseurl=https://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g" \
                     /etc/yum.repos.d/*.repo
                   dnf clean all
                 '
