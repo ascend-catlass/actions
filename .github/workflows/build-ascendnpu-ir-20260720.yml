@@ -114,13 +114,20 @@ jobs:
 
           affine_header="${WORK_PATH}/third-party/llvm-project/mlir/include/mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h"
           interface_header="${WORK_PATH}/third-party/llvm-project/mlir/include/mlir/Interfaces/ValueBoundsOpInterface.h"
+          spirv_deserialization_header="${WORK_PATH}/third-party/llvm-project/mlir/include/mlir/Target/SPIRV/Deserialization.h"
 
           grep -q '^#include <cstdint>$' "${affine_header}" || \
             sed -i 's|#include "mlir/Support/LLVM.h"|#include "mlir/Support/LLVM.h"\n#include <cstdint>|' "${affine_header}"
           grep -q '^#include <cstdint>$' "${interface_header}" || \
             sed -i 's|#include <queue>|#include <queue>\n#include <cstdint>|' "${interface_header}"
+          grep -q '^#include <cstdint>$' "${spirv_deserialization_header}" || \
+            sed -i 's|#include "mlir/Support/LLVM.h"|#include "mlir/Support/LLVM.h"\n#include <cstdint>|' \
+              "${spirv_deserialization_header}"
 
-          grep -n '^#include <cstdint>$' "${affine_header}" "${interface_header}"
+          grep -n '^#include <cstdint>$' \
+            "${affine_header}" \
+            "${interface_header}" \
+            "${spirv_deserialization_header}"
 
       - name: Create build container
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
