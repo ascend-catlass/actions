@@ -136,6 +136,8 @@ jobs:
             CMAKE_BUILD_TYPE=Release
             ASCEND_HOME_PATH=${{ env.CANN_ROOT }}
             CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR
+            CATLASS_DSL_ASCENDNPU_IR_ROOT=/opt/AscendNPU-IR
+            CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=/opt/AscendNPU-IR/build/install
             PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
             PIP_TRUSTED_HOST=repo.huaweicloud.com
           CIBW_BEFORE_ALL: |
