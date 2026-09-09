@@ -29,6 +29,10 @@ inputs:
     description: Requested source ref recorded in the archive manifest
     required: false
     default: ""
+  build_fingerprint:
+    description: Pipeline-defined build fingerprint to record or require (for example clang-19.1.7+lld-19.1.7)
+    required: false
+    default: ""
 
 outputs:
   path:
@@ -43,6 +47,9 @@ outputs:
   source_sha:
     description: AscendNPU-IR source commit stored in the selected archive
     value: ${{ steps.archive.outputs.source_sha }}
+  build_fingerprint:
+    description: Pipeline-defined build fingerprint stored in the selected archive
+    value: ${{ steps.archive.outputs.build_fingerprint }}
   cache_hit:
     description: Whether lookup found an existing completed archive
     value: ${{ steps.archive.outputs.cache_hit }}
@@ -101,6 +108,7 @@ runs:
         SOURCE_SHA: ${{ inputs.source_sha }}
         SOURCE_BRANCH: ${{ inputs.source_branch }}
         SOURCE_REF: ${{ inputs.source_ref }}
+        BUILD_FINGERPRINT: ${{ inputs.build_fingerprint }}
       run: |
         set -euo pipefail
 
@@ -120,14 +128,20 @@ runs:
 
           stored_postfix=$(sed -n 's/^NPUIR_PIPELINE_POSTFIX=//p' "${manifest}")
           stored_sha=$(sed -n 's/^SOURCE_SHA=//p' "${manifest}")
+          stored_fingerprint=$(sed -n 's/^BUILD_FINGERPRINT=//p' "${manifest}")
           if [[ "${stored_postfix}" != "${POSTFIX}" || ! "${stored_sha}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::Invalid NPUIR archive manifest: ${manifest}"
+            exit 1
+          fi
+          if [[ -n "${BUILD_FINGERPRINT}" && "${stored_fingerprint}" != "${BUILD_FINGERPRINT}" ]]; then
+            echo "::error::NPUIR ${POSTFIX} build fingerprint mismatch: expected ${BUILD_FINGERPRINT}, found ${stored_fingerprint:-missing}"
             exit 1
           fi
 
           {
             echo "cache_hit=true"
             echo "source_sha=${stored_sha}"
+            echo "build_fingerprint=${stored_fingerprint}"
           } >> "${GITHUB_OUTPUT}"
           echo "Reusing NPUIR ${POSTFIX} @ ${stored_sha} from ${ARCHIVE_PATH}"
           exit 0
@@ -139,6 +153,10 @@ runs:
         fi
         if [[ ! "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
           echo "::error::Invalid source_sha: ${SOURCE_SHA}"
+          exit 1
+        fi
+        if [[ -n "${BUILD_FINGERPRINT}" && ! "${BUILD_FINGERPRINT}" =~ ^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$ ]]; then
+          echo "::error::Invalid build_fingerprint: ${BUILD_FINGERPRINT}"
           exit 1
         fi
         if [[ ! -f "${SOURCE_PATH}/build/install/lib/cmake/mlir/MLIRConfig.cmake" ]]; then
@@ -155,6 +173,7 @@ runs:
           echo "SOURCE_SHA=${SOURCE_SHA}"
           echo "SOURCE_BRANCH=${SOURCE_BRANCH}"
           echo "SOURCE_REF=${SOURCE_REF}"
+          echo "BUILD_FINGERPRINT=${BUILD_FINGERPRINT}"
           echo "BUILT_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
         } > "${SOURCE_PATH}/.npuir-pipeline"
 
@@ -162,5 +181,6 @@ runs:
         {
           echo "cache_hit=false"
           echo "source_sha=${SOURCE_SHA}"
+          echo "build_fingerprint=${BUILD_FINGERPRINT}"
         } >> "${GITHUB_OUTPUT}"
         echo "Published worker-local NPUIR archive: ${ARCHIVE_PATH}"
