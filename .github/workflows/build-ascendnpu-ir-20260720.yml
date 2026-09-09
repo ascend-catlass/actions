@@ -42,6 +42,9 @@ run-name: NPUIR and wheel (${{ inputs.NPUIR_PIPELINE_POSTFIX || 'today' }})
 permissions:
   contents: read
 
+env:
+  NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
+
 concurrency:
   group: local-npuir-${{ inputs.NPUIR_PIPELINE_POSTFIX || 'daily' }}
   cancel-in-progress: false
@@ -59,10 +62,11 @@ jobs:
     steps:
       - name: Look up worker-local NPUIR archive
         id: archive
-        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@7f05d606c0d02d6c1169f279020aae59be639c59
+        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
         with:
           operation: lookup
           NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
+          build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
 
       # This workflow owns all NPUIR build details. Other NPUIR pipelines can
       # use different checkout, patch, image, toolchain, and build commands,
@@ -228,7 +232,7 @@ jobs:
       - name: Publish worker-local NPUIR archive
         id: publish
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
-        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@7f05d606c0d02d6c1169f279020aae59be639c59
+        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
         with:
           operation: publish
           NPUIR_PIPELINE_POSTFIX: ${{ steps.archive.outputs.postfix }}
@@ -236,6 +240,7 @@ jobs:
           source_sha: ${{ steps.source.outputs.source_sha }}
           source_branch: ${{ inputs.branch || 'feature/regbase' }}
           source_ref: ${{ inputs.ref || 'a07821269ede7a5e683ac02c8a2d291608083741' }}
+          build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
 
       - name: Resolve selected NPUIR
         id: selected
@@ -270,6 +275,7 @@ jobs:
             echo
             echo "- Postfix: ${NPUIR_POSTFIX}"
             echo "- Commit: ${NPUIR_SHA}"
+            echo "- Build fingerprint: ${NPUIR_BUILD_FINGERPRINT}"
             echo "- Path: ${NPUIR_PATH}"
             echo "- Reused existing archive: ${CACHE_HIT}"
           } >> "${GITHUB_STEP_SUMMARY}"

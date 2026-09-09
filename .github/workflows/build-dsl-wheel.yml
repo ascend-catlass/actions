@@ -30,6 +30,7 @@ on:
 
 env:
   CANN_ROOT: /usr/local/Ascend/cann-9.1.0
+  NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
 
 permissions:
   contents: read
@@ -58,10 +59,11 @@ jobs:
     steps:
       - name: Select worker-local NPUIR
         id: npuir
-        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@7f05d606c0d02d6c1169f279020aae59be639c59
+        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
         with:
           operation: lookup
           NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
+          build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
 
       - name: Require completed NPUIR archive
         if: ${{ steps.npuir.outputs.cache_hit != 'true' }}
