@@ -90,7 +90,7 @@ jobs:
     name: Test PR #${{ inputs.pr_number }}
     needs: prepare
     runs-on: [self-hosted, ascend950]
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Merge the pull request into its target branch
