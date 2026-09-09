@@ -1,0 +1,58 @@
+name: Clean obsolete NPUIR 20260720
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: [self-hosted, publish]
+    timeout-minutes: 30
+    steps:
+      - name: Remove superseded Clang 21 archive and partial builds
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          runner_work_root=$(cd "${RUNNER_TEMP}/.." && pwd -P)
+          archive_root="${runner_work_root}/_npuir-pipeline"
+          replacement="${archive_root}/20260909"
+          obsolete="${archive_root}/20260720"
+
+          test -f "${replacement}/.npuir-pipeline"
+          grep -Fxq 'NPUIR_PIPELINE_POSTFIX=20260909' "${replacement}/.npuir-pipeline"
+          grep -Fxq 'BUILD_FINGERPRINT=clang-19.1.7+lld-19.1.7' "${replacement}/.npuir-pipeline"
+          test -f "${replacement}/build/install/lib/cmake/mlir/MLIRConfig.cmake"
+
+          targets=()
+          if [[ -e "${obsolete}" ]]; then
+            targets+=("${obsolete}")
+          fi
+          while IFS= read -r partial; do
+            targets+=("${partial}")
+          done < <(find "${archive_root}" -mindepth 1 -maxdepth 1 \
+            -type d -name '.building-20260720-*' -print | sort)
+
+          if (( ${#targets[@]} == 0 )); then
+            echo "No obsolete NPUIR 20260720 paths remain"
+            exit 0
+          fi
+
+          for target in "${targets[@]}"; do
+            case "${target}" in
+              "${obsolete}"|"${archive_root}/.building-20260720-"*) ;;
+              *) echo "::error::Refusing unexpected cleanup target: ${target}"; exit 1 ;;
+            esac
+            du -sh -- "${target}"
+          done
+
+          rm -rf -- "${targets[@]}"
+          for target in "${targets[@]}"; do
+            if [[ -e "${target}" ]]; then
+              echo "::error::Failed to remove obsolete target: ${target}"
+              exit 1
+            fi
+            echo "Removed obsolete NPUIR path: ${target}"
+          done
