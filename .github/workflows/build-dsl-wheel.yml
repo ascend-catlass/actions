@@ -138,6 +138,9 @@ jobs:
             CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR
             CATLASS_DSL_ASCENDNPU_IR_ROOT=/opt/AscendNPU-IR
             CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=/opt/AscendNPU-IR/build/install
+            CC=/usr/bin/clang
+            CXX=/usr/bin/clang++
+            LDFLAGS=-fuse-ld=lld
             PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
             PIP_TRUSTED_HOST=repo.huaweicloud.com
           CIBW_BEFORE_ALL: |
@@ -149,7 +152,19 @@ jobs:
               -e 's|^# *baseurl=https://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g' \
               /etc/yum.repos.d/*.repo
             dnf clean all
-            dnf install -y clang lld
+            dnf install -y --nobest \
+              "clang-19.1.7-2.module_el8.10.0+3990+33d0d926" \
+              "lld-19.1.7-2.module_el8.10.0+3990+33d0d926"
+
+            clang_version=$(/usr/bin/clang --version | sed -n "s/^clang version \([^ ]*\).*/\1/p" | head -1)
+            lld_version=$(/usr/bin/ld.lld --version | sed -n "s/^LLD \([^ ]*\).*/\1/p" | head -1)
+            case "${clang_version}:${lld_version}" in
+              19.*:19.*) ;;
+              *) echo "Expected clang/lld 19.x, got clang=${clang_version:-missing} lld=${lld_version:-missing}" >&2; exit 1 ;;
+            esac
+            /usr/bin/clang --version | head -1
+            /usr/bin/clang++ --version | head -1
+            /usr/bin/ld.lld --version | head -1
 
             test -f "${{ env.CANN_ROOT }}/set_env.sh"
             test -f /opt/AscendNPU-IR/build/install/lib/cmake/mlir/MLIRConfig.cmake

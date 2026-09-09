@@ -177,11 +177,20 @@ jobs:
             "${PYBIN}/python" -m pip install -U "cmake>=3.28" "ninja>=1.12"
             ln -sf "${PYBIN}/cmake" /usr/local/bin/cmake
             ln -sf "${PYBIN}/ninja" /usr/local/bin/ninja
-            dnf install -y clang lld
+            dnf install -y --nobest \
+              "clang-19.1.7-2.module_el8.10.0+3990+33d0d926" \
+              "lld-19.1.7-2.module_el8.10.0+3990+33d0d926"
             cmake --version | head -1
             ninja --version
-            clang --version | head -1
-            clang++ --version | head -1
+            clang_version=$(/usr/bin/clang --version | sed -n "s/^clang version \([^ ]*\).*/\1/p" | head -1)
+            lld_version=$(/usr/bin/ld.lld --version | sed -n "s/^LLD \([^ ]*\).*/\1/p" | head -1)
+            case "${clang_version}:${lld_version}" in
+              19.*:19.*) ;;
+              *) echo "Expected clang/lld 19.x, got clang=${clang_version:-missing} lld=${lld_version:-missing}" >&2; exit 1 ;;
+            esac
+            /usr/bin/clang --version | head -1
+            /usr/bin/clang++ --version | head -1
+            /usr/bin/ld.lld --version | head -1
           '
 
       - name: Build AscendNPU-IR
@@ -204,8 +213,8 @@ jobs:
               set -e
               cd /workspace/AscendNPU-IR
               ./build-tools/build.sh \
-                --c-compiler "$(command -v clang)" \
-                --cxx-compiler "$(command -v clang++)" \
+                --c-compiler /usr/bin/clang \
+                --cxx-compiler /usr/bin/clang++ \
                 "--add-cmake-options=-DCMAKE_SYSROOT=/" \
                 "--add-cmake-options=-DLLVM_ENABLE_ZSTD=OFF" \
                 "--add-cmake-options=-DLLVM_ENABLE_RTTI=ON" \
