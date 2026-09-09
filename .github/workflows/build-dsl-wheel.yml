@@ -1,9 +1,20 @@
 name: Build and Release ascend-catlass-dsl wheel
 
 on:
-  schedule:
-    # 01:00 Asia/Shanghai (17:00 UTC)
-    - cron: "0 17 * * *"
+  workflow_call:
+    inputs:
+      NPUIR_PIPELINE_POSTFIX:
+        description: Existing worker-local NPUIR archive suffix
+        required: true
+        type: string
+      catlass_ref:
+        description: GitCode CATLASS branch or tag to build
+        required: false
+        default: master
+        type: string
+    secrets:
+      GITCODE_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       NPUIR_PIPELINE_POSTFIX:
@@ -24,12 +35,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: local-npuir-${{ inputs.NPUIR_PIPELINE_POSTFIX || 'daily' }}
+  group: dsl-wheel-${{ inputs.NPUIR_PIPELINE_POSTFIX || 'manual' }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Prepare NPUIR and build ascend-catlass-dsl wheel
+    name: Build ascend-catlass-dsl wheel
     runs-on: [self-hosted, publish]
     timeout-minutes: 900
     env:
@@ -50,11 +61,23 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Reuse or build worker-local NPUIR
+      - name: Select worker-local NPUIR
         id: npuir
-        uses: ./.github/actions/prepare-npuir
+        uses: ./.github/actions/npuir-local-archive
         with:
+          operation: lookup
           NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
+
+      - name: Require completed NPUIR archive
+        if: ${{ steps.npuir.outputs.cache_hit != 'true' }}
+        shell: bash
+        env:
+          NPUIR_POSTFIX: ${{ steps.npuir.outputs.postfix }}
+          NPUIR_PATH: ${{ steps.npuir.outputs.path }}
+        run: |
+          echo "::error::NPUIR ${NPUIR_POSTFIX} is not available at ${NPUIR_PATH}"
+          echo "Run the corresponding NPUIR pipeline first; wheel builds do not define NPUIR build commands."
+          exit 1
 
       - name: Validate CANN
         shell: bash

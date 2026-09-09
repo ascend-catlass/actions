@@ -1,6 +1,9 @@
-name: Prepare AscendNPU-IR local archive
+name: Build AscendNPU-IR and DSL wheels
 
 on:
+  schedule:
+    # 01:00 Asia/Shanghai (17:00 UTC)
+    - cron: "0 17 * * *"
   workflow_dispatch:
     inputs:
       NPUIR_PIPELINE_POSTFIX:
@@ -23,8 +26,13 @@ on:
         required: false
         default: true
         type: boolean
+      catlass_ref:
+        description: GitCode CATLASS branch or tag used for the wheel
+        required: true
+        default: master
+        type: string
 
-run-name: Prepare AscendNPU-IR (${{ inputs.NPUIR_PIPELINE_POSTFIX || 'today' }})
+run-name: NPUIR and wheel (${{ inputs.NPUIR_PIPELINE_POSTFIX || 'today' }})
 
 permissions:
   contents: read
@@ -38,6 +46,10 @@ jobs:
     name: Reuse or build AscendNPU-IR
     runs-on: [self-hosted, publish]
     timeout-minutes: 720
+    outputs:
+      postfix: ${{ steps.selected.outputs.postfix }}
+      source_sha: ${{ steps.selected.outputs.source_sha }}
+      cache_hit: ${{ steps.archive.outputs.cache_hit }}
 
     steps:
       - name: Check out pipeline actions
@@ -45,22 +57,189 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Prepare worker-local NPUIR
-        id: npuir
-        uses: ./.github/actions/prepare-npuir
+      - name: Look up worker-local NPUIR archive
+        id: archive
+        uses: ./.github/actions/npuir-local-archive
         with:
-          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX }}
-          branch: ${{ inputs.branch }}
-          ref: ${{ inputs.ref }}
-          use_mirror: ${{ inputs.use_mirror }}
+          operation: lookup
+          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
 
-      - name: Write summary
+      # This workflow owns all NPUIR build details. Other NPUIR pipelines can
+      # use different checkout, patch, image, toolchain, and build commands,
+      # while reusing only the local archive protocol above and below.
+      - name: Check out AscendNPU-IR
+        id: source
+        if: ${{ steps.archive.outputs.cache_hit != 'true' }}
         shell: bash
         env:
-          CACHE_HIT: ${{ steps.npuir.outputs.cache_hit }}
-          NPUIR_PATH: ${{ steps.npuir.outputs.path }}
-          NPUIR_POSTFIX: ${{ steps.npuir.outputs.postfix }}
-          NPUIR_SHA: ${{ steps.npuir.outputs.source_sha }}
+          NPUIR_BRANCH: ${{ inputs.branch || 'feature/regbase' }}
+          NPUIR_REF: ${{ inputs.ref || 'a07821269ede7a5e683ac02c8a2d291608083741' }}
+          WORK_PATH: ${{ steps.archive.outputs.work_path }}
+        run: |
+          set -euo pipefail
+
+          if [[ -e "${WORK_PATH}" ]]; then
+            echo "::error::Per-run NPUIR work directory already exists: ${WORK_PATH}"
+            exit 1
+          fi
+          mkdir -p "${WORK_PATH%/*}"
+
+          git clone --quiet --depth 1 --branch "${NPUIR_BRANCH}" \
+            https://gitcode.com/Ascend/AscendNPU-IR.git "${WORK_PATH}"
+
+          if git -C "${WORK_PATH}" rev-parse --verify --quiet "${NPUIR_REF}^{commit}" >/dev/null; then
+            git -C "${WORK_PATH}" checkout --detach "${NPUIR_REF}"
+          else
+            git -C "${WORK_PATH}" fetch --quiet --depth 1 origin "${NPUIR_REF}"
+            git -C "${WORK_PATH}" checkout --detach FETCH_HEAD
+          fi
+          git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
+
+          source_sha=$(git -C "${WORK_PATH}" rev-parse HEAD)
+          echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
+          echo "Building NPUIR ${NPUIR_BRANCH} @ ${source_sha}"
+
+      - name: Patch LLVM headers
+        if: ${{ steps.archive.outputs.cache_hit != 'true' }}
+        shell: bash
+        env:
+          WORK_PATH: ${{ steps.archive.outputs.work_path }}
+        run: |
+          set -euo pipefail
+
+          affine_header="${WORK_PATH}/third-party/llvm-project/mlir/include/mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h"
+          interface_header="${WORK_PATH}/third-party/llvm-project/mlir/include/mlir/Interfaces/ValueBoundsOpInterface.h"
+
+          grep -q '^#include <cstdint>$' "${affine_header}" || \
+            sed -i 's|#include "mlir/Support/LLVM.h"|#include "mlir/Support/LLVM.h"\n#include <cstdint>|' "${affine_header}"
+          grep -q '^#include <cstdint>$' "${interface_header}" || \
+            sed -i 's|#include <queue>|#include <queue>\n#include <cstdint>|' "${interface_header}"
+
+          grep -n '^#include <cstdint>$' "${affine_header}" "${interface_header}"
+
+      - name: Create build container
+        if: ${{ steps.archive.outputs.cache_hit != 'true' }}
+        shell: bash
+        env:
+          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+          WORK_PATH: ${{ steps.archive.outputs.work_path }}
+          NPUIR_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
+        run: |
+          set -euo pipefail
+          docker run -d --name "${CONTAINER_NAME}" \
+            -v "${WORK_PATH}:/workspace/AscendNPU-IR" \
+            -w /workspace/AscendNPU-IR \
+            "${NPUIR_IMAGE}" sleep infinity
+          docker ps --filter "name=^/${CONTAINER_NAME}$" --format '{{.Names}} {{.Image}}'
+
+      - name: Configure package mirrors
+        if: ${{ steps.archive.outputs.cache_hit != 'true' && (inputs.use_mirror || github.event_name == 'schedule') }}
+        shell: bash
+        env:
+          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          docker exec -u root "${CONTAINER_NAME}" bash -c '
+            set -e
+            printf "[global]\nindex-url = https://repo.huaweicloud.com/repository/pypi/simple\ntrusted-host = repo.huaweicloud.com\n" > /etc/pip.conf
+            sed -i \
+              -e "s|^mirrorlist=|#mirrorlist=|g" \
+              -e "s|^# *baseurl=https://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g" \
+              /etc/yum.repos.d/*.repo
+            dnf clean all
+          '
+
+      - name: Install build dependencies
+        if: ${{ steps.archive.outputs.cache_hit != 'true' }}
+        shell: bash
+        env:
+          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          docker exec -u root "${CONTAINER_NAME}" bash -c '
+            set -e
+            PYBIN=/opt/python/cp312-cp312/bin
+            if [ ! -x "${PYBIN}/python" ]; then
+              PYBIN=$(find /opt/python -maxdepth 1 -type d -name "cp3*" | sort -V | tail -1)/bin
+            fi
+            "${PYBIN}/python" -m pip install -U "cmake>=3.28" "ninja>=1.12"
+            ln -sf "${PYBIN}/cmake" /usr/local/bin/cmake
+            ln -sf "${PYBIN}/ninja" /usr/local/bin/ninja
+            dnf install -y clang lld
+            cmake --version | head -1
+            ninja --version
+            clang --version | head -1
+            clang++ --version | head -1
+          '
+
+      - name: Build AscendNPU-IR
+        if: ${{ steps.archive.outputs.cache_hit != 'true' }}
+        shell: bash
+        env:
+          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          docker exec -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            "${CONTAINER_NAME}" bash -c '
+              set -e
+              cd /workspace/AscendNPU-IR
+              ./build-tools/build.sh \
+                --c-compiler "$(command -v clang)" \
+                --cxx-compiler "$(command -v clang++)" \
+                "--add-cmake-options=-DCMAKE_SYSROOT=/" \
+                "--add-cmake-options=-DLLVM_ENABLE_ZSTD=OFF" \
+                "--add-cmake-options=-DLLVM_ENABLE_RTTI=ON" \
+                --build-type Release \
+                -j "$(nproc)" \
+                --enable-assertion \
+                --disable-werror \
+                --disable-mlir-werror \
+                --disable-bishengir-werror \
+                --build-triton \
+                --enable-lld \
+                --build ./build \
+                --apply-patches
+            '
+
+      - name: Publish worker-local NPUIR archive
+        id: publish
+        if: ${{ steps.archive.outputs.cache_hit != 'true' }}
+        uses: ./.github/actions/npuir-local-archive
+        with:
+          operation: publish
+          NPUIR_PIPELINE_POSTFIX: ${{ steps.archive.outputs.postfix }}
+          source_path: ${{ steps.archive.outputs.work_path }}
+          source_sha: ${{ steps.source.outputs.source_sha }}
+          source_branch: ${{ inputs.branch || 'feature/regbase' }}
+          source_ref: ${{ inputs.ref || 'a07821269ede7a5e683ac02c8a2d291608083741' }}
+
+      - name: Resolve selected NPUIR
+        id: selected
+        shell: bash
+        env:
+          POSTFIX: ${{ steps.archive.outputs.postfix }}
+          CACHE_HIT: ${{ steps.archive.outputs.cache_hit }}
+          CACHED_SHA: ${{ steps.archive.outputs.source_sha }}
+          BUILT_SHA: ${{ steps.publish.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${CACHE_HIT}" == true ]]; then
+            source_sha=${CACHED_SHA}
+          else
+            source_sha=${BUILT_SHA}
+          fi
+          [[ "${source_sha}" =~ ^[0-9a-f]{40}$ ]]
+          echo "postfix=${POSTFIX}" >> "${GITHUB_OUTPUT}"
+          echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Write NPUIR summary
+        shell: bash
+        env:
+          CACHE_HIT: ${{ steps.archive.outputs.cache_hit }}
+          NPUIR_PATH: ${{ steps.archive.outputs.path }}
+          NPUIR_POSTFIX: ${{ steps.selected.outputs.postfix }}
+          NPUIR_SHA: ${{ steps.selected.outputs.source_sha }}
         run: |
           set -euo pipefail
           {
@@ -71,3 +250,29 @@ jobs:
             echo "- Path: ${NPUIR_PATH}"
             echo "- Reused existing archive: ${CACHE_HIT}"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Clean up transient NPUIR resources
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+          WORK_PATH: ${{ steps.archive.outputs.work_path }}
+        run: |
+          set -euo pipefail
+          docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+          case "${WORK_PATH}" in
+            /workspace/AscendNPU-IR-pipeline/.building-*) rm -rf -- "${WORK_PATH}" ;;
+            "") ;;
+            *) echo "::error::Refusing to clean unexpected path: ${WORK_PATH}"; exit 1 ;;
+          esac
+
+  wheel:
+    name: Build wheel from selected NPUIR
+    needs: prepare
+    uses: ./.github/workflows/build-dsl-wheel.yml
+    permissions:
+      contents: write
+    with:
+      NPUIR_PIPELINE_POSTFIX: ${{ needs.prepare.outputs.postfix }}
+      catlass_ref: ${{ inputs.catlass_ref || 'master' }}
+    secrets: inherit

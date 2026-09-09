@@ -1,0 +1,161 @@
+name: Manage local AscendNPU-IR archive
+description: Resolve, validate, or atomically publish a worker-local AscendNPU-IR tree
+
+inputs:
+  operation:
+    description: Operation to perform (lookup or publish)
+    required: true
+  NPUIR_PIPELINE_POSTFIX:
+    description: Archive suffix, normally an Asia/Shanghai date such as 20260909; empty means today
+    required: false
+    default: ""
+  archive_root:
+    description: Worker-local root containing completed AscendNPU-IR trees
+    required: false
+    default: /workspace/AscendNPU-IR-pipeline
+  source_path:
+    description: Completed per-run tree to publish; required for publish
+    required: false
+    default: ""
+  source_sha:
+    description: Source commit represented by source_path
+    required: false
+    default: ""
+  source_branch:
+    description: Source branch recorded in the archive manifest
+    required: false
+    default: ""
+  source_ref:
+    description: Requested source ref recorded in the archive manifest
+    required: false
+    default: ""
+
+outputs:
+  path:
+    description: Absolute path of the selected local AscendNPU-IR archive
+    value: ${{ steps.resolve.outputs.path }}
+  work_path:
+    description: Same-filesystem temporary path where the caller can build a missing archive
+    value: ${{ steps.resolve.outputs.work_path }}
+  postfix:
+    description: Resolved NPUIR_PIPELINE_POSTFIX
+    value: ${{ steps.resolve.outputs.postfix }}
+  source_sha:
+    description: AscendNPU-IR source commit stored in the selected archive
+    value: ${{ steps.archive.outputs.source_sha }}
+  cache_hit:
+    description: Whether lookup found an existing completed archive
+    value: ${{ steps.archive.outputs.cache_hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve local paths
+      id: resolve
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+        POSTFIX_INPUT: ${{ inputs.NPUIR_PIPELINE_POSTFIX }}
+        ARCHIVE_ROOT_INPUT: ${{ inputs.archive_root }}
+      run: |
+        set -euo pipefail
+
+        if [[ "${OPERATION}" != lookup && "${OPERATION}" != publish ]]; then
+          echo "::error::operation must be lookup or publish"
+          exit 1
+        fi
+
+        postfix=${POSTFIX_INPUT}
+        if [[ -z "${postfix}" ]]; then
+          postfix=$(TZ=Asia/Shanghai date +%Y%m%d)
+        fi
+        if [[ ! "${postfix}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]; then
+          echo "::error::Invalid NPUIR_PIPELINE_POSTFIX: ${postfix}"
+          exit 1
+        fi
+
+        archive_root=${ARCHIVE_ROOT_INPUT%/}
+        archive_path="${archive_root}/${postfix}"
+        work_path="${archive_root}/.building-${postfix}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+        {
+          echo "postfix=${postfix}"
+          echo "path=${archive_path}"
+          echo "work_path=${work_path}"
+        } >> "${GITHUB_OUTPUT}"
+
+    - name: Inspect or publish archive
+      id: archive
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+        ARCHIVE_PATH: ${{ steps.resolve.outputs.path }}
+        WORK_PATH: ${{ steps.resolve.outputs.work_path }}
+        POSTFIX: ${{ steps.resolve.outputs.postfix }}
+        SOURCE_PATH: ${{ inputs.source_path }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        SOURCE_BRANCH: ${{ inputs.source_branch }}
+        SOURCE_REF: ${{ inputs.source_ref }}
+      run: |
+        set -euo pipefail
+
+        manifest="${ARCHIVE_PATH}/.npuir-pipeline"
+        mlir_config="${ARCHIVE_PATH}/build/install/lib/cmake/mlir/MLIRConfig.cmake"
+
+        if [[ "${OPERATION}" == lookup ]]; then
+          if [[ ! -e "${ARCHIVE_PATH}" ]]; then
+            echo "cache_hit=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ ! -f "${manifest}" || ! -f "${mlir_config}" ]]; then
+            echo "::error::Incomplete NPUIR archive exists at ${ARCHIVE_PATH}; refusing to use or overwrite it"
+            exit 1
+          fi
+
+          stored_postfix=$(sed -n 's/^NPUIR_PIPELINE_POSTFIX=//p' "${manifest}")
+          stored_sha=$(sed -n 's/^SOURCE_SHA=//p' "${manifest}")
+          if [[ "${stored_postfix}" != "${POSTFIX}" || ! "${stored_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Invalid NPUIR archive manifest: ${manifest}"
+            exit 1
+          fi
+
+          {
+            echo "cache_hit=true"
+            echo "source_sha=${stored_sha}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Reusing NPUIR ${POSTFIX} @ ${stored_sha} from ${ARCHIVE_PATH}"
+          exit 0
+        fi
+
+        if [[ "${SOURCE_PATH}" != "${WORK_PATH}" ]]; then
+          echo "::error::source_path must be the same-filesystem work path returned by lookup: ${WORK_PATH}"
+          exit 1
+        fi
+        if [[ ! "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::Invalid source_sha: ${SOURCE_SHA}"
+          exit 1
+        fi
+        if [[ ! -f "${SOURCE_PATH}/build/install/lib/cmake/mlir/MLIRConfig.cmake" ]]; then
+          echo "::error::NPUIR build is incomplete under ${SOURCE_PATH}"
+          exit 1
+        fi
+        if [[ -e "${ARCHIVE_PATH}" ]]; then
+          echo "::error::Archive path already exists: ${ARCHIVE_PATH}"
+          exit 1
+        fi
+
+        {
+          echo "NPUIR_PIPELINE_POSTFIX=${POSTFIX}"
+          echo "SOURCE_SHA=${SOURCE_SHA}"
+          echo "SOURCE_BRANCH=${SOURCE_BRANCH}"
+          echo "SOURCE_REF=${SOURCE_REF}"
+          echo "BUILT_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        } > "${SOURCE_PATH}/.npuir-pipeline"
+
+        mv "${SOURCE_PATH}" "${ARCHIVE_PATH}"
+        {
+          echo "cache_hit=false"
+          echo "source_sha=${SOURCE_SHA}"
+        } >> "${GITHUB_OUTPUT}"
+        echo "Published worker-local NPUIR archive: ${ARCHIVE_PATH}"
