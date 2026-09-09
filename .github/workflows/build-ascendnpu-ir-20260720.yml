@@ -36,6 +36,11 @@ on:
         required: true
         default: master
         type: string
+      dsl_version:
+        description: Nightly package version override; empty derives the next patch from the latest stable SCM tag
+        required: false
+        default: ""
+        type: string
 
 run-name: NPUIR and wheel (${{ inputs.NPUIR_PIPELINE_POSTFIX || 'today' }})
 
@@ -302,4 +307,5 @@ jobs:
     with:
       NPUIR_PIPELINE_POSTFIX: ${{ needs.prepare.outputs.postfix }}
       catlass_ref: ${{ inputs.catlass_ref || 'master' }}
+      dsl_version: ${{ inputs.dsl_version || '' }}
     secrets: inherit

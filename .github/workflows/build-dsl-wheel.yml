@@ -12,6 +12,11 @@ on:
         required: false
         default: master
         type: string
+      dsl_version:
+        description: Nightly package version override; empty derives the next patch from the latest stable SCM tag
+        required: false
+        default: ""
+        type: string
     secrets:
       GITCODE_TOKEN:
         required: true
@@ -26,6 +31,11 @@ on:
         description: GitCode CATLASS branch or tag to build
         required: true
         default: master
+        type: string
+      dsl_version:
+        description: Nightly package version override; empty derives the next patch from the latest stable SCM tag
+        required: false
+        default: ""
         type: string
 
 env:
@@ -55,6 +65,7 @@ jobs:
       npuir_sha: ${{ steps.npuir.outputs.source_sha }}
       npuir_postfix: ${{ steps.npuir.outputs.postfix }}
       npuir_cache_hit: ${{ steps.npuir.outputs.cache_hit }}
+      package_version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Select worker-local NPUIR
@@ -116,8 +127,49 @@ jobs:
               https://gitcode.com/cann/catlass.git "${SOURCE_DIR}"
 
           source_sha=$(git -C "${SOURCE_DIR}" rev-parse HEAD)
+          latest_release_tag=$(
+            GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+              git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
+              awk '{sub("^refs/tags/", "", $2); print $2}' |
+              sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
+              sort -V |
+              tail -1
+          )
+          if [[ -z "${latest_release_tag}" ]]; then
+            echo "::error::No stable vMAJOR.MINOR.PATCH tag found in CATLASS SCM"
+            exit 1
+          fi
           echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
+          echo "latest_release_tag=${latest_release_tag}" >> "${GITHUB_OUTPUT}"
           echo "CATLASS: ${CATLASS_REF} @ ${source_sha}"
+          echo "Latest stable CATLASS tag: ${latest_release_tag}"
+
+      - name: Resolve nightly package version
+        id: version
+        shell: bash
+        env:
+          VERSION_OVERRIDE: ${{ inputs.dsl_version || '' }}
+          LATEST_RELEASE_TAG: ${{ steps.source.outputs.latest_release_tag }}
+        run: |
+          set -euo pipefail
+
+          build_day=$(TZ=Asia/Shanghai date +%Y%m%d)
+          if [[ -n "${VERSION_OVERRIDE}" ]]; then
+            version=${VERSION_OVERRIDE}
+            source=manual
+          else
+            stable_version=${LATEST_RELEASE_TAG#v}
+            IFS=. read -r major minor patch <<< "${stable_version}"
+            version="${major}.${minor}.$((10#${patch} + 1)).dev${build_day}"
+            source="SCM ${LATEST_RELEASE_TAG}"
+          fi
+
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.dev[0-9]{8}$ ]]; then
+            echo "::error::Nightly version must match MAJOR.MINOR.PATCH.devYYYYMMDD, got: ${version}"
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "DSL nightly version: ${version} (${source})"
 
       - name: Build wheels
         shell: bash
@@ -138,6 +190,7 @@ jobs:
             CC=/usr/bin/clang
             CXX=/usr/bin/clang++
             LDFLAGS=-fuse-ld=lld
+            SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ASCEND_CATLASS_DSL=${{ steps.version.outputs.version }}
             PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
             PIP_TRUSTED_HOST=repo.huaweicloud.com
           CIBW_BEFORE_ALL: |
@@ -187,6 +240,8 @@ jobs:
       - name: Collect wheel metadata
         id: metadata
         shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -199,7 +254,12 @@ jobs:
 
           wheel_names=()
           for wheel in "${wheels[@]}"; do
-            wheel_names+=("$(basename "${wheel}")")
+            wheel_name=$(basename "${wheel}")
+            case "${wheel_name}" in
+              "ascend_catlass_dsl-${EXPECTED_VERSION}-"*.whl) ;;
+              *) echo "::error::Unexpected wheel version: ${wheel_name}; expected ${EXPECTED_VERSION}"; exit 1 ;;
+            esac
+            wheel_names+=("${wheel_name}")
           done
 
           wheel_files=$(IFS=,; echo "${wheel_names[*]}")
@@ -258,6 +318,7 @@ jobs:
           NPUIR_SHA: ${{ needs.build.outputs.npuir_sha }}
           NPUIR_POSTFIX: ${{ needs.build.outputs.npuir_postfix }}
           NPUIR_CACHE_HIT: ${{ needs.build.outputs.npuir_cache_hit }}
+          PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -269,13 +330,14 @@ jobs:
           fi
 
           short_sha=${SOURCE_SHA:0:12}
-          tag_name="dsl-release-$(date -u +%Y%m%d)-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          tag_name="dsl-v${PACKAGE_VERSION}-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
           notes_file="${RUNNER_TEMP}/dsl-release-notes.md"
 
           cat > "${notes_file}" <<EOF
           # ascend-catlass-dsl wheels
 
           - Built on: ${BUILD_DATE}
+          - Package version: ${PACKAGE_VERSION}
           - CATLASS ref: ${CATLASS_REF}
           - CATLASS commit: ${SOURCE_SHA}
           - NPUIR pipeline postfix: ${NPUIR_POSTFIX}
@@ -291,7 +353,7 @@ jobs:
           gh release create "${tag_name}" "${wheels[@]}" \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "ascend-catlass-dsl wheels - ${BUILD_DATE}" \
+            --title "ascend-catlass-dsl ${PACKAGE_VERSION}" \
             --notes-file "${notes_file}" \
             --draft
 
@@ -317,6 +379,7 @@ jobs:
       NPUIR_POSTFIX: ${{ needs.build.outputs.npuir_postfix }}
       NPUIR_CACHE_HIT: ${{ needs.build.outputs.npuir_cache_hit }}
       RELEASE_URL: ${{ needs.release.outputs.release_url }}
+      PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
 
     steps:
       - name: Write build summary
@@ -335,6 +398,7 @@ jobs:
             fi
 
             if [[ "${BUILD_RESULT}" == success ]]; then
+              echo "- Package version: ${PACKAGE_VERSION}"
               echo "- Wheels: ${WHEEL_FILES}"
               echo "- Built on: ${BUILD_DATE}"
             fi
