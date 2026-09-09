@@ -123,7 +123,7 @@ jobs:
           echo "CATLASS: ${CATLASS_REF} @ ${source_sha}"
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.2.1
+        shell: bash
         env:
           CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
           CIBW_SKIP: "*-win32 *-i686 *-ppc64le *-s390x *-musllinux_*"
@@ -136,6 +136,8 @@ jobs:
             CMAKE_BUILD_TYPE=Release
             ASCEND_HOME_PATH=${{ env.CANN_ROOT }}
             CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR
+            PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
+            PIP_TRUSTED_HOST=repo.huaweicloud.com
           CIBW_BEFORE_ALL: |
             set -eu
 
@@ -149,9 +151,24 @@ jobs:
 
             test -f "${{ env.CANN_ROOT }}/set_env.sh"
             test -f /opt/AscendNPU-IR/build/install/lib/cmake/mlir/MLIRConfig.cmake
-        with:
-          package-dir: ${{ env.SOURCE_DIR }}/python/tla_dsl
-          output-dir: ${{ env.SOURCE_DIR }}/wheelhouse
+          PIP_INDEX_URL: https://repo.huaweicloud.com/repository/pypi/simple
+          PIP_TRUSTED_HOST: repo.huaweicloud.com
+        run: |
+          set -euo pipefail
+
+          cibw_venv="${RUNNER_TEMP}/cibuildwheel-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [[ -e "${cibw_venv}" ]]; then
+            echo "::error::Per-run cibuildwheel environment already exists: ${cibw_venv}"
+            exit 1
+          fi
+
+          python3 -m venv "${cibw_venv}"
+          "${cibw_venv}/bin/python" -m pip install \
+            --disable-pip-version-check \
+            "cibuildwheel==4.2.1"
+          "${cibw_venv}/bin/python" -m cibuildwheel \
+            "${SOURCE_DIR}/python/tla_dsl" \
+            --output-dir "${SOURCE_DIR}/wheelhouse"
 
       - name: Collect wheel metadata
         id: metadata
