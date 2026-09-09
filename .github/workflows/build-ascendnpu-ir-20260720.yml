@@ -1,135 +1,73 @@
-name: Build AscendNPU IR
+name: Prepare AscendNPU-IR local archive
 
 on:
-    workflow_dispatch:
-        inputs:
-            branch:
-                description: AscendNPU-IR branch
-                required: true
-                default: feature/regbase
-                type: string
-            ref:
-                description: AscendNPU-IR commit ref
-                required: true
-                default: a07821269ede7a5e683ac02c8a2d291608083741
-                type: string
-            use_mirror:
-                description: Use Huawei Cloud mirrors for pip/dnf
-                required: false
-                default: true
-                type: boolean
+  workflow_dispatch:
+    inputs:
+      NPUIR_PIPELINE_POSTFIX:
+        description: Archive suffix, normally YYYYMMDD; empty means today in Asia/Shanghai
+        required: false
+        default: ""
+        type: string
+      branch:
+        description: AscendNPU-IR branch used when the archive is missing
+        required: true
+        default: feature/regbase
+        type: string
+      ref:
+        description: AscendNPU-IR commit used when the archive is missing
+        required: true
+        default: a07821269ede7a5e683ac02c8a2d291608083741
+        type: string
+      use_mirror:
+        description: Use Huawei Cloud mirrors while building
+        required: false
+        default: true
+        type: boolean
 
-run-name: Build AscendNPU IR (${{ inputs.branch }} @ ${{ inputs.ref }})
+run-name: Prepare AscendNPU-IR (${{ inputs.NPUIR_PIPELINE_POSTFIX || 'today' }})
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-npuir-${{ inputs.NPUIR_PIPELINE_POSTFIX || 'daily' }}
+  cancel-in-progress: false
 
 jobs:
-    build:
-        runs-on: [self-hosted, publish]
+  prepare:
+    name: Reuse or build AscendNPU-IR
+    runs-on: [self-hosted, publish]
+    timeout-minutes: 720
+
+    steps:
+      - name: Check out pipeline actions
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Prepare worker-local NPUIR
+        id: npuir
+        uses: ./.github/actions/prepare-npuir
+        with:
+          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX }}
+          branch: ${{ inputs.branch }}
+          ref: ${{ inputs.ref }}
+          use_mirror: ${{ inputs.use_mirror }}
+
+      - name: Write summary
+        shell: bash
         env:
-            NPUIR_CONTAINER: npuir-build
-            NPUIR_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
-            NPUIR_BRANCH: ${{ inputs.branch }}
-            NPUIR_REF: ${{ inputs.ref }}
-        steps:
-            - name: Check out AscendNPU-IR from GitCode
-              # actions/checkout only accepts {owner}/{repo} (GitHub), so clone from GitCode manually
-              run: |
-                rm -rf AscendNPU-IR
-                git clone --branch "$NPUIR_BRANCH" https://gitcode.com/Ascend/AscendNPU-IR.git AscendNPU-IR
-                cd AscendNPU-IR
-                git checkout --detach "$NPUIR_REF" 2>/dev/null || {
-                  git fetch origin "$NPUIR_REF" && git checkout --detach "$NPUIR_REF"
-                }
-                git submodule update --init --recursive
-
-            - name: Patch LLVM headers (add cstdint include)
-              run: |
-                cd AscendNPU-IR
-                sed -i 's|#include "mlir/Support/LLVM.h"|#include "mlir/Support/LLVM.h"\n#include <cstdint>|' \
-                  third-party/llvm-project/mlir/include/mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h
-
-                sed -i 's|#include <queue>|#include <queue>\n#include <cstdint>|' \
-                  third-party/llvm-project/mlir/include/mlir/Interfaces/ValueBoundsOpInterface.h
-
-                # verify both patches were applied
-                grep -n "cstdint" \
-                  third-party/llvm-project/mlir/include/mlir/Dialect/Affine/IR/ValueBoundsOpInterfaceImpl.h \
-                  third-party/llvm-project/mlir/include/mlir/Interfaces/ValueBoundsOpInterface.h
-
-            - name: Create build container (manylinux_2_28)
-              run: |
-                docker rm -f "$NPUIR_CONTAINER" >/dev/null 2>&1 || true
-                docker run -d --name "$NPUIR_CONTAINER" \
-                  -v "$GITHUB_WORKSPACE:/workspace" \
-                  -w /workspace \
-                  "$NPUIR_IMAGE" \
-                  sleep infinity
-                docker ps --filter "name=$NPUIR_CONTAINER" --format '{{.Names}} {{.Image}}'
-
-            - name: Switch package mirrors (Huawei Cloud)
-              if: ${{ inputs.use_mirror }}
-              run: |
-                docker exec -u root "$NPUIR_CONTAINER" bash -c '
-                  set -e
-                  # pip: Huawei Cloud PyPI (global config for all pythons)
-                  printf "[global]\nindex-url = https://repo.huaweicloud.com/repository/pypi/simple\ntrusted-host = repo.huaweicloud.com\n" > /etc/pip.conf
-                  # dnf/yum: Huawei Cloud AlmaLinux mirror
-                  # official repo files use "# baseurl=" (with a space) — match both forms
-                  sed -i \
-                    -e "s|^mirrorlist=|#mirrorlist=|g" \
-                    -e "s|^# *baseurl=https://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g" \
-                    /etc/yum.repos.d/*.repo
-                  dnf clean all
-                '
-
-            - name: Install build dependencies
-              run: |
-                docker exec -u root "$NPUIR_CONTAINER" bash -c '
-                  set -e
-                  # manylinux images keep pythons under /opt/python; pick the newest cp3x
-                  PYBIN=/opt/python/cp312-cp312/bin
-                  [ -x "$PYBIN/python" ] || PYBIN=$(ls -d /opt/python/cp3* | sort -V | tail -1)/bin
-                  "$PYBIN/python" -m pip install -U "cmake>=3.28" "ninja>=1.12"
-                  ln -sf "$PYBIN/cmake" /usr/local/bin/cmake
-                  ln -sf "$PYBIN/ninja" /usr/local/bin/ninja
-                  dnf install -y clang lld
-                  cmake --version | head -1
-                  ninja --version
-                  clang --version | head -1
-                  clang++ --version | head -1
-                '
-
-            - name: Build AscendNPU-IR
-              run: |
-                # run as the runner user so artifacts are owned by a normal user
-                docker exec -u "$(id -u):$(id -g)" \
-                  -e HOME=/workspace \
-                  "$NPUIR_CONTAINER" bash -c '
-                  set -e
-                  cd /workspace/AscendNPU-IR
-                  rm -rf build
-                  ./build-tools/build.sh \
-                    --c-compiler "$(command -v clang)" \
-                    --cxx-compiler "$(command -v clang++)" \
-                    "--add-cmake-options=-DCMAKE_SYSROOT=/" \
-                    "--add-cmake-options=-DLLVM_ENABLE_ZSTD=OFF" \
-                    "--add-cmake-options=-DLLVM_ENABLE_RTTI=ON" \
-                    --build-type Release \
-                    -j "$(nproc)" \
-                    --enable-assertion \
-                    --disable-werror \
-                    --disable-mlir-werror \
-                    --disable-bishengir-werror \
-                    --build-triton \
-                    --enable-lld \
-                    --build ./build \
-                    --apply-patches
-                '
-
-            - name: Check build artifacts
-              run: |
-                # TODO: fill in artifact checks
-                ls -la AscendNPU-IR/build/install 2>/dev/null || echo "build/install not found"
-
-            - name: Clean up build container
-              run: |
-                docker rm -f "$NPUIR_CONTAINER"
+          CACHE_HIT: ${{ steps.npuir.outputs.cache_hit }}
+          NPUIR_PATH: ${{ steps.npuir.outputs.path }}
+          NPUIR_POSTFIX: ${{ steps.npuir.outputs.postfix }}
+          NPUIR_SHA: ${{ steps.npuir.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## AscendNPU-IR local archive"
+            echo
+            echo "- Postfix: ${NPUIR_POSTFIX}"
+            echo "- Commit: ${NPUIR_SHA}"
+            echo "- Path: ${NPUIR_PATH}"
+            echo "- Reused existing archive: ${CACHE_HIT}"
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -5,193 +5,293 @@ on:
     # 01:00 Asia/Shanghai (17:00 UTC)
     - cron: "0 17 * * *"
   workflow_dispatch:
+    inputs:
+      NPUIR_PIPELINE_POSTFIX:
+        description: Local NPUIR archive suffix, normally YYYYMMDD; empty means today in Asia/Shanghai
+        required: false
+        default: ""
+        type: string
+      catlass_ref:
+        description: GitCode CATLASS branch or tag to build
+        required: true
+        default: master
+        type: string
 
 env:
-  # Host paths of the prebuilt dependencies mounted into the cibuildwheel container
-  ASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.0
+  CANN_ROOT: /usr/local/Ascend/cann-9.1.0
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: build-dsl-wheel
+  group: local-npuir-${{ inputs.NPUIR_PIPELINE_POSTFIX || 'daily' }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build ascend-catlass-dsl wheel
-    runs-on: [self-hosted, nondocker]
-    timeout-minutes: 180
+    name: Prepare NPUIR and build ascend-catlass-dsl wheel
+    runs-on: [self-hosted, publish]
+    timeout-minutes: 900
+    env:
+      CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
+      SOURCE_DIR: ${{ github.workspace }}/.wheel-work/catlass-${{ github.run_id }}-${{ github.run_attempt }}
 
     outputs:
-      wheel_files: ${{ steps.build.outputs.wheel_files }}
-      build_date: ${{ steps.build.outputs.build_date }}
+      wheel_files: ${{ steps.metadata.outputs.wheel_files }}
+      build_date: ${{ steps.metadata.outputs.build_date }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      npuir_sha: ${{ steps.npuir.outputs.source_sha }}
+      npuir_postfix: ${{ steps.npuir.outputs.postfix }}
+      npuir_cache_hit: ${{ steps.npuir.outputs.cache_hit }}
 
     steps:
-      - name: Check out catlass from GitCode
+      - name: Check out pipeline actions
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Reuse or build worker-local NPUIR
+        id: npuir
+        uses: ./.github/actions/prepare-npuir
+        with:
+          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
+
+      - name: Validate CANN
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f "${CANN_ROOT}/set_env.sh" ]]; then
+            echo "::error::CANN environment script not found: ${CANN_ROOT}/set_env.sh"
+            exit 1
+          fi
+
+      - name: Check out CATLASS from GitCode
+        id: source
         shell: bash
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
           set -euo pipefail
-          
-          git clone --quiet --depth 1 --branch master \
-            https://${GITCODE_TOKEN}:x-oauth-basic@gitcode.com/cann/catlass.git \
-            catlass-source
 
-      - name: Build wheels (NPUIR/CANN mounted via cibuildwheel)
-        id: build
-        shell: bash
-        working-directory: catlass-source
+          if [[ -e "${SOURCE_DIR}" ]]; then
+            echo "::error::Per-run source directory already exists: ${SOURCE_DIR}"
+            exit 1
+          fi
+          mkdir -p "${SOURCE_DIR%/*}"
+
+          askpass="${RUNNER_TEMP}/gitcode-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
+          trap 'rm -f -- "${askpass}"' EXIT
+          # The generated helper expands these variables when Git invokes it.
+          # shellcheck disable=SC2016
+          printf '%s\n' \
+            '#!/usr/bin/env bash' \
+            'case "$1" in' \
+            '  *Username*) printf "%s\\n" "x-oauth-basic" ;;' \
+            '  *Password*) printf "%s\\n" "${GITCODE_TOKEN}" ;;' \
+            'esac' > "${askpass}"
+          chmod 700 "${askpass}"
+
+          GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+            git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
+              https://gitcode.com/cann/catlass.git "${SOURCE_DIR}"
+
+          source_sha=$(git -C "${SOURCE_DIR}" rev-parse HEAD)
+          echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
+          echo "CATLASS: ${CATLASS_REF} @ ${source_sha}"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v4.2.1
         env:
           CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
           CIBW_SKIP: "*-win32 *-i686 *-ppc64le *-s390x *-musllinux_*"
           CIBW_BUILD_VERBOSITY: 1
-          # Let cibuildwheel manage its own manylinux container; only the host
-          # trees are mapped in through its dedicated variables:
-          #   - CANN toolkit at its host absolute path
-          #   - the runner workspace, so the prebuilt AscendNPU-IR built by the
-          #     AscendNPU-IR pipeline shows up at /workspace/AscendNPU-IR
-          CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ env.ASCEND_HOME_PATH }}:${{ env.ASCEND_HOME_PATH }} -v ${{ github.workspace }}:/workspace"
-          CIBW_ENVIRONMENT: |
+          CIBW_CONTAINER_ENGINE: >-
+            docker; create_args:
+            -v ${{ env.CANN_ROOT }}:${{ env.CANN_ROOT }}:ro
+            -v ${{ steps.npuir.outputs.path }}:/opt/AscendNPU-IR:ro
+          CIBW_ENVIRONMENT: >-
             CMAKE_BUILD_TYPE=Release
-            CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/workspace/AscendNPU-IR
+            ASCEND_HOME_PATH=${{ env.CANN_ROOT }}
+            CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR
           CIBW_BEFORE_ALL: |
-            set -euo pipefail
+            set -eu
 
-            # Switch package sources to Huawei Cloud mirrors (pip + dnf)
             printf '[global]\nindex-url = https://repo.huaweicloud.com/repository/pypi/simple\ntrusted-host = repo.huaweicloud.com\n' > /etc/pip.conf
             sed -i \
               -e 's|^mirrorlist=|#mirrorlist=|g' \
               -e 's|^# *baseurl=https://repo.almalinux.org/almalinux|baseurl=https://repo.huaweicloud.com/almalinux|g' \
               /etc/yum.repos.d/*.repo
             dnf clean all
-
-            # Toolchain: clang + lld
             dnf install -y clang lld
 
-            # Load the CANN environment by sourcing set_env.sh for every login
-            # shell (cibuildwheel runs build commands via bash -lc)
-            cat > /etc/profile.d/ascend-cann.sh <<'EOF'
-            source ${{ env.ASCEND_HOME_PATH }}/set_env.sh
-            EOF
+            test -f "${{ env.CANN_ROOT }}/set_env.sh"
+            test -f /opt/AscendNPU-IR/build/install/lib/cmake/mlir/MLIRConfig.cmake
+        with:
+          package-dir: ${{ env.SOURCE_DIR }}/python/tla_dsl
+          output-dir: ${{ env.SOURCE_DIR }}/wheelhouse
 
-            # Verify the sourced env is visible to the build shells
-            bash -lc 'test -n "${ASCEND_HOME_PATH:-}" && echo "CANN env loaded: ${ASCEND_HOME_PATH}"'
+      - name: Collect wheel metadata
+        id: metadata
+        shell: bash
         run: |
           set -euo pipefail
+          shopt -s nullglob
 
-          # Install cibuildwheel on the host (it creates/manages the container itself)
-          python3 -m pip install --quiet cibuildwheel
+          wheels=("${SOURCE_DIR}"/wheelhouse/*.whl)
+          if (( ${#wheels[@]} == 0 )); then
+            echo "::error::cibuildwheel completed without producing any wheels"
+            exit 1
+          fi
 
-          cd python/tla_dsl
-          python3 -m cibuildwheel --output-dir ../../wheelhouse .
+          wheel_names=()
+          for wheel in "${wheels[@]}"; do
+            wheel_names+=("$(basename "${wheel}")")
+          done
 
-          # Collect wheel file names
-          wheel_files=$(cd ../../wheelhouse && ls -1 *.whl | tr '\n' ' ')
-          echo "wheel_files=${wheel_files}" >> "${GITHUB_OUTPUT}"
-
-          # Set build date
+          wheel_files=$(IFS=,; echo "${wheel_names[*]}")
           build_date=$(date -u +"%Y-%m-%d %H:%M UTC")
+          echo "wheel_files=${wheel_files}" >> "${GITHUB_OUTPUT}"
           echo "build_date=${build_date}" >> "${GITHUB_OUTPUT}"
 
-          # Log the built wheels
           echo "Built wheels:"
-          ls -lh wheelhouse/
+          ls -lh -- "${wheels[@]}"
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dsl-wheels
-          path: catlass-source/wheelhouse/*.whl
+          path: ${{ env.SOURCE_DIR }}/wheelhouse/*.whl
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Clean up per-run wheel sources
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          expected_prefix="${GITHUB_WORKSPACE}/.wheel-work/catlass-${GITHUB_RUN_ID}-"
+          case "${SOURCE_DIR}" in
+            "${expected_prefix}"*) rm -rf -- "${SOURCE_DIR}" ;;
+            *) echo "::error::Refusing to clean unexpected path: ${SOURCE_DIR}"; exit 1 ;;
+          esac
 
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ success() }}
+    permissions:
+      contents: write
+    outputs:
+      release_url: ${{ steps.publish.outputs.release_url }}
 
     steps:
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
           name: dsl-wheels
-          path: ./wheels
+          path: wheels
 
-      - name: Create Release Tag
-        id: tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          
-          # Create a tag with date and time
-          tag_name="dsl-release-$(date -u +%Y%m%d-%H%M%S)"
-          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.tag.outputs.tag_name }}
-          release_name: "ascend-catlass-dsl wheels - ${{ needs.build.outputs.build_date }}"
-          body: |
-            # ascend-catlass-dsl wheels release
-            
-            Built on: ${{ needs.build.outputs.build_date }}
-            
-            ## Included wheels
-            
-            ${{ needs.build.outputs.wheel_files }}
-            
-            These wheels were automatically built from the `master` branch using `cibuildwheel`.
-            
-            Supported Python versions: 3.10, 3.11, 3.12, 3.13
-          draft: false
-          prerelease: false
-
-      - name: Upload wheels to Release
+      - name: Create draft, attach wheels, and publish
+        id: publish
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UPLOAD_URL: ${{ steps.create_release.outputs.upload_url }}
+          GH_TOKEN: ${{ github.token }}
+          CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
+          BUILD_DATE: ${{ needs.build.outputs.build_date }}
+          WHEEL_FILES: ${{ needs.build.outputs.wheel_files }}
+          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
+          NPUIR_SHA: ${{ needs.build.outputs.npuir_sha }}
+          NPUIR_POSTFIX: ${{ needs.build.outputs.npuir_postfix }}
+          NPUIR_CACHE_HIT: ${{ needs.build.outputs.npuir_cache_hit }}
         run: |
           set -euo pipefail
-          
-          cd wheels
-          
-          for wheel_file in *.whl; do
-            echo "Uploading ${wheel_file}..."
-            
-            curl --fail --silent --show-error \
-              --request POST \
-              --header "Authorization: token ${GITHUB_TOKEN}" \
-              --header "Content-Type: application/octet-stream" \
-              --data-binary @"${wheel_file}" \
-              "${UPLOAD_URL%\{*}?name=${wheel_file}"
-            
-            echo "Successfully uploaded ${wheel_file}"
-          done
+          shopt -s nullglob
+
+          wheels=(wheels/*.whl)
+          if (( ${#wheels[@]} == 0 )); then
+            echo "::error::Downloaded artifact contains no wheels"
+            exit 1
+          fi
+
+          short_sha=${SOURCE_SHA:0:12}
+          tag_name="dsl-release-$(date -u +%Y%m%d)-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          notes_file="${RUNNER_TEMP}/dsl-release-notes.md"
+
+          cat > "${notes_file}" <<EOF
+          # ascend-catlass-dsl wheels
+
+          - Built on: ${BUILD_DATE}
+          - CATLASS ref: ${CATLASS_REF}
+          - CATLASS commit: ${SOURCE_SHA}
+          - NPUIR pipeline postfix: ${NPUIR_POSTFIX}
+          - AscendNPU-IR commit: ${NPUIR_SHA}
+          - Reused existing NPUIR: ${NPUIR_CACHE_HIT}
+          - CANN root: ${CANN_ROOT}
+          - cibuildwheel: 4.2.1
+          - Python: 3.10, 3.11, 3.12, 3.13
+
+          Wheels: ${WHEEL_FILES}
+          EOF
+
+          gh release create "${tag_name}" "${wheels[@]}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "ascend-catlass-dsl wheels - ${BUILD_DATE}" \
+            --notes-file "${notes_file}" \
+            --draft
+
+          gh release edit "${tag_name}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --draft=false
+
+          release_url=$(gh release view "${tag_name}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --json url --jq .url)
+          echo "release_url=${release_url}" >> "${GITHUB_OUTPUT}"
 
   notify:
-    name: Notify on build completion
+    name: Build summary
     needs: [build, release]
     runs-on: ubuntu-latest
     if: ${{ always() }}
+    env:
+      BUILD_RESULT: ${{ needs.build.result }}
+      RELEASE_RESULT: ${{ needs.release.result }}
+      WHEEL_FILES: ${{ needs.build.outputs.wheel_files }}
+      BUILD_DATE: ${{ needs.build.outputs.build_date }}
+      NPUIR_POSTFIX: ${{ needs.build.outputs.npuir_postfix }}
+      NPUIR_CACHE_HIT: ${{ needs.build.outputs.npuir_cache_hit }}
+      RELEASE_URL: ${{ needs.release.outputs.release_url }}
 
     steps:
-      - name: Build Summary
+      - name: Write build summary
         shell: bash
         run: |
-          echo "## Build Summary"
-          echo "Build status: ${{ needs.build.result }}"
-          echo "Release status: ${{ needs.release.result }}"
-          echo ""
-          if [ "${{ needs.build.result }}" = "success" ]; then
-            echo "✅ Successfully built wheels: ${{ needs.build.outputs.wheel_files }}"
-            echo "📦 Release created for: ${{ needs.build.outputs.build_date }}"
-          else
-            echo "❌ Build failed. Check logs for details."
-          fi
+          set -euo pipefail
+
+          {
+            echo "## DSL wheel pipeline"
+            echo
+            echo "- Build: ${BUILD_RESULT}"
+            echo "- Release: ${RELEASE_RESULT}"
+            if [[ -n "${NPUIR_POSTFIX}" ]]; then
+              echo "- NPUIR postfix: ${NPUIR_POSTFIX}"
+              echo "- Reused existing NPUIR: ${NPUIR_CACHE_HIT}"
+            fi
+
+            if [[ "${BUILD_RESULT}" == success ]]; then
+              echo "- Wheels: ${WHEEL_FILES}"
+              echo "- Built on: ${BUILD_DATE}"
+            fi
+
+            if [[ "${RELEASE_RESULT}" == success ]]; then
+              echo "- Release: ${RELEASE_URL}"
+            elif [[ "${BUILD_RESULT}" == success ]]; then
+              echo
+              echo "> Wheels were built, but publishing failed. Check the release job; a draft release may remain."
+            else
+              echo
+              echo "> The pipeline failed before a release could be published."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
