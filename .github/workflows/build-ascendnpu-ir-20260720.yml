@@ -57,14 +57,9 @@ jobs:
       cache_hit: ${{ steps.archive.outputs.cache_hit }}
 
     steps:
-      - name: Check out pipeline actions
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
       - name: Look up worker-local NPUIR archive
         id: archive
-        uses: ./.github/actions/npuir-local-archive
+        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@7f05d606c0d02d6c1169f279020aae59be639c59
         with:
           operation: lookup
           NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
@@ -233,7 +228,7 @@ jobs:
       - name: Publish worker-local NPUIR archive
         id: publish
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
-        uses: ./.github/actions/npuir-local-archive
+        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@7f05d606c0d02d6c1169f279020aae59be639c59
         with:
           operation: publish
           NPUIR_PIPELINE_POSTFIX: ${{ steps.archive.outputs.postfix }}

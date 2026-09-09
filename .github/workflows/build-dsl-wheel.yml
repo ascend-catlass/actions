@@ -56,14 +56,9 @@ jobs:
       npuir_cache_hit: ${{ steps.npuir.outputs.cache_hit }}
 
     steps:
-      - name: Check out pipeline actions
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
       - name: Select worker-local NPUIR
         id: npuir
-        uses: ./.github/actions/npuir-local-archive
+        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@7f05d606c0d02d6c1169f279020aae59be639c59
         with:
           operation: lookup
           NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
