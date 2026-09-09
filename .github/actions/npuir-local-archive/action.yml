@@ -10,9 +10,9 @@ inputs:
     required: false
     default: ""
   archive_root:
-    description: Worker-local root containing completed AscendNPU-IR trees
+    description: Worker-local archive root; empty uses a persistent directory next to RUNNER_TEMP
     required: false
-    default: /workspace/AscendNPU-IR-pipeline
+    default: ""
   source_path:
     description: Completed per-run tree to publish; required for publish
     required: false
@@ -74,7 +74,12 @@ runs:
           exit 1
         fi
 
-        archive_root=${ARCHIVE_ROOT_INPUT%/}
+        if [[ -n "${ARCHIVE_ROOT_INPUT}" ]]; then
+          archive_root=${ARCHIVE_ROOT_INPUT%/}
+        else
+          runner_work_root=$(cd "${RUNNER_TEMP}/.." && pwd -P)
+          archive_root="${runner_work_root}/_npuir-pipeline"
+        fi
         archive_path="${archive_root}/${postfix}"
         work_path="${archive_root}/.building-${postfix}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 

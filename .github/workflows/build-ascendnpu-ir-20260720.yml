@@ -26,6 +26,11 @@ on:
         required: false
         default: true
         type: boolean
+      build_jobs:
+        description: Maximum parallel compile jobs for this NPUIR pipeline
+        required: true
+        default: 64
+        type: number
       catlass_ref:
         description: GitCode CATLASS branch or tag used for the wheel
         required: true
@@ -176,11 +181,18 @@ jobs:
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
         shell: bash
         env:
+          BUILD_JOBS: ${{ inputs.build_jobs || 64 }}
           CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
+          if [[ ! "${BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::build_jobs must be a positive integer"
+            exit 1
+          fi
+          echo "NPUIR parallel build jobs: ${BUILD_JOBS}"
           docker exec -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
+            -e BUILD_JOBS="${BUILD_JOBS}" \
             "${CONTAINER_NAME}" bash -c '
               set -e
               cd /workspace/AscendNPU-IR
@@ -191,7 +203,7 @@ jobs:
                 "--add-cmake-options=-DLLVM_ENABLE_ZSTD=OFF" \
                 "--add-cmake-options=-DLLVM_ENABLE_RTTI=ON" \
                 --build-type Release \
-                -j "$(nproc)" \
+                -j "${BUILD_JOBS}" \
                 --enable-assertion \
                 --disable-werror \
                 --disable-mlir-werror \
@@ -260,11 +272,9 @@ jobs:
         run: |
           set -euo pipefail
           docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-          case "${WORK_PATH}" in
-            /workspace/AscendNPU-IR-pipeline/.building-*) rm -rf -- "${WORK_PATH}" ;;
-            "") ;;
-            *) echo "::error::Refusing to clean unexpected path: ${WORK_PATH}"; exit 1 ;;
-          esac
+          if [[ -n "${WORK_PATH}" && -e "${WORK_PATH}" ]]; then
+            echo "::warning::Partial NPUIR build retained for inspection: ${WORK_PATH}"
+          fi
 
   wheel:
     name: Build wheel from selected NPUIR
