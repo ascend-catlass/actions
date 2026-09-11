@@ -59,8 +59,121 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    name: Resolve CATLASS and NPUIR revisions
+    runs-on: ubuntu-latest
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      npuir_sha: ${{ steps.source.outputs.npuir_sha }}
+      package_version: ${{ steps.source.outputs.package_version }}
+    env:
+      CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
+      RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
+      RELEASE_TAG: ${{ inputs.release_tag || '' }}
+      VERSION_OVERRIDE: ${{ inputs.dsl_version || '' }}
+
+    steps:
+      - name: Resolve exact source revisions and package version
+        id: source
+        shell: bash
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          source_dir="${RUNNER_TEMP}/catlass-resolve-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          askpass="${RUNNER_TEMP}/gitcode-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
+          trap 'rm -rf -- "${source_dir}"; rm -f -- "${askpass}"' EXIT
+          # shellcheck disable=SC2016
+          printf '%s\n' \
+            '#!/usr/bin/env bash' \
+            'case "$1" in' \
+            '  *Username*) printf "%s\\n" "x-oauth-basic" ;;' \
+            '  *Password*) printf "%s\\n" "${GITCODE_TOKEN}" ;;' \
+            'esac' > "${askpass}"
+          chmod 700 "${askpass}"
+
+          case "${RELEASE_KIND}" in
+            stable)
+              if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::Stable releases require an exact vMAJOR.MINOR.PATCH tag, got: ${RELEASE_TAG:-empty}"
+                exit 1
+              fi
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git ls-remote --exit-code --refs \
+                  https://gitcode.com/cann/catlass.git "refs/tags/${RELEASE_TAG}" >/dev/null
+              git init --quiet "${source_dir}"
+              git -C "${source_dir}" remote add origin https://gitcode.com/cann/catlass.git
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git -C "${source_dir}" fetch --quiet --depth 1 origin \
+                  "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+              git -C "${source_dir}" checkout --quiet --detach "refs/tags/${RELEASE_TAG}^{commit}"
+              package_version=${RELEASE_TAG#v}
+              ;;
+            nightly)
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
+                  https://gitcode.com/cann/catlass.git "${source_dir}"
+              if [[ -n "${VERSION_OVERRIDE}" ]]; then
+                package_version=${VERSION_OVERRIDE}
+              else
+                latest_release_tag=$(
+                  GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                    git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
+                    awk '{sub("^refs/tags/", "", $2); print $2}' |
+                    sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
+                    sort -V |
+                    tail -1
+                )
+                if [[ -z "${latest_release_tag}" ]]; then
+                  echo "::error::No stable vMAJOR.MINOR.PATCH tag found in CATLASS SCM"
+                  exit 1
+                fi
+                stable_version=${latest_release_tag#v}
+                IFS=. read -r major minor patch <<< "${stable_version}"
+                build_day=$(TZ=Asia/Shanghai date +%Y%m%d)
+                package_version="${major}.${minor}.$((10#${patch} + 1)).dev${build_day}"
+              fi
+              if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.dev[0-9]{8}$ ]]; then
+                echo "::error::Nightly version must match MAJOR.MINOR.PATCH.devYYYYMMDD, got: ${package_version}"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::release_kind must be nightly or stable, got: ${RELEASE_KIND}"
+              exit 1
+              ;;
+          esac
+
+          source_sha=$(git -C "${source_dir}" rev-parse HEAD)
+          submodule_entry=$(git -C "${source_dir}" ls-tree HEAD python/tla_dsl/3rdparty/AscendNPU-IR)
+          read -r submodule_mode submodule_type npuir_sha submodule_path <<< "${submodule_entry}"
+          if [[ "${submodule_mode}" != 160000 || "${submodule_type}" != commit || \
+                ! "${npuir_sha}" =~ ^[0-9a-f]{40}$ || \
+                "${submodule_path}" != python/tla_dsl/3rdparty/AscendNPU-IR ]]; then
+            echo "::error::CATLASS ${RELEASE_TAG:-${CATLASS_REF}} does not contain a valid AscendNPU-IR gitlink"
+            exit 1
+          fi
+          {
+            echo "source_sha=${source_sha}"
+            echo "npuir_sha=${npuir_sha}"
+            echo "package_version=${package_version}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "CATLASS ${source_sha} requires NPUIR ${npuir_sha}; package version ${package_version}"
+
+  npuir:
+    name: Prepare NPUIR on build workers
+    needs: resolve
+    uses: ./.github/workflows/build-ascendnpu-ir-20260720.yml
+    with:
+      ref: ${{ needs.resolve.outputs.npuir_sha }}
+      branch: feature/regbase
+      use_mirror: true
+      build_jobs: 64
+
   build:
     name: Build ascend-catlass-dsl wheel (${{ matrix.target_arch }})
+    needs: [resolve, npuir]
     strategy:
       fail-fast: false
       matrix:
@@ -72,9 +185,6 @@ jobs:
     runs-on: [self-hosted, publish, "${{ matrix.runner_arch }}"]
     timeout-minutes: 900
     env:
-      CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
-      RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
-      RELEASE_TAG: ${{ inputs.release_tag || '' }}
       NPUIR_TARGET_ARCH: ${{ matrix.target_arch }}
       SOURCE_DIR: ${{ github.workspace }}/.wheel-work/catlass-${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -103,6 +213,8 @@ jobs:
         shell: bash
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          RESOLVED_SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+          RESOLVED_NPUIR_SHA: ${{ needs.resolve.outputs.npuir_sha }}
         run: |
           set -euo pipefail
 
@@ -124,68 +236,29 @@ jobs:
             'esac' > "${askpass}"
           chmod 700 "${askpass}"
 
-          case "${RELEASE_KIND}" in
-            stable)
-              if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo "::error::Stable releases require an exact vMAJOR.MINOR.PATCH tag, got: ${RELEASE_TAG:-empty}"
-                exit 1
-              fi
-              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                git ls-remote --exit-code --refs \
-                  https://gitcode.com/cann/catlass.git "refs/tags/${RELEASE_TAG}" >/dev/null
-              git init --quiet "${SOURCE_DIR}"
-              git -C "${SOURCE_DIR}" remote add origin https://gitcode.com/cann/catlass.git
-              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                git -C "${SOURCE_DIR}" fetch --quiet --depth 1 origin \
-                  "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
-              git -C "${SOURCE_DIR}" checkout --quiet --detach "refs/tags/${RELEASE_TAG}^{commit}"
-              ;;
-            nightly)
-              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
-                  https://gitcode.com/cann/catlass.git "${SOURCE_DIR}"
-              ;;
-            *)
-              echo "::error::release_kind must be nightly or stable, got: ${RELEASE_KIND}"
-              exit 1
-              ;;
-          esac
+          git init --quiet "${SOURCE_DIR}"
+          git -C "${SOURCE_DIR}" remote add origin https://gitcode.com/cann/catlass.git
+          GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+            git -C "${SOURCE_DIR}" fetch --quiet --depth 1 origin "${RESOLVED_SOURCE_SHA}"
+          git -C "${SOURCE_DIR}" checkout --quiet --detach FETCH_HEAD
 
           source_sha=$(git -C "${SOURCE_DIR}" rev-parse HEAD)
           submodule_entry=$(git -C "${SOURCE_DIR}" ls-tree HEAD python/tla_dsl/3rdparty/AscendNPU-IR)
           read -r submodule_mode submodule_type npuir_sha submodule_path <<< "${submodule_entry}"
-          if [[ "${submodule_mode}" != 160000 || "${submodule_type}" != commit || \
+          if [[ "${source_sha}" != "${RESOLVED_SOURCE_SHA}" || \
+                "${submodule_mode}" != 160000 || "${submodule_type}" != commit || \
                 ! "${npuir_sha}" =~ ^[0-9a-f]{40}$ || \
-                "${submodule_path}" != python/tla_dsl/3rdparty/AscendNPU-IR ]]; then
-            echo "::error::CATLASS ${RELEASE_TAG:-${CATLASS_REF}} does not contain a valid AscendNPU-IR gitlink"
+                "${submodule_path}" != python/tla_dsl/3rdparty/AscendNPU-IR || \
+                "${npuir_sha}" != "${RESOLVED_NPUIR_SHA}" ]]; then
+            echo "::error::Checked-out CATLASS metadata differs from the resolved dependency chain"
             exit 1
-          fi
-
-          latest_release_tag=""
-          if [[ "${RELEASE_KIND}" == nightly ]]; then
-            latest_release_tag=$(
-              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
-                awk '{sub("^refs/tags/", "", $2); print $2}' |
-                sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
-                sort -V |
-                tail -1
-            )
-            if [[ -z "${latest_release_tag}" ]]; then
-              echo "::error::No stable vMAJOR.MINOR.PATCH tag found in CATLASS SCM"
-              exit 1
-            fi
           fi
           {
             echo "source_sha=${source_sha}"
             echo "npuir_sha=${npuir_sha}"
-            echo "latest_release_tag=${latest_release_tag}"
           } >> "${GITHUB_OUTPUT}"
-          echo "CATLASS: ${RELEASE_TAG:-${CATLASS_REF}} @ ${source_sha}"
+          echo "CATLASS exact commit: ${source_sha}"
           echo "Required NPUIR commit: ${npuir_sha}"
-          if [[ -n "${latest_release_tag}" ]]; then
-            echo "Latest stable CATLASS tag: ${latest_release_tag}"
-          fi
 
       - name: Select worker-local NPUIR for CATLASS gitlink
         id: npuir
@@ -209,47 +282,10 @@ jobs:
           NPUIR_PATH: ${{ steps.npuir.outputs.path }}
           NPUIR_BUILD_CONTRACT: ${{ env.NPUIR_BUILD_CONTRACT }}
         run: |
-          echo "::error::NPUIR ${NPUIR_SHA} (${NPUIR_BUILD_CONTRACT}) is not available at ${NPUIR_PATH}"
+          echo "::error::NPUIR preparation completed, but ${NPUIR_SHA} (${NPUIR_BUILD_CONTRACT}) is not available on this worker at ${NPUIR_PATH}"
           echo "Required archive key: ${NPUIR_ARCHIVE_KEY}"
-          echo "Run the NPUIR pipeline for this exact commit/architecture/build contract first; wheel builds never compile NPUIR."
+          echo "Check that the NPUIR and wheel jobs for this architecture use the same worker-local archive."
           exit 1
-
-      - name: Resolve package version
-        id: version
-        shell: bash
-        env:
-          VERSION_OVERRIDE: ${{ inputs.dsl_version || '' }}
-          LATEST_RELEASE_TAG: ${{ steps.source.outputs.latest_release_tag }}
-          RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
-          RELEASE_TAG: ${{ inputs.release_tag || '' }}
-        run: |
-          set -euo pipefail
-
-          if [[ "${RELEASE_KIND}" == stable ]]; then
-            version=${RELEASE_TAG#v}
-            source="exact tag ${RELEASE_TAG}"
-            if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::Stable package version must come from vMAJOR.MINOR.PATCH, got: ${RELEASE_TAG}"
-              exit 1
-            fi
-          else
-            build_day=$(TZ=Asia/Shanghai date +%Y%m%d)
-            if [[ -n "${VERSION_OVERRIDE}" ]]; then
-              version=${VERSION_OVERRIDE}
-              source=manual
-            else
-              stable_version=${LATEST_RELEASE_TAG#v}
-              IFS=. read -r major minor patch <<< "${stable_version}"
-              version="${major}.${minor}.$((10#${patch} + 1)).dev${build_day}"
-              source="SCM ${LATEST_RELEASE_TAG}"
-            fi
-            if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.dev[0-9]{8}$ ]]; then
-              echo "::error::Nightly version must match MAJOR.MINOR.PATCH.devYYYYMMDD, got: ${version}"
-              exit 1
-            fi
-          fi
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "DSL package version: ${version} (${source})"
 
       - name: Configure native build parallelism
         shell: bash
@@ -284,7 +320,7 @@ jobs:
             CC=/usr/bin/clang
             CXX=/usr/bin/clang++
             LDFLAGS=-fuse-ld=lld
-            SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ASCEND_CATLASS_DSL=${{ steps.version.outputs.version }}
+            SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ASCEND_CATLASS_DSL=${{ needs.resolve.outputs.package_version }}
             PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
             PIP_TRUSTED_HOST=repo.huaweicloud.com
           CIBW_BEFORE_ALL: |
@@ -334,7 +370,7 @@ jobs:
       - name: Collect wheel metadata
         shell: bash
         env:
-          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          EXPECTED_VERSION: ${{ needs.resolve.outputs.package_version }}
           SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
           NPUIR_SHA: ${{ steps.npuir.outputs.source_sha }}
           NPUIR_ARCHIVE_KEY: ${{ steps.npuir.outputs.archive_key }}

@@ -1,6 +1,27 @@
 name: Build AscendNPU-IR 20260720 a07821269ede
 
 on:
+  workflow_call:
+    inputs:
+      branch:
+        description: AscendNPU-IR branch used when the archive is missing
+        required: false
+        default: feature/regbase
+        type: string
+      ref:
+        description: Exact AscendNPU-IR commit required by CATLASS
+        required: true
+        type: string
+      use_mirror:
+        description: Use Huawei Cloud mirrors while building
+        required: false
+        default: true
+        type: boolean
+      build_jobs:
+        description: Maximum parallel compile jobs on x86_64; ARM64 always uses all available CPUs
+        required: false
+        default: 64
+        type: number
   workflow_dispatch:
     inputs:
       branch:
