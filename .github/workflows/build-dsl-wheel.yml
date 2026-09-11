@@ -7,8 +7,9 @@ on:
   workflow_call:
     inputs:
       NPUIR_PIPELINE_POSTFIX:
-        description: Existing worker-local NPUIR archive suffix
-        required: true
+        description: NPUIR build/archive version; update this default when the NPUIR baseline changes
+        required: false
+        default: "20260720"
         type: string
       catlass_ref:
         description: GitCode CATLASS branch or tag to build
