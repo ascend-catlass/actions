@@ -137,6 +137,26 @@ jobs:
             git -C "${WORK_PATH}" fetch --quiet --depth 1 origin "${NPUIR_REF}"
             git -C "${WORK_PATH}" checkout --detach FETCH_HEAD
           fi
+
+          # GitCode advertises llvm-project as an empty repository on some
+          # workers. The previously successful x86 build recovered by fetching
+          # the gitlink commit directly; do that deterministically before the
+          # regular recursive submodule update.
+          git -C "${WORK_PATH}" submodule init third-party/llvm-project
+          llvm_sha=$(git -C "${WORK_PATH}" ls-tree HEAD third-party/llvm-project | awk '{print $3}')
+          llvm_url=$(git -C "${WORK_PATH}" config --get submodule.third-party/llvm-project.url)
+          llvm_path="${WORK_PATH}/third-party/llvm-project"
+          llvm_git_dir="${WORK_PATH}/.git/modules/third-party/llvm-project"
+          if [[ ! "${llvm_sha}" =~ ^[0-9a-f]{40}$ || -z "${llvm_url}" ]]; then
+            echo "::error::Invalid llvm-project gitlink metadata"
+            exit 1
+          fi
+          mkdir -p "${llvm_git_dir%/*}"
+          git init --quiet --separate-git-dir="${llvm_git_dir}" "${llvm_path}"
+          git -C "${llvm_path}" remote add origin "${llvm_url}"
+          git -C "${llvm_path}" fetch --quiet --depth 1 origin "${llvm_sha}"
+          git -C "${llvm_path}" checkout --quiet --detach FETCH_HEAD
+
           git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
 
           source_sha=$(git -C "${WORK_PATH}" rev-parse HEAD)
