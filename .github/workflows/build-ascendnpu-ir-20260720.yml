@@ -1,9 +1,6 @@
-name: Build AscendNPU-IR and DSL wheels
+name: Build AscendNPU-IR 20260720
 
 on:
-  schedule:
-    # 01:00 Asia/Shanghai (17:00 UTC)
-    - cron: "0 17 * * *"
   workflow_dispatch:
     inputs:
       NPUIR_PIPELINE_POSTFIX:
@@ -31,18 +28,7 @@ on:
         required: true
         default: 64
         type: number
-      catlass_ref:
-        description: GitCode CATLASS branch or tag used for the wheel
-        required: true
-        default: master
-        type: string
-      dsl_version:
-        description: Nightly package version override; empty derives the next patch from the latest stable SCM tag
-        required: false
-        default: ""
-        type: string
-
-run-name: NPUIR and wheel (${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }})
+run-name: NPUIR ${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
 
 permissions:
   contents: read
@@ -297,15 +283,3 @@ jobs:
           if [[ -n "${WORK_PATH}" && -e "${WORK_PATH}" ]]; then
             echo "::warning::Partial NPUIR build retained for inspection: ${WORK_PATH}"
           fi
-
-  wheel:
-    name: Build wheel from selected NPUIR
-    needs: prepare
-    uses: ./.github/workflows/build-dsl-wheel.yml
-    permissions:
-      contents: write
-    with:
-      NPUIR_PIPELINE_POSTFIX: ${{ needs.prepare.outputs.postfix }}
-      catlass_ref: ${{ inputs.catlass_ref || 'master' }}
-      dsl_version: ${{ inputs.dsl_version || '' }}
-    secrets: inherit

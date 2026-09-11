@@ -1,6 +1,9 @@
-name: Build and Release ascend-catlass-dsl wheel
+name: Build daily ascend-catlass-dsl wheel
 
 on:
+  schedule:
+    # Every day at 01:00 Asia/Shanghai (17:00 UTC).
+    - cron: "0 17 * * *"
   workflow_call:
     inputs:
       NPUIR_PIPELINE_POSTFIX:
@@ -37,6 +40,8 @@ on:
         required: false
         default: ""
         type: string
+
+run-name: Daily DSL wheel
 
 env:
   CANN_ROOT: /usr/local/Ascend/cann-9.1.0
@@ -340,7 +345,7 @@ jobs:
           - Package version: ${PACKAGE_VERSION}
           - CATLASS ref: ${CATLASS_REF}
           - CATLASS commit: ${SOURCE_SHA}
-          - NPUIR pipeline postfix: ${NPUIR_POSTFIX}
+          - NPUIR version: ${NPUIR_POSTFIX}
           - AscendNPU-IR commit: ${NPUIR_SHA}
           - Reused existing NPUIR: ${NPUIR_CACHE_HIT}
           - CANN root: ${CANN_ROOT}
@@ -377,6 +382,7 @@ jobs:
       WHEEL_FILES: ${{ needs.build.outputs.wheel_files }}
       BUILD_DATE: ${{ needs.build.outputs.build_date }}
       NPUIR_POSTFIX: ${{ needs.build.outputs.npuir_postfix }}
+      NPUIR_SHA: ${{ needs.build.outputs.npuir_sha }}
       NPUIR_CACHE_HIT: ${{ needs.build.outputs.npuir_cache_hit }}
       RELEASE_URL: ${{ needs.release.outputs.release_url }}
       PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
@@ -388,12 +394,17 @@ jobs:
           set -euo pipefail
 
           {
-            echo "## DSL wheel pipeline"
+            if [[ "${PACKAGE_VERSION}" =~ \.dev([0-9]{8})$ ]]; then
+              echo "## DSL wheel ${BASH_REMATCH[1]}"
+            else
+              echo "## DSL wheel pipeline"
+            fi
             echo
             echo "- Build: ${BUILD_RESULT}"
             echo "- Release: ${RELEASE_RESULT}"
             if [[ -n "${NPUIR_POSTFIX}" ]]; then
-              echo "- NPUIR postfix: ${NPUIR_POSTFIX}"
+              echo "- NPUIR version: ${NPUIR_POSTFIX}"
+              echo "- NPUIR commit: ${NPUIR_SHA}"
               echo "- Reused existing NPUIR: ${NPUIR_CACHE_HIT}"
             fi
 
