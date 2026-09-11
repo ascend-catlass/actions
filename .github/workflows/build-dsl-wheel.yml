@@ -359,7 +359,22 @@ jobs:
             exit 1
           fi
 
-          python3 -m venv "${cibw_venv}"
+          host_python=""
+          for candidate in python3.11 python3.12 python3.13 python3.14 python3.15 python3; do
+            candidate_path=$(command -v "${candidate}" || true)
+            if [[ -n "${candidate_path}" ]] && \
+               "${candidate_path}" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+              host_python="${candidate_path}"
+              break
+            fi
+          done
+          if [[ -z "${host_python}" ]]; then
+            echo "::error::cibuildwheel 4.2.1 requires an installed host Python >= 3.11"
+            exit 1
+          fi
+          echo "Using host Python: $("${host_python}" --version 2>&1) (${host_python})"
+
+          "${host_python}" -m venv "${cibw_venv}"
           "${cibw_venv}/bin/python" -m pip install \
             --disable-pip-version-check \
             "cibuildwheel==4.2.1"
