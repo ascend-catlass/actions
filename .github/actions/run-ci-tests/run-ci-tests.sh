@@ -2,6 +2,16 @@
 
 set -eo pipefail
 
+# Hotfix (2026-09-10, re-applied 2026-09-11): strip libfaketime injection before
+# running NPU tests. The Ascend driver/runtime is intolerant of faked clocks —
+# relative timeouts hijacked by FAKETIME cause event-wait mismatches, host
+# double-frees (rtFreeHost) and post-suite hangs. Wall-clock compensation is
+# only needed by the Listener/Worker chain, not the test process tree.
+unset LD_PRELOAD FAKETIME FAKETIME_SHARED FAKETIME_DONT_FAKE_MONOTONIC
+
+# Hard timeout so any unknown hang cannot consume the full 90-minute platform limit.
+TEST_HARD_TIMEOUT=${TEST_HARD_TIMEOUT:-3600}
+
 CANN_VERSION="9.1.0"
 
 if [[ ! -d "${RDV_WORKTREE}" ]]; then
@@ -42,10 +52,10 @@ cd "${RDV_WORKTREE}"
 case "${CATLASS_TEST_SUITE}" in
     dsl)
         export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/workspace/AscendNPU-IR
-        bash tests/run_dsl_test.sh --device 0
+        timeout --signal=KILL "${TEST_HARD_TIMEOUT}" bash tests/run_dsl_test.sh --device 0
         ;;
     all)
-        bash tests/run_all_test.sh 3510
+        timeout --signal=KILL "${TEST_HARD_TIMEOUT}" bash tests/run_all_test.sh 3510
         ;;
     *)
         echo "suite must be dsl or all" >&2
