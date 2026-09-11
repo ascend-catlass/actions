@@ -1,12 +1,21 @@
 name: Manage local AscendNPU-IR archive
-description: Resolve, validate, or atomically publish a worker-local AscendNPU-IR tree
+description: Resolve, validate, or atomically publish a worker-local AscendNPU-IR tree by source, architecture, and build contract
 
 inputs:
   operation:
     description: Operation to perform (lookup or publish)
     required: true
-  NPUIR_PIPELINE_POSTFIX:
-    description: Archive suffix, normally an Asia/Shanghai date such as 20260909; empty means today
+  source_sha:
+    description: Exact AscendNPU-IR source commit represented by the archive
+    required: true
+  target_arch:
+    description: Target CPU architecture, such as x86_64 or aarch64
+    required: true
+  build_contract:
+    description: Human-readable version of the build options and toolchain contract
+    required: true
+  baseline_date:
+    description: Date associated with this NPUIR update; metadata only
     required: false
     default: ""
   archive_root:
@@ -15,10 +24,6 @@ inputs:
     default: ""
   source_path:
     description: Completed per-run tree to publish; required for publish
-    required: false
-    default: ""
-  source_sha:
-    description: Source commit represented by source_path
     required: false
     default: ""
   source_branch:
@@ -30,29 +35,49 @@ inputs:
     required: false
     default: ""
   build_fingerprint:
-    description: Pipeline-defined build fingerprint to record or require (for example clang-19.1.7+lld-19.1.7)
+    description: Exact installed toolchain fingerprint to record or require
+    required: false
+    default: ""
+  legacy_postfix:
+    description: Old date-based archive suffix that may be reused during migration
+    required: false
+    default: ""
+  legacy_build_fingerprint:
+    description: Build fingerprint required when reusing the old date-based archive
     required: false
     default: ""
 
 outputs:
   path:
-    description: Absolute path of the selected local AscendNPU-IR archive
+    description: Absolute canonical path of the selected local AscendNPU-IR archive
     value: ${{ steps.resolve.outputs.path }}
   work_path:
     description: Same-filesystem temporary path where the caller can build a missing archive
     value: ${{ steps.resolve.outputs.work_path }}
-  postfix:
-    description: Resolved NPUIR_PIPELINE_POSTFIX
-    value: ${{ steps.resolve.outputs.postfix }}
+  archive_key:
+    description: Content-oriented archive key
+    value: ${{ steps.resolve.outputs.archive_key }}
   source_sha:
     description: AscendNPU-IR source commit stored in the selected archive
     value: ${{ steps.archive.outputs.source_sha }}
+  target_arch:
+    description: Target CPU architecture stored in the selected archive
+    value: ${{ steps.archive.outputs.target_arch }}
+  build_contract:
+    description: Build contract stored in the selected archive
+    value: ${{ steps.archive.outputs.build_contract }}
+  baseline_date:
+    description: Informational NPUIR update date stored in the selected archive
+    value: ${{ steps.archive.outputs.baseline_date }}
   build_fingerprint:
-    description: Pipeline-defined build fingerprint stored in the selected archive
+    description: Toolchain fingerprint stored in the selected archive
     value: ${{ steps.archive.outputs.build_fingerprint }}
   cache_hit:
     description: Whether lookup found an existing completed archive
     value: ${{ steps.archive.outputs.cache_hit }}
+  legacy_cache_hit:
+    description: Whether lookup reused an old date-based archive
+    value: ${{ steps.archive.outputs.legacy_cache_hit }}
 
 runs:
   using: composite
@@ -62,7 +87,11 @@ runs:
       shell: bash
       env:
         OPERATION: ${{ inputs.operation }}
-        POSTFIX_INPUT: ${{ inputs.NPUIR_PIPELINE_POSTFIX }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        TARGET_ARCH: ${{ inputs.target_arch }}
+        BUILD_CONTRACT: ${{ inputs.build_contract }}
+        BASELINE_DATE: ${{ inputs.baseline_date }}
+        LEGACY_POSTFIX: ${{ inputs.legacy_postfix }}
         ARCHIVE_ROOT_INPUT: ${{ inputs.archive_root }}
       run: |
         set -euo pipefail
@@ -71,13 +100,24 @@ runs:
           echo "::error::operation must be lookup or publish"
           exit 1
         fi
-
-        postfix=${POSTFIX_INPUT}
-        if [[ -z "${postfix}" ]]; then
-          postfix=$(TZ=Asia/Shanghai date +%Y%m%d)
+        if [[ ! "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::Invalid source_sha: ${SOURCE_SHA}"
+          exit 1
         fi
-        if [[ ! "${postfix}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]; then
-          echo "::error::Invalid NPUIR_PIPELINE_POSTFIX: ${postfix}"
+        if [[ ! "${TARGET_ARCH}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$ ]]; then
+          echo "::error::Invalid target_arch: ${TARGET_ARCH}"
+          exit 1
+        fi
+        if [[ ! "${BUILD_CONTRACT}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]{0,95}$ ]]; then
+          echo "::error::Invalid build_contract: ${BUILD_CONTRACT}"
+          exit 1
+        fi
+        if [[ -n "${BASELINE_DATE}" && ! "${BASELINE_DATE}" =~ ^[0-9]{8}$ ]]; then
+          echo "::error::baseline_date must be YYYYMMDD when set"
+          exit 1
+        fi
+        if [[ -n "${LEGACY_POSTFIX}" && ! "${LEGACY_POSTFIX}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]; then
+          echo "::error::Invalid legacy_postfix: ${LEGACY_POSTFIX}"
           exit 1
         fi
 
@@ -87,13 +127,20 @@ runs:
           runner_work_root=$(cd "${RUNNER_TEMP}/.." && pwd -P)
           archive_root="${runner_work_root}/_npuir-pipeline"
         fi
-        archive_path="${archive_root}/${postfix}"
-        work_path="${archive_root}/.building-${postfix}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        archive_key="v2-${SOURCE_SHA}-${TARGET_ARCH}-${BUILD_CONTRACT}"
+        archive_path="${archive_root}/${archive_key}"
+        work_path="${archive_root}/.building-${archive_key}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        legacy_path=""
+        if [[ -n "${LEGACY_POSTFIX}" ]]; then
+          legacy_path="${archive_root}/${LEGACY_POSTFIX}"
+        fi
+        mkdir -p "${archive_root}"
 
         {
-          echo "postfix=${postfix}"
+          echo "archive_key=${archive_key}"
           echo "path=${archive_path}"
           echo "work_path=${work_path}"
+          echo "legacy_path=${legacy_path}"
         } >> "${GITHUB_OUTPUT}"
 
     - name: Inspect or publish archive
@@ -101,58 +148,128 @@ runs:
       shell: bash
       env:
         OPERATION: ${{ inputs.operation }}
+        ARCHIVE_KEY: ${{ steps.resolve.outputs.archive_key }}
         ARCHIVE_PATH: ${{ steps.resolve.outputs.path }}
         WORK_PATH: ${{ steps.resolve.outputs.work_path }}
-        POSTFIX: ${{ steps.resolve.outputs.postfix }}
+        LEGACY_PATH: ${{ steps.resolve.outputs.legacy_path }}
         SOURCE_PATH: ${{ inputs.source_path }}
         SOURCE_SHA: ${{ inputs.source_sha }}
         SOURCE_BRANCH: ${{ inputs.source_branch }}
         SOURCE_REF: ${{ inputs.source_ref }}
+        TARGET_ARCH: ${{ inputs.target_arch }}
+        BUILD_CONTRACT: ${{ inputs.build_contract }}
+        BASELINE_DATE: ${{ inputs.baseline_date }}
         BUILD_FINGERPRINT: ${{ inputs.build_fingerprint }}
+        LEGACY_POSTFIX: ${{ inputs.legacy_postfix }}
+        LEGACY_BUILD_FINGERPRINT: ${{ inputs.legacy_build_fingerprint }}
       run: |
         set -euo pipefail
 
-        manifest="${ARCHIVE_PATH}/.npuir-pipeline"
-        mlir_config="${ARCHIVE_PATH}/build/install/lib/cmake/mlir/MLIRConfig.cmake"
+        manifest_value() {
+          sed -n "s/^$1=//p" "$2"
+        }
 
         if [[ "${OPERATION}" == lookup ]]; then
-          if [[ ! -e "${ARCHIVE_PATH}" ]]; then
-            echo "cache_hit=false" >> "${GITHUB_OUTPUT}"
+          selected_path=""
+          legacy_cache_hit=false
+          create_alias=false
+
+          if [[ -L "${ARCHIVE_PATH}" ]]; then
+            if [[ -z "${LEGACY_PATH}" || "$(readlink "${ARCHIVE_PATH}")" != "${LEGACY_PATH}" ]]; then
+              echo "::error::Unexpected symlink at canonical archive path: ${ARCHIVE_PATH}"
+              exit 1
+            fi
+            selected_path=${ARCHIVE_PATH}
+            legacy_cache_hit=true
+          elif [[ -e "${ARCHIVE_PATH}" ]]; then
+            selected_path=${ARCHIVE_PATH}
+          elif [[ -n "${LEGACY_PATH}" && -e "${LEGACY_PATH}" ]]; then
+            selected_path=${LEGACY_PATH}
+            legacy_cache_hit=true
+            create_alias=true
+          else
+            {
+              echo "cache_hit=false"
+              echo "legacy_cache_hit=false"
+            } >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
+          manifest="${selected_path}/.npuir-pipeline"
+          mlir_config="${selected_path}/build/install/lib/cmake/mlir/MLIRConfig.cmake"
           if [[ ! -f "${manifest}" || ! -f "${mlir_config}" ]]; then
-            echo "::error::Incomplete NPUIR archive exists at ${ARCHIVE_PATH}; refusing to use or overwrite it"
+            echo "::error::Incomplete NPUIR archive exists at ${selected_path}; refusing to use it"
             exit 1
           fi
 
-          stored_postfix=$(sed -n 's/^NPUIR_PIPELINE_POSTFIX=//p' "${manifest}")
-          stored_sha=$(sed -n 's/^SOURCE_SHA=//p' "${manifest}")
-          stored_fingerprint=$(sed -n 's/^BUILD_FINGERPRINT=//p' "${manifest}")
-          if [[ "${stored_postfix}" != "${POSTFIX}" || ! "${stored_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+          stored_sha=$(manifest_value SOURCE_SHA "${manifest}")
+          stored_fingerprint=$(manifest_value BUILD_FINGERPRINT "${manifest}")
+          if [[ ! "${stored_sha}" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::Invalid NPUIR archive manifest: ${manifest}"
             exit 1
           fi
-          if [[ -n "${BUILD_FINGERPRINT}" && "${stored_fingerprint}" != "${BUILD_FINGERPRINT}" ]]; then
-            echo "::error::NPUIR ${POSTFIX} build fingerprint mismatch: expected ${BUILD_FINGERPRINT}, found ${stored_fingerprint:-missing}"
-            exit 1
+
+          if [[ "${legacy_cache_hit}" == true ]]; then
+            stored_postfix=$(manifest_value NPUIR_PIPELINE_POSTFIX "${manifest}")
+            if [[ "${stored_postfix}" != "${LEGACY_POSTFIX}" ]]; then
+              echo "::error::Legacy NPUIR archive suffix mismatch in ${manifest}"
+              exit 1
+            fi
+            if [[ "${stored_sha}" != "${SOURCE_SHA}" ]]; then
+              echo "Legacy NPUIR ${LEGACY_POSTFIX} contains ${stored_sha}, not ${SOURCE_SHA}; ignoring it"
+              {
+                echo "cache_hit=false"
+                echo "legacy_cache_hit=false"
+              } >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+            if [[ -n "${LEGACY_BUILD_FINGERPRINT}" && "${stored_fingerprint}" != "${LEGACY_BUILD_FINGERPRINT}" ]]; then
+              echo "::error::Legacy NPUIR build fingerprint mismatch: expected ${LEGACY_BUILD_FINGERPRINT}, found ${stored_fingerprint:-missing}"
+              exit 1
+            fi
+            stored_arch=${TARGET_ARCH}
+            stored_contract=${BUILD_CONTRACT}
+            stored_date=${BASELINE_DATE:-${LEGACY_POSTFIX}}
+            if [[ "${create_alias}" == true ]]; then
+              if ! ln -s "${LEGACY_PATH}" "${ARCHIVE_PATH}" 2>/dev/null; then
+                if [[ ! -L "${ARCHIVE_PATH}" || "$(readlink "${ARCHIVE_PATH}")" != "${LEGACY_PATH}" ]]; then
+                  echo "::error::Another process created a conflicting archive at ${ARCHIVE_PATH}"
+                  exit 1
+                fi
+              fi
+              echo "Mapped canonical NPUIR key ${ARCHIVE_KEY} to legacy archive ${LEGACY_POSTFIX}"
+            fi
+          else
+            stored_key=$(manifest_value ARCHIVE_KEY "${manifest}")
+            stored_arch=$(manifest_value TARGET_ARCH "${manifest}")
+            stored_contract=$(manifest_value BUILD_CONTRACT "${manifest}")
+            stored_date=$(manifest_value BASELINE_DATE "${manifest}")
+            if [[ "${stored_key}" != "${ARCHIVE_KEY}" || "${stored_sha}" != "${SOURCE_SHA}" || \
+                  "${stored_arch}" != "${TARGET_ARCH}" || "${stored_contract}" != "${BUILD_CONTRACT}" ]]; then
+              echo "::error::Canonical NPUIR archive manifest does not match ${ARCHIVE_KEY}"
+              exit 1
+            fi
+            if [[ -n "${BUILD_FINGERPRINT}" && "${stored_fingerprint}" != "${BUILD_FINGERPRINT}" ]]; then
+              echo "::error::NPUIR build fingerprint mismatch: expected ${BUILD_FINGERPRINT}, found ${stored_fingerprint:-missing}"
+              exit 1
+            fi
           fi
 
           {
             echo "cache_hit=true"
+            echo "legacy_cache_hit=${legacy_cache_hit}"
             echo "source_sha=${stored_sha}"
+            echo "target_arch=${stored_arch}"
+            echo "build_contract=${stored_contract}"
+            echo "baseline_date=${stored_date}"
             echo "build_fingerprint=${stored_fingerprint}"
           } >> "${GITHUB_OUTPUT}"
-          echo "Reusing NPUIR ${POSTFIX} @ ${stored_sha} from ${ARCHIVE_PATH}"
+          echo "Reusing NPUIR ${stored_sha} (${stored_arch}, ${stored_contract}) from ${ARCHIVE_PATH}"
           exit 0
         fi
 
         if [[ "${SOURCE_PATH}" != "${WORK_PATH}" ]]; then
           echo "::error::source_path must be the same-filesystem work path returned by lookup: ${WORK_PATH}"
-          exit 1
-        fi
-        if [[ ! "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
-          echo "::error::Invalid source_sha: ${SOURCE_SHA}"
           exit 1
         fi
         if [[ -n "${BUILD_FINGERPRINT}" && ! "${BUILD_FINGERPRINT}" =~ ^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$ ]]; then
@@ -163,24 +280,33 @@ runs:
           echo "::error::NPUIR build is incomplete under ${SOURCE_PATH}"
           exit 1
         fi
-        if [[ -e "${ARCHIVE_PATH}" ]]; then
+        if [[ -e "${ARCHIVE_PATH}" || -L "${ARCHIVE_PATH}" ]]; then
           echo "::error::Archive path already exists: ${ARCHIVE_PATH}"
           exit 1
         fi
 
         {
-          echo "NPUIR_PIPELINE_POSTFIX=${POSTFIX}"
+          echo "SCHEMA_VERSION=2"
+          echo "ARCHIVE_KEY=${ARCHIVE_KEY}"
           echo "SOURCE_SHA=${SOURCE_SHA}"
           echo "SOURCE_BRANCH=${SOURCE_BRANCH}"
           echo "SOURCE_REF=${SOURCE_REF}"
+          echo "TARGET_ARCH=${TARGET_ARCH}"
+          echo "BUILD_CONTRACT=${BUILD_CONTRACT}"
+          echo "BASELINE_DATE=${BASELINE_DATE}"
           echo "BUILD_FINGERPRINT=${BUILD_FINGERPRINT}"
           echo "BUILT_AT=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "PRODUCER_RUN=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
         } > "${SOURCE_PATH}/.npuir-pipeline"
 
         mv "${SOURCE_PATH}" "${ARCHIVE_PATH}"
         {
           echo "cache_hit=false"
+          echo "legacy_cache_hit=false"
           echo "source_sha=${SOURCE_SHA}"
+          echo "target_arch=${TARGET_ARCH}"
+          echo "build_contract=${BUILD_CONTRACT}"
+          echo "baseline_date=${BASELINE_DATE}"
           echo "build_fingerprint=${BUILD_FINGERPRINT}"
         } >> "${GITHUB_OUTPUT}"
         echo "Published worker-local NPUIR archive: ${ARCHIVE_PATH}"

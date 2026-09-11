@@ -1,4 +1,4 @@
-name: Build daily ascend-catlass-dsl wheel
+name: Build ascend-catlass-dsl wheel
 
 on:
   schedule:
@@ -6,11 +6,6 @@ on:
     - cron: "0 17 * * *"
   workflow_call:
     inputs:
-      NPUIR_PIPELINE_POSTFIX:
-        description: NPUIR build/archive version; update this default when the NPUIR baseline changes
-        required: false
-        default: "20260720"
-        type: string
       catlass_ref:
         description: GitCode CATLASS branch or tag to build
         required: false
@@ -18,6 +13,16 @@ on:
         type: string
       dsl_version:
         description: Nightly package version override; empty derives the next patch from the latest stable SCM tag
+        required: false
+        default: ""
+        type: string
+      release_kind:
+        description: Build channel (nightly or stable)
+        required: false
+        default: nightly
+        type: string
+      release_tag:
+        description: Exact CATLASS vMAJOR.MINOR.PATCH tag for a stable release
         required: false
         default: ""
         type: string
@@ -26,11 +31,6 @@ on:
         required: true
   workflow_dispatch:
     inputs:
-      NPUIR_PIPELINE_POSTFIX:
-        description: Local NPUIR upgrade baseline; defaults to the 20260720 archive
-        required: false
-        default: "20260720"
-        type: string
       catlass_ref:
         description: GitCode CATLASS branch or tag to build
         required: true
@@ -42,61 +42,57 @@ on:
         default: ""
         type: string
 
-run-name: Daily DSL wheel
+run-name: ${{ inputs.release_kind == 'stable' && format('Release DSL wheel {0}', inputs.release_tag) || 'Daily DSL wheel' }}
 
 env:
   CANN_ROOT: /usr/local/Ascend/cann-9.1.0
   NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
+  NPUIR_BUILD_CONTRACT: clang19-lld19-release-rtti-assert-triton-zstd-off-v1
+  NPUIR_BASELINE_DATE: "20260720"
+  NPUIR_LEGACY_POSTFIX: "20260720"
 
 permissions:
   contents: read
 
 concurrency:
-  group: dsl-wheel-${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
+  group: dsl-wheel-${{ inputs.release_kind == 'stable' && inputs.release_tag || inputs.catlass_ref || 'master' }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build ascend-catlass-dsl wheel
-    runs-on: [self-hosted, publish]
+    name: Build ascend-catlass-dsl wheel (${{ matrix.target_arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target_arch: x86_64
+            runner_arch: X64
+          - target_arch: aarch64
+            runner_arch: ARM64
+    runs-on: [self-hosted, publish, "${{ matrix.runner_arch }}"]
     timeout-minutes: 900
     env:
       CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
+      RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
+      RELEASE_TAG: ${{ inputs.release_tag || '' }}
+      NPUIR_TARGET_ARCH: ${{ matrix.target_arch }}
       SOURCE_DIR: ${{ github.workspace }}/.wheel-work/catlass-${{ github.run_id }}-${{ github.run_attempt }}
 
-    outputs:
-      wheel_files: ${{ steps.metadata.outputs.wheel_files }}
-      build_date: ${{ steps.metadata.outputs.build_date }}
-      source_sha: ${{ steps.source.outputs.source_sha }}
-      npuir_sha: ${{ steps.npuir.outputs.source_sha }}
-      npuir_postfix: ${{ steps.npuir.outputs.postfix }}
-      npuir_cache_hit: ${{ steps.npuir.outputs.cache_hit }}
-      package_version: ${{ steps.version.outputs.version }}
-
     steps:
-      - name: Select worker-local NPUIR
-        id: npuir
-        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
+      - name: Check out workflow definitions
+        uses: actions/checkout@v4
         with:
-          operation: lookup
-          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
-          build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
-
-      - name: Require completed NPUIR archive
-        if: ${{ steps.npuir.outputs.cache_hit != 'true' }}
-        shell: bash
-        env:
-          NPUIR_POSTFIX: ${{ steps.npuir.outputs.postfix }}
-          NPUIR_PATH: ${{ steps.npuir.outputs.path }}
-        run: |
-          echo "::error::NPUIR ${NPUIR_POSTFIX} is not available at ${NPUIR_PATH}"
-          echo "Run the corresponding NPUIR pipeline first; wheel builds do not define NPUIR build commands."
-          exit 1
+          persist-credentials: false
 
       - name: Validate CANN
         shell: bash
         run: |
           set -euo pipefail
+          actual_arch=$(uname -m)
+          if [[ "${actual_arch}" != "${NPUIR_TARGET_ARCH}" ]]; then
+            echo "::error::Runner architecture is ${actual_arch}, expected ${NPUIR_TARGET_ARCH}"
+            exit 1
+          fi
           if [[ ! -f "${CANN_ROOT}/set_env.sh" ]]; then
             echo "::error::CANN environment script not found: ${CANN_ROOT}/set_env.sh"
             exit 1
@@ -128,59 +124,151 @@ jobs:
             'esac' > "${askpass}"
           chmod 700 "${askpass}"
 
-          GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-            git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
-              https://gitcode.com/cann/catlass.git "${SOURCE_DIR}"
+          case "${RELEASE_KIND}" in
+            stable)
+              if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::Stable releases require an exact vMAJOR.MINOR.PATCH tag, got: ${RELEASE_TAG:-empty}"
+                exit 1
+              fi
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git ls-remote --exit-code --refs \
+                  https://gitcode.com/cann/catlass.git "refs/tags/${RELEASE_TAG}" >/dev/null
+              git init --quiet "${SOURCE_DIR}"
+              git -C "${SOURCE_DIR}" remote add origin https://gitcode.com/cann/catlass.git
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git -C "${SOURCE_DIR}" fetch --quiet --depth 1 origin \
+                  "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+              git -C "${SOURCE_DIR}" checkout --quiet --detach "refs/tags/${RELEASE_TAG}^{commit}"
+              ;;
+            nightly)
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
+                  https://gitcode.com/cann/catlass.git "${SOURCE_DIR}"
+              ;;
+            *)
+              echo "::error::release_kind must be nightly or stable, got: ${RELEASE_KIND}"
+              exit 1
+              ;;
+          esac
 
           source_sha=$(git -C "${SOURCE_DIR}" rev-parse HEAD)
-          latest_release_tag=$(
-            GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-              git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
-              awk '{sub("^refs/tags/", "", $2); print $2}' |
-              sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
-              sort -V |
-              tail -1
-          )
-          if [[ -z "${latest_release_tag}" ]]; then
-            echo "::error::No stable vMAJOR.MINOR.PATCH tag found in CATLASS SCM"
+          submodule_entry=$(git -C "${SOURCE_DIR}" ls-tree HEAD python/tla_dsl/3rdparty/AscendNPU-IR)
+          read -r submodule_mode submodule_type npuir_sha submodule_path <<< "${submodule_entry}"
+          if [[ "${submodule_mode}" != 160000 || "${submodule_type}" != commit || \
+                ! "${npuir_sha}" =~ ^[0-9a-f]{40}$ || \
+                "${submodule_path}" != python/tla_dsl/3rdparty/AscendNPU-IR ]]; then
+            echo "::error::CATLASS ${RELEASE_TAG:-${CATLASS_REF}} does not contain a valid AscendNPU-IR gitlink"
             exit 1
           fi
-          echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
-          echo "latest_release_tag=${latest_release_tag}" >> "${GITHUB_OUTPUT}"
-          echo "CATLASS: ${CATLASS_REF} @ ${source_sha}"
-          echo "Latest stable CATLASS tag: ${latest_release_tag}"
 
-      - name: Resolve nightly package version
+          latest_release_tag=""
+          if [[ "${RELEASE_KIND}" == nightly ]]; then
+            latest_release_tag=$(
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
+                awk '{sub("^refs/tags/", "", $2); print $2}' |
+                sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
+                sort -V |
+                tail -1
+            )
+            if [[ -z "${latest_release_tag}" ]]; then
+              echo "::error::No stable vMAJOR.MINOR.PATCH tag found in CATLASS SCM"
+              exit 1
+            fi
+          fi
+          {
+            echo "source_sha=${source_sha}"
+            echo "npuir_sha=${npuir_sha}"
+            echo "latest_release_tag=${latest_release_tag}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "CATLASS: ${RELEASE_TAG:-${CATLASS_REF}} @ ${source_sha}"
+          echo "Required NPUIR commit: ${npuir_sha}"
+          if [[ -n "${latest_release_tag}" ]]; then
+            echo "Latest stable CATLASS tag: ${latest_release_tag}"
+          fi
+
+      - name: Select worker-local NPUIR for CATLASS gitlink
+        id: npuir
+        uses: ./.github/actions/npuir-local-archive
+        with:
+          operation: lookup
+          source_sha: ${{ steps.source.outputs.npuir_sha }}
+          target_arch: ${{ env.NPUIR_TARGET_ARCH }}
+          build_contract: ${{ env.NPUIR_BUILD_CONTRACT }}
+          baseline_date: ${{ env.NPUIR_BASELINE_DATE }}
+          build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
+          legacy_postfix: ${{ env.NPUIR_LEGACY_POSTFIX }}
+          legacy_build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
+
+      - name: Require completed matching NPUIR archive
+        if: ${{ steps.npuir.outputs.cache_hit != 'true' }}
+        shell: bash
+        env:
+          NPUIR_SHA: ${{ steps.source.outputs.npuir_sha }}
+          NPUIR_ARCHIVE_KEY: ${{ steps.npuir.outputs.archive_key }}
+          NPUIR_PATH: ${{ steps.npuir.outputs.path }}
+          NPUIR_BUILD_CONTRACT: ${{ env.NPUIR_BUILD_CONTRACT }}
+        run: |
+          echo "::error::NPUIR ${NPUIR_SHA} (${NPUIR_BUILD_CONTRACT}) is not available at ${NPUIR_PATH}"
+          echo "Required archive key: ${NPUIR_ARCHIVE_KEY}"
+          echo "Run the NPUIR pipeline for this exact commit/architecture/build contract first; wheel builds never compile NPUIR."
+          exit 1
+
+      - name: Resolve package version
         id: version
         shell: bash
         env:
           VERSION_OVERRIDE: ${{ inputs.dsl_version || '' }}
           LATEST_RELEASE_TAG: ${{ steps.source.outputs.latest_release_tag }}
+          RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
+          RELEASE_TAG: ${{ inputs.release_tag || '' }}
         run: |
           set -euo pipefail
 
-          build_day=$(TZ=Asia/Shanghai date +%Y%m%d)
-          if [[ -n "${VERSION_OVERRIDE}" ]]; then
-            version=${VERSION_OVERRIDE}
-            source=manual
+          if [[ "${RELEASE_KIND}" == stable ]]; then
+            version=${RELEASE_TAG#v}
+            source="exact tag ${RELEASE_TAG}"
+            if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Stable package version must come from vMAJOR.MINOR.PATCH, got: ${RELEASE_TAG}"
+              exit 1
+            fi
           else
-            stable_version=${LATEST_RELEASE_TAG#v}
-            IFS=. read -r major minor patch <<< "${stable_version}"
-            version="${major}.${minor}.$((10#${patch} + 1)).dev${build_day}"
-            source="SCM ${LATEST_RELEASE_TAG}"
-          fi
-
-          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.dev[0-9]{8}$ ]]; then
-            echo "::error::Nightly version must match MAJOR.MINOR.PATCH.devYYYYMMDD, got: ${version}"
-            exit 1
+            build_day=$(TZ=Asia/Shanghai date +%Y%m%d)
+            if [[ -n "${VERSION_OVERRIDE}" ]]; then
+              version=${VERSION_OVERRIDE}
+              source=manual
+            else
+              stable_version=${LATEST_RELEASE_TAG#v}
+              IFS=. read -r major minor patch <<< "${stable_version}"
+              version="${major}.${minor}.$((10#${patch} + 1)).dev${build_day}"
+              source="SCM ${LATEST_RELEASE_TAG}"
+            fi
+            if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.dev[0-9]{8}$ ]]; then
+              echo "::error::Nightly version must match MAJOR.MINOR.PATCH.devYYYYMMDD, got: ${version}"
+              exit 1
+            fi
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "DSL nightly version: ${version} (${source})"
+          echo "DSL package version: ${version} (${source})"
+
+      - name: Configure native build parallelism
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${NPUIR_TARGET_ARCH}" == aarch64 ]]; then
+            parallel_jobs=$(nproc)
+          else
+            parallel_jobs=64
+          fi
+          echo "CMAKE_BUILD_PARALLEL_LEVEL=${parallel_jobs}" >> "${GITHUB_ENV}"
+          echo "${NPUIR_TARGET_ARCH} wheel build parallel jobs: ${parallel_jobs}"
 
       - name: Build wheels
         shell: bash
         env:
           CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
+          CIBW_ARCHS_LINUX: ${{ matrix.target_arch }}
+          CIBW_ENVIRONMENT_PASS_LINUX: CMAKE_BUILD_PARALLEL_LEVEL
           CIBW_SKIP: "*-win32 *-i686 *-ppc64le *-s390x *-musllinux_*"
           CIBW_BUILD_VERBOSITY: 1
           CIBW_CONTAINER_ENGINE: >-
@@ -244,10 +332,16 @@ jobs:
             --output-dir "${SOURCE_DIR}/wheelhouse"
 
       - name: Collect wheel metadata
-        id: metadata
         shell: bash
         env:
           EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          NPUIR_SHA: ${{ steps.npuir.outputs.source_sha }}
+          NPUIR_ARCHIVE_KEY: ${{ steps.npuir.outputs.archive_key }}
+          NPUIR_BUILD_CONTRACT: ${{ steps.npuir.outputs.build_contract }}
+          NPUIR_ARCHIVE_BASELINE_DATE: ${{ steps.npuir.outputs.baseline_date }}
+          NPUIR_LEGACY_CACHE_HIT: ${{ steps.npuir.outputs.legacy_cache_hit }}
+          NPUIR_CACHE_HIT: ${{ steps.npuir.outputs.cache_hit }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -265,13 +359,30 @@ jobs:
               "ascend_catlass_dsl-${EXPECTED_VERSION}-"*.whl) ;;
               *) echo "::error::Unexpected wheel version: ${wheel_name}; expected ${EXPECTED_VERSION}"; exit 1 ;;
             esac
+            case "${wheel_name}" in
+              *_"${NPUIR_TARGET_ARCH}".whl) ;;
+              *) echo "::error::Unexpected wheel architecture: ${wheel_name}; expected ${NPUIR_TARGET_ARCH}"; exit 1 ;;
+            esac
             wheel_names+=("${wheel_name}")
           done
 
           wheel_files=$(IFS=,; echo "${wheel_names[*]}")
-          build_date=$(date -u +"%Y-%m-%d %H:%M UTC")
-          echo "wheel_files=${wheel_files}" >> "${GITHUB_OUTPUT}"
-          echo "build_date=${build_date}" >> "${GITHUB_OUTPUT}"
+          build_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          metadata_file="${SOURCE_DIR}/wheelhouse/release-metadata-${NPUIR_TARGET_ARCH}.json"
+          npuir_notes="${SOURCE_DIR}/wheelhouse/npuir-metadata-${NPUIR_TARGET_ARCH}.md"
+          printf '{"package_version":"%s","source_sha":"%s","build_date":"%s","wheel_files":"%s"}\n' \
+            "${EXPECTED_VERSION}" "${SOURCE_SHA}" "${build_date}" "${wheel_files}" > "${metadata_file}"
+          {
+            echo "### ${NPUIR_TARGET_ARCH}"
+            echo
+            echo "- AscendNPU-IR commit: ${NPUIR_SHA}"
+            echo "- Archive key: ${NPUIR_ARCHIVE_KEY}"
+            echo "- Build contract: ${NPUIR_BUILD_CONTRACT}"
+            echo "- Baseline date: ${NPUIR_ARCHIVE_BASELINE_DATE}"
+            echo "- Reused existing NPUIR: ${NPUIR_CACHE_HIT}"
+            echo "- Used transitional dated archive: ${NPUIR_LEGACY_CACHE_HIT}"
+            echo "- Wheels: ${wheel_files}"
+          } > "${npuir_notes}"
 
           echo "Built wheels:"
           ls -lh -- "${wheels[@]}"
@@ -279,8 +390,11 @@ jobs:
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dsl-wheels
-          path: ${{ env.SOURCE_DIR }}/wheelhouse/*.whl
+          name: dsl-wheels-${{ matrix.target_arch }}
+          path: |
+            ${{ env.SOURCE_DIR }}/wheelhouse/*.whl
+            ${{ env.SOURCE_DIR }}/wheelhouse/release-metadata-${{ matrix.target_arch }}.json
+            ${{ env.SOURCE_DIR }}/wheelhouse/npuir-metadata-${{ matrix.target_arch }}.md
           if-no-files-found: error
           retention-days: 30
 
@@ -304,13 +418,18 @@ jobs:
       contents: write
     outputs:
       release_url: ${{ steps.publish.outputs.release_url }}
+      package_version: ${{ steps.publish.outputs.package_version }}
+      wheel_files: ${{ steps.publish.outputs.wheel_files }}
+      source_sha: ${{ steps.publish.outputs.source_sha }}
+      build_date: ${{ steps.publish.outputs.build_date }}
 
     steps:
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
-          name: dsl-wheels
+          pattern: dsl-wheels-*
           path: wheels
+          merge-multiple: true
 
       - name: Create draft, attach wheels, and publish
         id: publish
@@ -318,43 +437,82 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
-          BUILD_DATE: ${{ needs.build.outputs.build_date }}
-          WHEEL_FILES: ${{ needs.build.outputs.wheel_files }}
-          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
-          NPUIR_SHA: ${{ needs.build.outputs.npuir_sha }}
-          NPUIR_POSTFIX: ${{ needs.build.outputs.npuir_postfix }}
-          NPUIR_CACHE_HIT: ${{ needs.build.outputs.npuir_cache_hit }}
-          PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
+          RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
+          RELEASE_TAG: ${{ inputs.release_tag || '' }}
         run: |
           set -euo pipefail
           shopt -s nullglob
 
           wheels=(wheels/*.whl)
+          metadata_files=(wheels/release-metadata-*.json)
+          npuir_notes=(wheels/npuir-metadata-*.md)
           if (( ${#wheels[@]} == 0 )); then
             echo "::error::Downloaded artifact contains no wheels"
             exit 1
           fi
+          if (( ${#metadata_files[@]} != 2 || ${#npuir_notes[@]} != 2 )); then
+            echo "::error::Expected x86_64 and aarch64 metadata, found ${#metadata_files[@]} metadata files and ${#npuir_notes[@]} note files"
+            exit 1
+          fi
+
+          metadata_value() {
+            jq -r --arg key "$1" '.[$key]' "$2"
+          }
+          PACKAGE_VERSION=$(metadata_value package_version "${metadata_files[0]}")
+          SOURCE_SHA=$(metadata_value source_sha "${metadata_files[0]}")
+          BUILD_DATE=$(metadata_value build_date "${metadata_files[0]}")
+          if [[ ! "${PACKAGE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.dev[0-9]{8})?$ || ! "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Invalid common release metadata"
+            exit 1
+          fi
+          for metadata_file in "${metadata_files[@]:1}"; do
+            if [[ "$(metadata_value package_version "${metadata_file}")" != "${PACKAGE_VERSION}" || \
+                  "$(metadata_value source_sha "${metadata_file}")" != "${SOURCE_SHA}" ]]; then
+              echo "::error::Architecture builds used different CATLASS commits or package versions"
+              exit 1
+            fi
+          done
+
+          wheel_names=()
+          for wheel in "${wheels[@]}"; do
+            wheel_names+=("$(basename "${wheel}")")
+          done
+          WHEEL_FILES=$(IFS=,; echo "${wheel_names[*]}")
 
           short_sha=${SOURCE_SHA:0:12}
-          tag_name="dsl-v${PACKAGE_VERSION}-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          if [[ "${RELEASE_KIND}" == stable ]]; then
+            tag_name="dsl-${RELEASE_TAG}"
+            if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag_name}" >/dev/null 2>&1; then
+              echo "::error::Release tag already exists and will not be overwritten: ${tag_name}"
+              exit 1
+            fi
+            catlass_source=${RELEASE_TAG}
+          else
+            tag_name="dsl-v${PACKAGE_VERSION}-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+            catlass_source=${CATLASS_REF}
+          fi
           notes_file="${RUNNER_TEMP}/dsl-release-notes.md"
 
           cat > "${notes_file}" <<EOF
           # ascend-catlass-dsl wheels
 
           - Built on: ${BUILD_DATE}
+          - Release kind: ${RELEASE_KIND}
           - Package version: ${PACKAGE_VERSION}
-          - CATLASS ref: ${CATLASS_REF}
+          - CATLASS ref: ${catlass_source}
           - CATLASS commit: ${SOURCE_SHA}
-          - NPUIR version: ${NPUIR_POSTFIX}
-          - AscendNPU-IR commit: ${NPUIR_SHA}
-          - Reused existing NPUIR: ${NPUIR_CACHE_HIT}
           - CANN root: ${CANN_ROOT}
           - cibuildwheel: 4.2.1
           - Python: 3.10, 3.11, 3.12, 3.13
 
           Wheels: ${WHEEL_FILES}
+
+          ## NPUIR by architecture
           EOF
+          for note_file in "${npuir_notes[@]}"; do
+            cat "${note_file}" >> "${notes_file}"
+            echo >> "${notes_file}"
+          done
 
           gh release create "${tag_name}" "${wheels[@]}" \
             --repo "${GITHUB_REPOSITORY}" \
@@ -370,7 +528,13 @@ jobs:
           release_url=$(gh release view "${tag_name}" \
             --repo "${GITHUB_REPOSITORY}" \
             --json url --jq .url)
-          echo "release_url=${release_url}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "release_url=${release_url}"
+            echo "package_version=${PACKAGE_VERSION}"
+            echo "wheel_files=${WHEEL_FILES}"
+            echo "source_sha=${SOURCE_SHA}"
+            echo "build_date=${BUILD_DATE}"
+          } >> "${GITHUB_OUTPUT}"
 
   notify:
     name: Build summary
@@ -380,13 +544,10 @@ jobs:
     env:
       BUILD_RESULT: ${{ needs.build.result }}
       RELEASE_RESULT: ${{ needs.release.result }}
-      WHEEL_FILES: ${{ needs.build.outputs.wheel_files }}
-      BUILD_DATE: ${{ needs.build.outputs.build_date }}
-      NPUIR_POSTFIX: ${{ needs.build.outputs.npuir_postfix }}
-      NPUIR_SHA: ${{ needs.build.outputs.npuir_sha }}
-      NPUIR_CACHE_HIT: ${{ needs.build.outputs.npuir_cache_hit }}
+      WHEEL_FILES: ${{ needs.release.outputs.wheel_files }}
+      BUILD_DATE: ${{ needs.release.outputs.build_date }}
       RELEASE_URL: ${{ needs.release.outputs.release_url }}
-      PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
+      PACKAGE_VERSION: ${{ needs.release.outputs.package_version }}
 
     steps:
       - name: Write build summary
@@ -403,12 +564,6 @@ jobs:
             echo
             echo "- Build: ${BUILD_RESULT}"
             echo "- Release: ${RELEASE_RESULT}"
-            if [[ -n "${NPUIR_POSTFIX}" ]]; then
-              echo "- NPUIR version: ${NPUIR_POSTFIX}"
-              echo "- NPUIR commit: ${NPUIR_SHA}"
-              echo "- Reused existing NPUIR: ${NPUIR_CACHE_HIT}"
-            fi
-
             if [[ "${BUILD_RESULT}" == success ]]; then
               echo "- Package version: ${PACKAGE_VERSION}"
               echo "- Wheels: ${WHEEL_FILES}"

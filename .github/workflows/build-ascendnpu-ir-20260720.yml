@@ -1,13 +1,8 @@
-name: Build AscendNPU-IR 20260720
+name: Build AscendNPU-IR 20260720 a07821269ede
 
 on:
   workflow_dispatch:
     inputs:
-      NPUIR_PIPELINE_POSTFIX:
-        description: NPUIR upgrade baseline; defaults to the 20260720 archive used by this pipeline
-        required: false
-        default: "20260720"
-        type: string
       branch:
         description: AscendNPU-IR branch used when the archive is missing
         required: true
@@ -24,40 +19,73 @@ on:
         default: true
         type: boolean
       build_jobs:
-        description: Maximum parallel compile jobs for this NPUIR pipeline
+        description: Maximum parallel compile jobs on x86_64; ARM64 always uses all available CPUs
         required: true
         default: 64
         type: number
-run-name: NPUIR ${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
+run-name: NPUIR 20260720 · ${{ inputs.ref || 'a07821269ede7a5e683ac02c8a2d291608083741' }} · x86_64 + aarch64
 
 permissions:
   contents: read
 
 env:
   NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
+  NPUIR_BUILD_CONTRACT: clang19-lld19-release-rtti-assert-triton-zstd-off-v1
+  NPUIR_BASELINE_DATE: "20260720"
+  NPUIR_LEGACY_POSTFIX: "20260720"
 
 concurrency:
-  group: local-npuir-${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
+  group: local-npuir-${{ inputs.ref || 'a07821269ede7a5e683ac02c8a2d291608083741' }}-clang19-v1
   cancel-in-progress: false
 
 jobs:
   prepare:
-    name: Reuse or build AscendNPU-IR
-    runs-on: [self-hosted, publish]
+    name: Reuse or build AscendNPU-IR (${{ matrix.target_arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target_arch: x86_64
+            runner_arch: X64
+            container_image: quay.io/pypa/manylinux_2_28_x86_64
+            use_all_cores: false
+          - target_arch: aarch64
+            runner_arch: ARM64
+            container_image: quay.io/pypa/manylinux_2_28_aarch64
+            use_all_cores: true
+    runs-on: [self-hosted, publish, "${{ matrix.runner_arch }}"]
     timeout-minutes: 720
-    outputs:
-      postfix: ${{ steps.selected.outputs.postfix }}
-      source_sha: ${{ steps.selected.outputs.source_sha }}
-      cache_hit: ${{ steps.archive.outputs.cache_hit }}
+    env:
+      NPUIR_TARGET_ARCH: ${{ matrix.target_arch }}
 
     steps:
+      - name: Check out workflow definitions
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate runner architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_arch=$(uname -m)
+          if [[ "${actual_arch}" != "${NPUIR_TARGET_ARCH}" ]]; then
+            echo "::error::Runner architecture is ${actual_arch}, expected ${NPUIR_TARGET_ARCH}"
+            exit 1
+          fi
+
       - name: Look up worker-local NPUIR archive
         id: archive
-        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
+        uses: ./.github/actions/npuir-local-archive
         with:
           operation: lookup
-          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
+          source_sha: ${{ inputs.ref || 'a07821269ede7a5e683ac02c8a2d291608083741' }}
+          target_arch: ${{ env.NPUIR_TARGET_ARCH }}
+          build_contract: ${{ env.NPUIR_BUILD_CONTRACT }}
+          baseline_date: ${{ env.NPUIR_BASELINE_DATE }}
           build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
+          legacy_postfix: ${{ env.NPUIR_LEGACY_POSTFIX }}
+          legacy_build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
 
       # This workflow owns all NPUIR build details. Other NPUIR pipelines can
       # use different checkout, patch, image, toolchain, and build commands,
@@ -91,6 +119,10 @@ jobs:
           git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
 
           source_sha=$(git -C "${WORK_PATH}" rev-parse HEAD)
+          if [[ "${source_sha}" != "${NPUIR_REF}" ]]; then
+            echo "::error::Requested NPUIR commit ${NPUIR_REF}, checked out ${source_sha}"
+            exit 1
+          fi
           echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
           echo "Building NPUIR ${NPUIR_BRANCH} @ ${source_sha}"
 
@@ -123,9 +155,9 @@ jobs:
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
         shell: bash
         env:
-          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+          CONTAINER_NAME: npuir-${{ matrix.target_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           WORK_PATH: ${{ steps.archive.outputs.work_path }}
-          NPUIR_IMAGE: quay.io/pypa/manylinux_2_28_x86_64
+          NPUIR_IMAGE: ${{ matrix.container_image }}
         run: |
           set -euo pipefail
           docker run -d --name "${CONTAINER_NAME}" \
@@ -138,7 +170,7 @@ jobs:
         if: ${{ steps.archive.outputs.cache_hit != 'true' && (inputs.use_mirror || github.event_name == 'schedule') }}
         shell: bash
         env:
-          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+          CONTAINER_NAME: npuir-${{ matrix.target_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
           docker exec -u root "${CONTAINER_NAME}" bash -c '
@@ -155,7 +187,7 @@ jobs:
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
         shell: bash
         env:
-          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+          CONTAINER_NAME: npuir-${{ matrix.target_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
           docker exec -u root "${CONTAINER_NAME}" bash -c '
@@ -187,15 +219,21 @@ jobs:
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
         shell: bash
         env:
-          BUILD_JOBS: ${{ inputs.build_jobs || 64 }}
-          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+          X86_BUILD_JOBS: ${{ inputs.build_jobs || 64 }}
+          USE_ALL_CORES: ${{ matrix.use_all_cores }}
+          CONTAINER_NAME: npuir-${{ matrix.target_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
+          if [[ "${USE_ALL_CORES}" == true ]]; then
+            BUILD_JOBS=$(nproc)
+          else
+            BUILD_JOBS=${X86_BUILD_JOBS}
+          fi
           if [[ ! "${BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::build_jobs must be a positive integer"
+            echo "::error::Resolved build job count must be a positive integer"
             exit 1
           fi
-          echo "NPUIR parallel build jobs: ${BUILD_JOBS}"
+          echo "NPUIR ${NPUIR_TARGET_ARCH} parallel build jobs: ${BUILD_JOBS}"
           docker exec -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e BUILD_JOBS="${BUILD_JOBS}" \
@@ -223,12 +261,14 @@ jobs:
       - name: Publish worker-local NPUIR archive
         id: publish
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
-        uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
+        uses: ./.github/actions/npuir-local-archive
         with:
           operation: publish
-          NPUIR_PIPELINE_POSTFIX: ${{ steps.archive.outputs.postfix }}
-          source_path: ${{ steps.archive.outputs.work_path }}
           source_sha: ${{ steps.source.outputs.source_sha }}
+          target_arch: ${{ env.NPUIR_TARGET_ARCH }}
+          build_contract: ${{ env.NPUIR_BUILD_CONTRACT }}
+          baseline_date: ${{ env.NPUIR_BASELINE_DATE }}
+          source_path: ${{ steps.archive.outputs.work_path }}
           source_branch: ${{ inputs.branch || 'feature/regbase' }}
           source_ref: ${{ inputs.ref || 'a07821269ede7a5e683ac02c8a2d291608083741' }}
           build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
@@ -237,7 +277,6 @@ jobs:
         id: selected
         shell: bash
         env:
-          POSTFIX: ${{ steps.archive.outputs.postfix }}
           CACHE_HIT: ${{ steps.archive.outputs.cache_hit }}
           CACHED_SHA: ${{ steps.archive.outputs.source_sha }}
           BUILT_SHA: ${{ steps.publish.outputs.source_sha }}
@@ -249,33 +288,39 @@ jobs:
             source_sha=${BUILT_SHA}
           fi
           [[ "${source_sha}" =~ ^[0-9a-f]{40}$ ]]
-          echo "postfix=${POSTFIX}" >> "${GITHUB_OUTPUT}"
           echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
 
       - name: Write NPUIR summary
         shell: bash
         env:
           CACHE_HIT: ${{ steps.archive.outputs.cache_hit }}
+          LEGACY_CACHE_HIT: ${{ steps.archive.outputs.legacy_cache_hit }}
           NPUIR_PATH: ${{ steps.archive.outputs.path }}
-          NPUIR_POSTFIX: ${{ steps.selected.outputs.postfix }}
+          NPUIR_ARCHIVE_KEY: ${{ steps.archive.outputs.archive_key }}
           NPUIR_SHA: ${{ steps.selected.outputs.source_sha }}
+          BUILD_CONTRACT: ${{ steps.archive.outputs.build_contract || steps.publish.outputs.build_contract }}
+          BASELINE_DATE: ${{ steps.archive.outputs.baseline_date || steps.publish.outputs.baseline_date }}
         run: |
           set -euo pipefail
           {
             echo "## AscendNPU-IR local archive"
             echo
-            echo "- Postfix: ${NPUIR_POSTFIX}"
+            echo "- Archive key: ${NPUIR_ARCHIVE_KEY}"
             echo "- Commit: ${NPUIR_SHA}"
+            echo "- Target architecture: ${NPUIR_TARGET_ARCH}"
+            echo "- Build contract: ${BUILD_CONTRACT}"
+            echo "- Baseline date: ${BASELINE_DATE}"
             echo "- Build fingerprint: ${NPUIR_BUILD_FINGERPRINT}"
             echo "- Path: ${NPUIR_PATH}"
             echo "- Reused existing archive: ${CACHE_HIT}"
+            echo "- Used transitional dated archive: ${LEGACY_CACHE_HIT}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Clean up transient NPUIR resources
         if: ${{ always() }}
         shell: bash
         env:
-          CONTAINER_NAME: npuir-${{ github.run_id }}-${{ github.run_attempt }}
+          CONTAINER_NAME: npuir-${{ matrix.target_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           WORK_PATH: ${{ steps.archive.outputs.work_path }}
         run: |
           set -euo pipefail

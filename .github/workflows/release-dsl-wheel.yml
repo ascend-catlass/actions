@@ -1,0 +1,27 @@
+name: Release ascend-catlass-dsl wheel from tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      catlass_tag:
+        description: Exact CATLASS vMAJOR.MINOR.PATCH tag to check out and package
+        required: true
+        type: string
+
+run-name: Release ascend-catlass-dsl ${{ inputs.catlass_tag }}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-dsl-wheel-${{ inputs.catlass_tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    uses: ./.github/workflows/build-dsl-wheel.yml
+    with:
+      catlass_ref: ${{ inputs.catlass_tag }}
+      release_kind: stable
+      release_tag: ${{ inputs.catlass_tag }}
+    secrets: inherit
