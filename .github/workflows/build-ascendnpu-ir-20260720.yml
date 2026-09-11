@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       NPUIR_PIPELINE_POSTFIX:
-        description: Archive suffix, normally YYYYMMDD; empty means today in Asia/Shanghai
+        description: NPUIR upgrade baseline; defaults to the 20260720 archive used by this pipeline
         required: false
-        default: ""
+        default: "20260720"
         type: string
       branch:
         description: AscendNPU-IR branch used when the archive is missing
@@ -42,7 +42,7 @@ on:
         default: ""
         type: string
 
-run-name: NPUIR and wheel (${{ inputs.NPUIR_PIPELINE_POSTFIX || 'today' }})
+run-name: NPUIR and wheel (${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }})
 
 permissions:
   contents: read
@@ -51,7 +51,7 @@ env:
   NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
 
 concurrency:
-  group: local-npuir-${{ inputs.NPUIR_PIPELINE_POSTFIX || 'daily' }}
+  group: local-npuir-${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
   cancel-in-progress: false
 
 jobs:
@@ -70,7 +70,7 @@ jobs:
         uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
         with:
           operation: lookup
-          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
+          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
           build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
 
       # This workflow owns all NPUIR build details. Other NPUIR pipelines can

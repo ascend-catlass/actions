@@ -23,9 +23,9 @@ on:
   workflow_dispatch:
     inputs:
       NPUIR_PIPELINE_POSTFIX:
-        description: Local NPUIR archive suffix, normally YYYYMMDD; empty means today in Asia/Shanghai
+        description: Local NPUIR upgrade baseline; defaults to the 20260720 archive
         required: false
-        default: ""
+        default: "20260720"
         type: string
       catlass_ref:
         description: GitCode CATLASS branch or tag to build
@@ -46,7 +46,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dsl-wheel-${{ inputs.NPUIR_PIPELINE_POSTFIX || 'manual' }}
+  group: dsl-wheel-${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
   cancel-in-progress: false
 
 jobs:
@@ -73,7 +73,7 @@ jobs:
         uses: ascend-catlass/actions/.github/actions/npuir-local-archive@9b3aebea5f59d9a72ff56b97d19b6073d8c4786b
         with:
           operation: lookup
-          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '' }}
+          NPUIR_PIPELINE_POSTFIX: ${{ inputs.NPUIR_PIPELINE_POSTFIX || '20260720' }}
           build_fingerprint: ${{ env.NPUIR_BUILD_FINGERPRINT }}
 
       - name: Require completed NPUIR archive
