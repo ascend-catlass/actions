@@ -1,27 +1,213 @@
-name: Release ascend-catlass-dsl wheel from tag
+name: Release ascend-catlass-dsl from GitCode tag
 
 on:
   workflow_dispatch:
     inputs:
       catlass_tag:
-        description: Exact CATLASS vMAJOR.MINOR.PATCH tag to check out and package
+        description: Existing GitCode CATLASS vMAJOR.MINOR.PATCH tag to build and publish
         required: true
         type: string
 
 run-name: Release ascend-catlass-dsl ${{ inputs.catlass_tag }}
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-dsl-wheel-${{ inputs.catlass_tag }}
   cancel-in-progress: false
 
 jobs:
-  release:
+  preflight:
+    name: Verify GitCode release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      source_sha: ${{ steps.tag.outputs.source_sha }}
+
+    steps:
+      - name: Require an existing exact CATLASS tag
+        id: tag
+        shell: bash
+        env:
+          CATLASS_TAG: ${{ inputs.catlass_tag }}
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${CATLASS_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must match vMAJOR.MINOR.PATCH, got: ${CATLASS_TAG}"
+            exit 1
+          fi
+
+          source_dir="${RUNNER_TEMP}/catlass-tag-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          askpass="${RUNNER_TEMP}/gitcode-tag-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
+          trap 'rm -rf -- "${source_dir}"; rm -f -- "${askpass}"' EXIT
+          # shellcheck disable=SC2016
+          printf '%s\n' \
+            '#!/usr/bin/env bash' \
+            'case "$1" in' \
+            '  *Username*) printf "%s\\n" "x-oauth-basic" ;;' \
+            '  *Password*) printf "%s\\n" "${GITCODE_TOKEN}" ;;' \
+            'esac' > "${askpass}"
+          chmod 700 "${askpass}"
+
+          GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+            git ls-remote --exit-code --refs \
+              https://gitcode.com/cann/catlass.git "refs/tags/${CATLASS_TAG}" >/dev/null
+          git init --quiet "${source_dir}"
+          git -C "${source_dir}" remote add origin https://gitcode.com/cann/catlass.git
+          GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+            git -C "${source_dir}" fetch --quiet --depth 1 origin \
+              "refs/tags/${CATLASS_TAG}:refs/tags/${CATLASS_TAG}"
+          source_sha=$(git -C "${source_dir}" rev-parse "refs/tags/${CATLASS_TAG}^{commit}")
+          version=${CATLASS_TAG#v}
+          {
+            echo "tag=${CATLASS_TAG}"
+            echo "version=${version}"
+            echo "source_sha=${source_sha}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Verified GitCode tag ${CATLASS_TAG} at ${source_sha} before starting the build"
+
+  build:
+    name: Build release wheels
+    needs: preflight
     uses: ./.github/workflows/build-dsl-wheel.yml
     with:
-      catlass_ref: ${{ inputs.catlass_tag }}
-      release_kind: stable
-      release_tag: ${{ inputs.catlass_tag }}
+      catlass_ref: ${{ needs.preflight.outputs.tag }}
+      package_version: ${{ needs.preflight.outputs.version }}
     secrets: inherit
+
+  prepare:
+    name: Validate release bundle
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out release tooling
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download architecture wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dsl-wheels-*
+          path: wheels
+          merge-multiple: true
+
+      - name: Validate wheels and generate checksums
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ needs.preflight.outputs.version }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+          CATLASS_TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 scripts/prepare_wheel_bundle.py \
+            --input-dir wheels \
+            --output-dir release-bundle \
+            --version "${PACKAGE_VERSION}" \
+            --source-sha "${SOURCE_SHA}" \
+            --source-ref "${CATLASS_TAG}"
+          python3 -m pip install --disable-pip-version-check twine
+          python3 -m twine check release-bundle/wheels/*.whl
+
+      - name: Upload validated release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsl-release-bundle-${{ needs.preflight.outputs.version }}
+          path: release-bundle
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-pypi:
+    name: Publish wheels to PyPI
+    needs: [preflight, prepare]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/ascend-catlass-dsl/${{ needs.preflight.outputs.version }}/
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download validated release bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: dsl-release-bundle-${{ needs.preflight.outputs.version }}
+          path: release-bundle
+
+      - name: Publish package distributions
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: release-bundle/wheels
+          print-hash: true
+
+  publish-gitcode:
+    name: Publish wheels to GitCode Release
+    needs: [preflight, prepare]
+    runs-on: ubuntu-latest
+    environment:
+      name: gitcode-release
+      url: https://gitcode.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out release tooling
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download validated release bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: dsl-release-bundle-${{ needs.preflight.outputs.version }}
+          path: release-bundle
+
+      - name: Attach wheels to the corresponding GitCode tag release
+        env:
+          GITCODE_RELEASE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: |
+          python3 scripts/publish_gitcode_release.py \
+            --owner cann \
+            --repo catlass \
+            --tag "${{ needs.preflight.outputs.tag }}" \
+            --version "${{ needs.preflight.outputs.version }}" \
+            --bundle release-bundle
+
+  summary:
+    name: Release summary
+    needs: [preflight, build, prepare, publish-pypi, publish-gitcode]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Write release summary
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          PYPI_RESULT: ${{ needs.publish-pypi.result }}
+          GITCODE_RESULT: ${{ needs.publish-gitcode.result }}
+        run: |
+          {
+            echo "## ascend-catlass-dsl ${VERSION}"
+            echo
+            echo "- GitCode tag: ${TAG}"
+            echo "- CATLASS commit: ${SOURCE_SHA}"
+            echo "- Build: ${BUILD_RESULT}"
+            echo "- Bundle validation: ${PREPARE_RESULT}"
+            echo "- PyPI: ${PYPI_RESULT}"
+            echo "- GitCode Release: ${GITCODE_RESULT}"
+            if [[ "${PYPI_RESULT}" == success ]]; then
+              echo "- PyPI URL: https://pypi.org/project/ascend-catlass-dsl/${VERSION}/"
+            fi
+            if [[ "${GITCODE_RESULT}" == success ]]; then
+              echo "- GitCode Release: https://gitcode.com/cann/catlass/releases/${TAG}"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"

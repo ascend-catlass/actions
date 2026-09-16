@@ -1,0 +1,119 @@
+name: Build and publish daily ascend-catlass-dsl wheels
+
+on:
+  schedule:
+    # Every day at 01:00 Asia/Shanghai (17:00 UTC).
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+
+run-name: Daily ascend-catlass-dsl wheels
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-dsl-wheel
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build nightly wheels
+    uses: ./.github/workflows/build-dsl-wheel.yml
+    with:
+      catlass_ref: master
+      package_version: dev
+    secrets: inherit
+
+  prepare:
+    name: Validate nightly bundle
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out publishing tooling
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download architecture wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dsl-wheels-*
+          path: wheels
+          merge-multiple: true
+
+      - name: Validate wheels and generate checksums
+        env:
+          PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
+          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/prepare_wheel_bundle.py \
+            --input-dir wheels \
+            --output-dir release-bundle \
+            --version "${PACKAGE_VERSION}" \
+            --source-sha "${SOURCE_SHA}" \
+            --source-ref master
+          python3 -m pip install --disable-pip-version-check twine
+          python3 -m twine check release-bundle/wheels/*.whl
+
+      - name: Upload validated nightly bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsl-nightly-release-bundle
+          path: release-bundle
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-github:
+    name: Publish nightly GitHub Release
+    needs: [build, prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download validated nightly bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: dsl-nightly-release-bundle
+          path: release-bundle
+
+      - name: Publish wheels for the package index
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
+          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          wheels=(release-bundle/wheels/*.whl)
+          if (( ${#wheels[@]} != 8 )); then
+            echo "::error::Expected eight validated wheels, found ${#wheels[@]}"
+            exit 1
+          fi
+          short_sha=${SOURCE_SHA:0:12}
+          tag_name="dsl-v${PACKAGE_VERSION}-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "${tag_name}" \
+            "${wheels[@]}" \
+            release-bundle/SHA256SUMS \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "ascend-catlass-dsl ${PACKAGE_VERSION}" \
+            --notes-file release-bundle/release-notes.md \
+            --draft
+          gh release edit "${tag_name}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --draft=false
+
+          release_url=$(gh release view "${tag_name}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --json url --jq .url)
+          {
+            echo "## Daily ascend-catlass-dsl ${PACKAGE_VERSION}"
+            echo
+            echo "- CATLASS commit: ${SOURCE_SHA}"
+            echo "- GitHub Release: ${release_url}"
+            echo "- Package index: https://ascend-catlass.github.io/simple/ascend-catlass-dsl/"
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -1,9 +1,6 @@
-name: Build ascend-catlass-dsl wheel
+name: Build ascend-catlass-dsl wheels
 
 on:
-  schedule:
-    # Every day at 01:00 Asia/Shanghai (17:00 UTC).
-    - cron: "0 17 * * *"
   workflow_call:
     inputs:
       catlass_ref:
@@ -11,21 +8,21 @@ on:
         required: false
         default: master
         type: string
-      dsl_version:
-        description: Nightly package version override; empty derives the next patch from the latest stable SCM tag
+      package_version:
+        description: Use dev to derive a nightly version, or pass the exact stable version from a release tag
         required: false
-        default: ""
+        default: dev
         type: string
-      release_kind:
-        description: Build channel (nightly or stable)
-        required: false
-        default: nightly
-        type: string
-      release_tag:
-        description: Exact CATLASS vMAJOR.MINOR.PATCH tag for a stable release
-        required: false
-        default: ""
-        type: string
+    outputs:
+      source_sha:
+        description: Exact CATLASS commit used for the build
+        value: ${{ jobs.resolve.outputs.source_sha }}
+      npuir_sha:
+        description: Exact AscendNPU-IR gitlink used for the build
+        value: ${{ jobs.resolve.outputs.npuir_sha }}
+      package_version:
+        description: Resolved PEP 440 package version
+        value: ${{ jobs.resolve.outputs.package_version }}
     secrets:
       GITCODE_TOKEN:
         required: true
@@ -36,13 +33,13 @@ on:
         required: true
         default: master
         type: string
-      dsl_version:
-        description: Nightly package version override; empty derives the next patch from the latest stable SCM tag
+      package_version:
+        description: Use dev to derive a nightly version, or pass an exact MAJOR.MINOR.PATCH version with the matching v-tag ref
         required: false
-        default: ""
+        default: dev
         type: string
 
-run-name: ${{ inputs.release_kind == 'stable' && format('Release DSL wheel {0}', inputs.release_tag) || 'Daily DSL wheel' }}
+run-name: Build ascend-catlass-dsl ${{ inputs.package_version || 'dev' }} from ${{ inputs.catlass_ref || 'master' }}
 
 env:
   CANN_ROOT: /usr/local/Ascend/cann-9.1.0
@@ -55,7 +52,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dsl-wheel-${{ inputs.release_kind == 'stable' && inputs.release_tag || inputs.catlass_ref || 'master' }}
+  group: dsl-wheel-build-${{ inputs.catlass_ref || 'master' }}-${{ inputs.package_version || 'dev' }}
   cancel-in-progress: false
 
 jobs:
@@ -68,9 +65,7 @@ jobs:
       package_version: ${{ steps.source.outputs.package_version }}
     env:
       CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
-      RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
-      RELEASE_TAG: ${{ inputs.release_tag || '' }}
-      VERSION_OVERRIDE: ${{ inputs.dsl_version || '' }}
+      REQUESTED_VERSION: ${{ inputs.package_version || 'dev' }}
 
     steps:
       - name: Resolve exact source revisions and package version
@@ -93,55 +88,48 @@ jobs:
             'esac' > "${askpass}"
           chmod 700 "${askpass}"
 
-          case "${RELEASE_KIND}" in
-            stable)
-              if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo "::error::Stable releases require an exact vMAJOR.MINOR.PATCH tag, got: ${RELEASE_TAG:-empty}"
+          case "${REQUESTED_VERSION}" in
+            dev)
+              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
+                  https://gitcode.com/cann/catlass.git "${source_dir}"
+              latest_release_tag=$(
+                GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                  git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
+                  awk '{sub("^refs/tags/", "", $2); print $2}' |
+                  sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
+                  sort -V |
+                  tail -1
+              )
+              if [[ -z "${latest_release_tag}" ]]; then
+                echo "::error::No stable vMAJOR.MINOR.PATCH tag found in CATLASS SCM"
+                exit 1
+              fi
+              stable_version=${latest_release_tag#v}
+              IFS=. read -r major minor patch <<< "${stable_version}"
+              build_day=$(TZ=Asia/Shanghai date +%Y%m%d)
+              package_version="${major}.${minor}.$((10#${patch} + 1)).dev${build_day}"
+              ;;
+            *)
+              if [[ ! "${REQUESTED_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::package_version must be dev or MAJOR.MINOR.PATCH, got: ${REQUESTED_VERSION}"
+                exit 1
+              fi
+              expected_tag="v${REQUESTED_VERSION}"
+              if [[ "${CATLASS_REF}" != "${expected_tag}" ]]; then
+                echo "::error::Stable version ${REQUESTED_VERSION} must build the matching GitCode tag ${expected_tag}, got: ${CATLASS_REF}"
                 exit 1
               fi
               GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
                 git ls-remote --exit-code --refs \
-                  https://gitcode.com/cann/catlass.git "refs/tags/${RELEASE_TAG}" >/dev/null
+                  https://gitcode.com/cann/catlass.git "refs/tags/${expected_tag}" >/dev/null
               git init --quiet "${source_dir}"
               git -C "${source_dir}" remote add origin https://gitcode.com/cann/catlass.git
               GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
                 git -C "${source_dir}" fetch --quiet --depth 1 origin \
-                  "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
-              git -C "${source_dir}" checkout --quiet --detach "refs/tags/${RELEASE_TAG}^{commit}"
-              package_version=${RELEASE_TAG#v}
-              ;;
-            nightly)
-              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
-                  https://gitcode.com/cann/catlass.git "${source_dir}"
-              if [[ -n "${VERSION_OVERRIDE}" ]]; then
-                package_version=${VERSION_OVERRIDE}
-              else
-                latest_release_tag=$(
-                  GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                    git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
-                    awk '{sub("^refs/tags/", "", $2); print $2}' |
-                    sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
-                    sort -V |
-                    tail -1
-                )
-                if [[ -z "${latest_release_tag}" ]]; then
-                  echo "::error::No stable vMAJOR.MINOR.PATCH tag found in CATLASS SCM"
-                  exit 1
-                fi
-                stable_version=${latest_release_tag#v}
-                IFS=. read -r major minor patch <<< "${stable_version}"
-                build_day=$(TZ=Asia/Shanghai date +%Y%m%d)
-                package_version="${major}.${minor}.$((10#${patch} + 1)).dev${build_day}"
-              fi
-              if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.dev[0-9]{8}$ ]]; then
-                echo "::error::Nightly version must match MAJOR.MINOR.PATCH.devYYYYMMDD, got: ${package_version}"
-                exit 1
-              fi
-              ;;
-            *)
-              echo "::error::release_kind must be nightly or stable, got: ${RELEASE_KIND}"
-              exit 1
+                  "refs/tags/${expected_tag}:refs/tags/${expected_tag}"
+              git -C "${source_dir}" checkout --quiet --detach "refs/tags/${expected_tag}^{commit}"
+              package_version=${REQUESTED_VERSION}
               ;;
           esac
 
@@ -151,7 +139,7 @@ jobs:
           if [[ "${submodule_mode}" != 160000 || "${submodule_type}" != commit || \
                 ! "${npuir_sha}" =~ ^[0-9a-f]{40}$ || \
                 "${submodule_path}" != python/tla_dsl/3rdparty/AscendNPU-IR ]]; then
-            echo "::error::CATLASS ${RELEASE_TAG:-${CATLASS_REF}} does not contain a valid AscendNPU-IR gitlink"
+            echo "::error::CATLASS ${CATLASS_REF} does not contain a valid AscendNPU-IR gitlink"
             exit 1
           fi
           {
@@ -461,144 +449,17 @@ jobs:
             *) echo "::error::Refusing to clean unexpected path: ${SOURCE_DIR}"; exit 1 ;;
           esac
 
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      release_url: ${{ steps.publish.outputs.release_url }}
-      package_version: ${{ steps.publish.outputs.package_version }}
-      wheel_files: ${{ steps.publish.outputs.wheel_files }}
-      source_sha: ${{ steps.publish.outputs.source_sha }}
-      build_date: ${{ steps.publish.outputs.build_date }}
-
-    steps:
-      - name: Download wheels
-        uses: actions/download-artifact@v4
-        with:
-          pattern: dsl-wheels-*
-          path: wheels
-          merge-multiple: true
-
-      - name: Create draft, attach wheels, and publish
-        id: publish
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
-          RELEASE_KIND: ${{ inputs.release_kind || 'nightly' }}
-          RELEASE_TAG: ${{ inputs.release_tag || '' }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-
-          wheels=(wheels/*.whl)
-          metadata_files=(wheels/release-metadata-*.json)
-          npuir_notes=(wheels/npuir-metadata-*.md)
-          if (( ${#wheels[@]} == 0 )); then
-            echo "::error::Downloaded artifact contains no wheels"
-            exit 1
-          fi
-          if (( ${#metadata_files[@]} != 2 || ${#npuir_notes[@]} != 2 )); then
-            echo "::error::Expected x86_64 and aarch64 metadata, found ${#metadata_files[@]} metadata files and ${#npuir_notes[@]} note files"
-            exit 1
-          fi
-
-          metadata_value() {
-            jq -r --arg key "$1" '.[$key]' "$2"
-          }
-          PACKAGE_VERSION=$(metadata_value package_version "${metadata_files[0]}")
-          SOURCE_SHA=$(metadata_value source_sha "${metadata_files[0]}")
-          BUILD_DATE=$(metadata_value build_date "${metadata_files[0]}")
-          if [[ ! "${PACKAGE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.dev[0-9]{8})?$ || ! "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::Invalid common release metadata"
-            exit 1
-          fi
-          for metadata_file in "${metadata_files[@]:1}"; do
-            if [[ "$(metadata_value package_version "${metadata_file}")" != "${PACKAGE_VERSION}" || \
-                  "$(metadata_value source_sha "${metadata_file}")" != "${SOURCE_SHA}" ]]; then
-              echo "::error::Architecture builds used different CATLASS commits or package versions"
-              exit 1
-            fi
-          done
-
-          wheel_names=()
-          for wheel in "${wheels[@]}"; do
-            wheel_names+=("$(basename "${wheel}")")
-          done
-          WHEEL_FILES=$(IFS=,; echo "${wheel_names[*]}")
-
-          short_sha=${SOURCE_SHA:0:12}
-          if [[ "${RELEASE_KIND}" == stable ]]; then
-            tag_name="dsl-${RELEASE_TAG}"
-            if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag_name}" >/dev/null 2>&1; then
-              echo "::error::Release tag already exists and will not be overwritten: ${tag_name}"
-              exit 1
-            fi
-            catlass_source=${RELEASE_TAG}
-          else
-            tag_name="dsl-v${PACKAGE_VERSION}-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
-            catlass_source=${CATLASS_REF}
-          fi
-          notes_file="${RUNNER_TEMP}/dsl-release-notes.md"
-
-          cat > "${notes_file}" <<EOF
-          # ascend-catlass-dsl wheels
-
-          - Built on: ${BUILD_DATE}
-          - Release kind: ${RELEASE_KIND}
-          - Package version: ${PACKAGE_VERSION}
-          - CATLASS ref: ${catlass_source}
-          - CATLASS commit: ${SOURCE_SHA}
-          - CANN root: ${CANN_ROOT}
-          - cibuildwheel: 4.2.1
-          - Python: 3.10, 3.11, 3.12, 3.13
-
-          Wheels: ${WHEEL_FILES}
-
-          ## NPUIR by architecture
-          EOF
-          for note_file in "${npuir_notes[@]}"; do
-            cat "${note_file}" >> "${notes_file}"
-            echo >> "${notes_file}"
-          done
-
-          gh release create "${tag_name}" "${wheels[@]}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --target "${GITHUB_SHA}" \
-            --title "ascend-catlass-dsl ${PACKAGE_VERSION}" \
-            --notes-file "${notes_file}" \
-            --draft
-
-          gh release edit "${tag_name}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --draft=false
-
-          release_url=$(gh release view "${tag_name}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --json url --jq .url)
-          {
-            echo "release_url=${release_url}"
-            echo "package_version=${PACKAGE_VERSION}"
-            echo "wheel_files=${WHEEL_FILES}"
-            echo "source_sha=${SOURCE_SHA}"
-            echo "build_date=${BUILD_DATE}"
-          } >> "${GITHUB_OUTPUT}"
-
   notify:
     name: Build summary
-    needs: [build, release]
+    needs: [resolve, npuir, build]
     runs-on: ubuntu-latest
     if: ${{ always() }}
     env:
       BUILD_RESULT: ${{ needs.build.result }}
-      RELEASE_RESULT: ${{ needs.release.result }}
-      WHEEL_FILES: ${{ needs.release.outputs.wheel_files }}
-      BUILD_DATE: ${{ needs.release.outputs.build_date }}
-      RELEASE_URL: ${{ needs.release.outputs.release_url }}
-      PACKAGE_VERSION: ${{ needs.release.outputs.package_version }}
+      NPUIR_RESULT: ${{ needs.npuir.result }}
+      PACKAGE_VERSION: ${{ needs.resolve.outputs.package_version }}
+      SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+      NPUIR_SHA: ${{ needs.resolve.outputs.npuir_sha }}
 
     steps:
       - name: Write build summary
@@ -607,27 +468,17 @@ jobs:
           set -euo pipefail
 
           {
-            if [[ "${PACKAGE_VERSION}" =~ \.dev([0-9]{8})$ ]]; then
-              echo "## DSL wheel ${BASH_REMATCH[1]}"
-            else
-              echo "## DSL wheel pipeline"
-            fi
+            echo "## ascend-catlass-dsl build"
             echo
             echo "- Build: ${BUILD_RESULT}"
-            echo "- Release: ${RELEASE_RESULT}"
+            echo "- NPUIR preparation: ${NPUIR_RESULT}"
             if [[ "${BUILD_RESULT}" == success ]]; then
               echo "- Package version: ${PACKAGE_VERSION}"
-              echo "- Wheels: ${WHEEL_FILES}"
-              echo "- Built on: ${BUILD_DATE}"
-            fi
-
-            if [[ "${RELEASE_RESULT}" == success ]]; then
-              echo "- Release: ${RELEASE_URL}"
-            elif [[ "${BUILD_RESULT}" == success ]]; then
-              echo
-              echo "> Wheels were built, but publishing failed. Check the release job; a draft release may remain."
+              echo "- CATLASS commit: ${SOURCE_SHA}"
+              echo "- AscendNPU-IR commit: ${NPUIR_SHA}"
+              echo "- Artifacts: dsl-wheels-x86_64, dsl-wheels-aarch64"
             else
               echo
-              echo "> The pipeline failed before a release could be published."
+              echo "> The build did not produce a complete wheel set."
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
