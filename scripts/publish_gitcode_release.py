@@ -8,6 +8,7 @@ import hashlib
 import json
 import mimetypes
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -76,16 +77,35 @@ class GitCodeClient:
             raise RuntimeError(f"GitCode returned an invalid upload description for {path.name}")
         headers = {str(key): str(value) for key, value in upload_headers.items()}
         headers.setdefault("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
-        request = urllib.request.Request(
-            upload_url, data=path.read_bytes(), headers=headers, method="PUT"
-        )
+        command = [
+            "curl",
+            "--fail-with-body",
+            "--location",
+            "--http1.1",
+            "--connect-timeout",
+            "30",
+            "--max-time",
+            "3600",
+            "--retry",
+            "3",
+            "--retry-delay",
+            "5",
+            "--retry-all-errors",
+            "--progress-bar",
+            "--upload-file",
+            str(path),
+        ]
+        for key, value in headers.items():
+            command.extend(["--header", f"{key}: {value}"])
+        command.append(upload_url)
+        size_mib = path.stat().st_size / (1024 * 1024)
+        print(f"Uploading GitCode asset: {path.name} ({size_mib:.1f} MiB)", flush=True)
         try:
-            with urllib.request.urlopen(request, timeout=900) as response:
-                if not 200 <= response.status < 300:
-                    raise RuntimeError(f"GitCode upload failed for {path.name}: HTTP {response.status}")
-        except urllib.error.HTTPError as error:
-            detail = error.read().decode(errors="replace")
-            raise RuntimeError(f"GitCode upload failed for {path.name}: {error.code} {detail}") from error
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError(
+                f"GitCode upload failed for {path.name}: curl exited with {error.returncode}"
+            ) from error
 
 
 def sha256(path: Path) -> str:
@@ -129,7 +149,7 @@ def publish(client: GitCodeClient, tag: str, version: str, bundle: Path) -> None
             print(f"Reusing matching GitCode asset: {path.name}")
             continue
         client.upload_file(tag, path)
-        print(f"Uploaded GitCode asset: {path.name}")
+        print(f"Uploaded GitCode asset: {path.name}", flush=True)
 
     expected = {path.name for path in files}
     for attempt in range(6):

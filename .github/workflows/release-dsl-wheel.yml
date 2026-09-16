@@ -7,6 +7,10 @@ on:
         description: Existing GitCode CATLASS vMAJOR.MINOR.PATCH tag to build and publish
         required: true
         type: string
+      artifact_run_id:
+        description: Optional prior release run ID whose validated bundle should be republished without rebuilding
+        required: false
+        type: string
 
 run-name: Release ascend-catlass-dsl ${{ inputs.catlass_tag }}
 
@@ -73,6 +77,7 @@ jobs:
   build:
     name: Build release wheels
     needs: preflight
+    if: ${{ inputs.artifact_run_id == '' }}
     uses: ./.github/workflows/build-dsl-wheel.yml
     with:
       catlass_ref: ${{ needs.preflight.outputs.tag }}
@@ -82,6 +87,7 @@ jobs:
   prepare:
     name: Validate release bundle
     needs: [preflight, build]
+    if: ${{ inputs.artifact_run_id == '' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -125,11 +131,13 @@ jobs:
   publish-pypi:
     name: Publish wheels to PyPI
     needs: [preflight, prepare]
+    if: ${{ always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '') }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/project/ascend-catlass-dsl/${{ needs.preflight.outputs.version }}/
     permissions:
+      actions: read
       id-token: write
 
     steps:
@@ -138,21 +146,26 @@ jobs:
         with:
           name: dsl-release-bundle-${{ needs.preflight.outputs.version }}
           path: release-bundle
+          run-id: ${{ inputs.artifact_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish package distributions
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: release-bundle/wheels
           print-hash: true
+          skip-existing: true
 
   publish-gitcode:
     name: Publish wheels to GitCode Release
     needs: [preflight, prepare]
+    if: ${{ always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '') }}
     runs-on: ubuntu-latest
     environment:
       name: gitcode-release
       url: https://gitcode.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
     permissions:
+      actions: read
       contents: read
 
     steps:
@@ -166,6 +179,8 @@ jobs:
         with:
           name: dsl-release-bundle-${{ needs.preflight.outputs.version }}
           path: release-bundle
+          run-id: ${{ inputs.artifact_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attach wheels to the corresponding GitCode tag release
         env:
