@@ -160,7 +160,7 @@ jobs:
     name: Publish wheels to GitCode Release
     needs: [preflight, prepare]
     if: ${{ always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '') }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, publish, X64]
     environment:
       name: gitcode-release
       url: https://gitcode.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
