@@ -301,7 +301,7 @@ jobs:
                 --build-triton \
                 --enable-lld \
                 --build ./build \
-                --apply-patches
+                --bishengir-publish OFF
             '
 
       - name: Publish worker-local NPUIR archive
