@@ -138,11 +138,8 @@ jobs:
             git -C "${WORK_PATH}" checkout --detach FETCH_HEAD
           fi
 
-          # Avoid cloning a repository's default branch before resolving its
-          # gitlink. GitCode advertises llvm-project as empty on some workers,
-          # while the ARM runner's Git 2.34 transport fails immediately during
-          # the initial torch-mlir clone. Fetching the exact gitlink works on
-          # both runner architectures and is all this build needs.
+          # GitCode advertises llvm-project as empty on some workers, so fetch
+          # its exact gitlink without relying on a default branch.
           materialize_gitlink() {
             local submodule_path=$1
             local submodule_sha submodule_url checkout_path git_dir
@@ -158,12 +155,36 @@ jobs:
             mkdir -p "${git_dir%/*}"
             git init --quiet --separate-git-dir="${git_dir}" "${checkout_path}"
             git -C "${checkout_path}" remote add origin "${submodule_url}"
-            git -C "${checkout_path}" fetch --quiet --depth 1 origin "${submodule_sha}"
+            timeout 10m git -C "${checkout_path}" fetch --progress --depth 1 origin "${submodule_sha}"
             git -C "${checkout_path}" checkout --quiet --detach FETCH_HEAD
           }
 
           materialize_gitlink third-party/llvm-project
-          materialize_gitlink third-party/torch-mlir
+
+          # The ARM worker has Git 2.34 and fails during torch-mlir's initial
+          # protocol-v2 clone, while the x86 worker's Git 2.43 succeeds. Seed
+          # the advertised branch over protocol v1/HTTP/1.1, then fetch the
+          # exact gitlink. Keep progress visible and bound both network calls.
+          torch_path=third-party/torch-mlir
+          git -C "${WORK_PATH}" submodule init "${torch_path}"
+          torch_sha=$(git -C "${WORK_PATH}" ls-tree HEAD "${torch_path}" | awk '{print $3}')
+          torch_url=$(git -C "${WORK_PATH}" config --get "submodule.${torch_path}.url")
+          torch_branch=$(git -C "${WORK_PATH}" config -f .gitmodules --get "submodule.${torch_path}.branch")
+          torch_checkout="${WORK_PATH}/${torch_path}"
+          torch_git_dir="${WORK_PATH}/.git/modules/${torch_path}"
+          if [[ ! "${torch_sha}" =~ ^[0-9a-f]{40}$ || -z "${torch_url}" || -z "${torch_branch}" ]]; then
+            echo "::error::Invalid ${torch_path} gitlink metadata"
+            exit 1
+          fi
+          mkdir -p "${torch_git_dir%/*}"
+          timeout 10m git -c protocol.version=1 -c http.version=HTTP/1.1 clone \
+            --progress --no-checkout --depth 1 --branch "${torch_branch}" \
+            --separate-git-dir="${torch_git_dir}" "${torch_url}" "${torch_checkout}"
+          if ! git -C "${torch_checkout}" rev-parse --verify --quiet "${torch_sha}^{commit}" >/dev/null; then
+            timeout 10m git -c protocol.version=1 -c http.version=HTTP/1.1 \
+              -C "${torch_checkout}" fetch --progress --depth 1 origin "${torch_sha}"
+          fi
+          git -C "${torch_checkout}" checkout --quiet --detach "${torch_sha}"
 
           git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
 
