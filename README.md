@@ -39,9 +39,12 @@ come from the image; the workflow does not mount over `/root` or install or
 activate CANN, Conda, or AscendNPU-IR inside the container.
 
 Before either test suite, `prepare-ci-tests` installs the merged repository's
-root `requirements.txt` using `python3 -m pip`, then queries `npu-smi info -m`
-and `npu-smi info` inside the test environment. It selects the visible NPU with
-the fewest distinct processes (ties use the lowest logical ID) and passes its
-runtime index as `DEVICE_ID` to both suites and `--device` to the DSL suite.
-Unrecognized or incomplete device data fails preparation instead of selecting
-card 0. This is a snapshot of process occupancy, not a reservation of the NPU.
+root `requirements.txt` using `python3 -m pip`, then runs the vendored
+[`detect_npu.sh`](.github/actions/prepare-ci-tests/detect_npu.sh) from
+MinghuasLab/flash-attention-npu inside the test environment. The upstream
+selector supports 910B and 950 tables and sorts eligible cards by process count,
+then card ID. Its default eligibility limits are free memory >1024 MB and
+process count <4. The selected card is passed as `DEVICE_ID` to both suites and
+`--device` to the DSL suite. No candidate fails preparation. Selection is a
+snapshot, not an NPU reservation. The upstream source and BSD license are
+recorded alongside the vendored script.

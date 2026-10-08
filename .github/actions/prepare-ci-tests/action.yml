@@ -10,7 +10,7 @@ inputs:
     default: ''
 outputs:
   device-id:
-    description: Selected runtime device index for DEVICE_ID
+    description: NPU card ID selected by the upstream detect_npu.sh for DEVICE_ID
     value: ${{ steps.device.outputs.device-id }}
 runs:
   using: composite
@@ -37,9 +37,14 @@ runs:
       run: |
         set -euo pipefail
         if [[ ! -f /.dockerenv && -n "${RDV_CONTAINER}" ]]; then
-          device_id="$(docker exec -i "${RDV_CONTAINER}" python3 - < "${GITHUB_ACTION_PATH}/select-device.py")"
+          selection="$(docker exec -i "${RDV_CONTAINER}" bash -s -- --env < "${GITHUB_ACTION_PATH}/detect_npu.sh")"
         else
-          device_id="$(python3 "${GITHUB_ACTION_PATH}/select-device.py")"
+          selection="$(bash "${GITHUB_ACTION_PATH}/detect_npu.sh" --env)"
         fi
-        [[ "${device_id}" =~ ^[0-9]+$ ]]
+        if [[ ! "${selection}" =~ ^export[[:space:]]+NPU_SELECTED_DEVICE=([0-9]+)$ ]]; then
+          echo "::error::Unexpected output from detect_npu.sh --env"
+          exit 1
+        fi
+        device_id="${BASH_REMATCH[1]}"
+        echo "Selected NPU: DEVICE_ID=${device_id}"
         echo "device-id=${device_id}" >> "${GITHUB_OUTPUT}"
