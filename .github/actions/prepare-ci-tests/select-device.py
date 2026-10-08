@@ -88,9 +88,21 @@ def query(*args):
     return subprocess.run(["npu-smi", "info", *args], check=True, capture_output=True, text=True, timeout=30).stdout
 
 
+def mapping_shapes(text):
+    # Describe table syntax without publishing device values or hardware names.
+    return sorted({
+        " ".join("integer" if token.isdigit() else "-" if token == "-" else "text"
+                 for token in line.split())
+        for line in text.splitlines() if line.strip()
+    })
+
+
 if __name__ == "__main__":
     try:
-        print(select_device(query("-m"), query(), os.environ.get("ASCEND_RT_VISIBLE_DEVICES")))
+        mapping = query("-m")
+        info = query()
+        print(f"NPU mapping field shapes: {mapping_shapes(mapping)}", file=sys.stderr)
+        print(select_device(mapping, info, os.environ.get("ASCEND_RT_VISIBLE_DEVICES")))
     except (ValueError, OSError, subprocess.SubprocessError) as error:
         print(f"NPU selection failed: {error}", file=sys.stderr)
         sys.exit(1)
