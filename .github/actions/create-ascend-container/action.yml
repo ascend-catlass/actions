@@ -1,0 +1,44 @@
+name: Create Ascend container
+description: Create a disposable Ascend container, or reuse the current container environment
+
+inputs:
+  image-repository:
+    description: Container image repository (CANN_REPO)
+    required: false
+    default: swr.cn-south-1.myhuaweicloud.com/ascendhub/cann
+  image-tag:
+    description: Container image tag (CANN_TAG)
+    required: false
+    default: 9.1.1-910b-ubuntu22.04-py3.12
+  name:
+    description: Unique container name (NAME)
+    required: true
+  worktree:
+    description: Existing host source directory to mount
+    required: true
+  container-worktree:
+    description: Source directory inside the new container
+    required: false
+    default: /workspace/catlass
+
+outputs:
+  container-name:
+    description: Name of the managed container; empty when already inside a container
+    value: ${{ steps.create.outputs.container-name }}
+  worktree:
+    description: Source path to use for tests in the selected environment
+    value: ${{ steps.create.outputs.worktree }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect environment and create container
+      id: create
+      shell: bash
+      env:
+        CANN_REPO: ${{ inputs.image-repository }}
+        CANN_TAG: ${{ inputs.image-tag }}
+        NAME: ${{ inputs.name }}
+        HOST_WORKTREE: ${{ inputs.worktree }}
+        CONTAINER_WORKTREE: ${{ inputs.container-worktree }}
+      run: bash "${GITHUB_ACTION_PATH}/create-ascend-container.sh"

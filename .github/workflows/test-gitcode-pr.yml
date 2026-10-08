@@ -91,8 +91,19 @@ jobs:
     needs: prepare
     runs-on: [self-hosted, ascend950]
     timeout-minutes: 90
+    env:
+      RDV_CONTAINER: catlass-rdv-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
+      - name: Detect runner environment
+        shell: bash
+        run: |
+          if [[ -f /.dockerenv ]]; then
+            echo "Runner is already inside a container; tests will use its environment."
+          else
+            echo "Runner is on the host; tests will use a disposable Ascend container."
+          fi
+
       - name: Merge the pull request into its target branch
         id: merge
         shell: bash
@@ -194,21 +205,48 @@ jobs:
         run: |
           echo "Only documentation or image files changed; no tests are required."
 
+      - name: Create test container
+        id: create_container
+        if: >-
+          ${{ steps.merge.outputs.run_dsl == 'true' ||
+              steps.merge.outputs.run_all == 'true' }}
+        uses: ascend-catlass/actions/.github/actions/create-ascend-container@codex/test-gitcode-pr-container-1420
+        with:
+          image-repository: ascend-catlass-dsl
+          image-tag: 9.1.0-950-ubuntu22.04-py3.12
+          name: ${{ env.RDV_CONTAINER }}
+          worktree: ${{ steps.merge.outputs.worktree }}
+
       - name: Run DSL test stage
         if: ${{ steps.merge.outputs.run_dsl == 'true' }}
-        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        uses: ascend-catlass/actions/.github/actions/run-ci-tests@codex/test-gitcode-pr-container-1420
         with:
           suite: dsl
-          worktree: ${{ steps.merge.outputs.worktree }}
+          worktree: ${{ steps.create_container.outputs.worktree }}
+          container: ${{ steps.create_container.outputs.container-name }}
 
       - name: Run non-DSL test stage
         if: >-
           ${{ !cancelled() &&
+              steps.merge.outcome == 'success' &&
+              steps.create_container.outcome == 'success' &&
               steps.merge.outputs.run_all == 'true' }}
-        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        uses: ascend-catlass/actions/.github/actions/run-ci-tests@codex/test-gitcode-pr-container-1420
         with:
           suite: all
-          worktree: ${{ steps.merge.outputs.worktree }}
+          worktree: ${{ steps.create_container.outputs.worktree }}
+          container: ${{ steps.create_container.outputs.container-name }}
+
+      - name: Delete test container
+        if: ${{ always() && steps.create_container.outputs.container-name != '' }}
+        shell: bash
+        env:
+          CONTAINER_NAME: ${{ steps.create_container.outputs.container-name }}
+        run: |
+          set -euo pipefail
+          if docker container inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
+            docker rm --force "${CONTAINER_NAME}"
+          fi
 
   report:
     name: Report PR result
