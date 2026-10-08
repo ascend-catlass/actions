@@ -22,6 +22,11 @@ on:
         required: false
         default: 64
         type: number
+      debug_login:
+        description: Open an actor-only tmate session after an ARM64 failure
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       branch:
@@ -44,6 +49,11 @@ on:
         required: true
         default: 64
         type: number
+      debug_login:
+        description: Open an actor-only tmate session after an ARM64 failure
+        required: false
+        default: false
+        type: boolean
 run-name: NPUIR 20260930 · ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }} · x86_64 + aarch64
 
 permissions:
@@ -361,6 +371,36 @@ jobs:
             echo "- Reused existing archive: ${CACHE_HIT}"
             echo "- Used transitional dated archive: ${LEGACY_CACHE_HIT}"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Capture ARM64 checkout diagnostics
+        if: ${{ failure() && matrix.target_arch == 'aarch64' }}
+        shell: bash
+        env:
+          WORK_PATH: ${{ steps.archive.outputs.work_path }}
+        run: |
+          set -u
+          git --version
+          echo "Proxy variables present (values hidden):"
+          for name in HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy; do
+            if [[ -n "${!name:-}" ]]; then
+              echo "- ${name}=set"
+            else
+              echo "- ${name}=unset"
+            fi
+          done
+          echo "Relevant Git configuration keys (values hidden):"
+          git config --show-origin --get-regexp '^(http\..*|url\..*\.insteadof)$' 2>/dev/null \
+            | sed -E 's/^([^[:space:]]+[[:space:]]+[^[:space:]]+).*/\1 <redacted>/' || true
+          if [[ -d "${WORK_PATH}/.git" ]]; then
+            git -C "${WORK_PATH}" remote -v
+            git -C "${WORK_PATH}" submodule status || true
+          fi
+
+      - name: Debug login on failed ARM64 runner
+        if: ${{ failure() && inputs.debug_login && matrix.target_arch == 'aarch64' }}
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
+        with:
+          limit-access-to-actor: true
 
       - name: Clean up transient NPUIR resources
         if: ${{ always() }}
