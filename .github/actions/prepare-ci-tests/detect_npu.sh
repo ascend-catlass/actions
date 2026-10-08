@@ -231,4 +231,3 @@ case "${1:---summary}" in
     die "unknown argument: $1 (use --summary|--candidates|--env)"
     ;;
 esac
-

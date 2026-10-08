@@ -1,6 +1,7 @@
 # Vendored NPU selector
 
-`detect_npu.sh` is copied without changes from:
+`detect_npu.sh` is copied from the source below. Its logic is unchanged;
+trailing blank lines are normalized:
 
 - Repository: https://github.com/MinghuasLab/flash-attention-npu
 - File: `ci/detect_npu.sh`
