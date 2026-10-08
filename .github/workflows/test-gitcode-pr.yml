@@ -89,7 +89,7 @@ jobs:
   merge-and-test:
     name: Test PR #${{ inputs.pr_number }}
     needs: prepare
-    runs-on: [self-hosted, ascend950]
+    runs-on: [self-hosted, Linux, X64, "ascend950 bz"]
     timeout-minutes: 90
     env:
       RDV_CONTAINER: catlass-rdv-${{ github.run_id }}-${{ github.run_attempt }}
