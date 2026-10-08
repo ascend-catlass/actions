@@ -1,5 +1,5 @@
 name: Run CATLASS CI tests
-description: Activate the Ascend and Conda environments and run one CATLASS test stage
+description: Run one CATLASS test stage using the container environment or the legacy host setup
 
 inputs:
   suite:
@@ -8,6 +8,14 @@ inputs:
   worktree:
     description: Merged CATLASS worktree to test
     required: true
+  container:
+    description: Running Docker container in which to execute the tests (empty runs on the host)
+    required: false
+    default: ''
+  device-id:
+    description: Runtime device index selected before testing
+    required: false
+    default: '0'
 
 runs:
   using: composite
@@ -17,4 +25,17 @@ runs:
       env:
         CATLASS_TEST_SUITE: ${{ inputs.suite }}
         RDV_WORKTREE: ${{ inputs.worktree }}
-      run: bash "${GITHUB_ACTION_PATH}/run-ci-tests.sh"
+        RDV_CONTAINER: ${{ inputs.container }}
+        DEVICE_ID: ${{ inputs.device-id }}
+      run: |
+        if [[ -f /.dockerenv ]]; then
+          bash "${GITHUB_ACTION_PATH}/run-ci-tests.sh"
+        elif [[ -n "${RDV_CONTAINER}" ]]; then
+          docker exec -i \
+            --env "CATLASS_TEST_SUITE=${CATLASS_TEST_SUITE}" \
+            --env "RDV_WORKTREE=${RDV_WORKTREE}" \
+            --env "DEVICE_ID=${DEVICE_ID}" \
+            "${RDV_CONTAINER}" bash -s < "${GITHUB_ACTION_PATH}/run-ci-tests.sh"
+        else
+          bash "${GITHUB_ACTION_PATH}/run-ci-tests.sh"
+        fi
