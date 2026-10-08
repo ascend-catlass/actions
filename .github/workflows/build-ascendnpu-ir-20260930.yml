@@ -138,24 +138,32 @@ jobs:
             git -C "${WORK_PATH}" checkout --detach FETCH_HEAD
           fi
 
-          # GitCode advertises llvm-project as an empty repository on some
-          # workers. The previously successful x86 build recovered by fetching
-          # the gitlink commit directly; do that deterministically before the
-          # regular recursive submodule update.
-          git -C "${WORK_PATH}" submodule init third-party/llvm-project
-          llvm_sha=$(git -C "${WORK_PATH}" ls-tree HEAD third-party/llvm-project | awk '{print $3}')
-          llvm_url=$(git -C "${WORK_PATH}" config --get submodule.third-party/llvm-project.url)
-          llvm_path="${WORK_PATH}/third-party/llvm-project"
-          llvm_git_dir="${WORK_PATH}/.git/modules/third-party/llvm-project"
-          if [[ ! "${llvm_sha}" =~ ^[0-9a-f]{40}$ || -z "${llvm_url}" ]]; then
-            echo "::error::Invalid llvm-project gitlink metadata"
-            exit 1
-          fi
-          mkdir -p "${llvm_git_dir%/*}"
-          git init --quiet --separate-git-dir="${llvm_git_dir}" "${llvm_path}"
-          git -C "${llvm_path}" remote add origin "${llvm_url}"
-          git -C "${llvm_path}" fetch --quiet --depth 1 origin "${llvm_sha}"
-          git -C "${llvm_path}" checkout --quiet --detach FETCH_HEAD
+          # Avoid cloning a repository's default branch before resolving its
+          # gitlink. GitCode advertises llvm-project as empty on some workers,
+          # while the ARM runner's Git 2.34 transport fails immediately during
+          # the initial torch-mlir clone. Fetching the exact gitlink works on
+          # both runner architectures and is all this build needs.
+          materialize_gitlink() {
+            local submodule_path=$1
+            local submodule_sha submodule_url checkout_path git_dir
+            git -C "${WORK_PATH}" submodule init "${submodule_path}"
+            submodule_sha=$(git -C "${WORK_PATH}" ls-tree HEAD "${submodule_path}" | awk '{print $3}')
+            submodule_url=$(git -C "${WORK_PATH}" config --get "submodule.${submodule_path}.url")
+            checkout_path="${WORK_PATH}/${submodule_path}"
+            git_dir="${WORK_PATH}/.git/modules/${submodule_path}"
+            if [[ ! "${submodule_sha}" =~ ^[0-9a-f]{40}$ || -z "${submodule_url}" ]]; then
+              echo "::error::Invalid ${submodule_path} gitlink metadata"
+              exit 1
+            fi
+            mkdir -p "${git_dir%/*}"
+            git init --quiet --separate-git-dir="${git_dir}" "${checkout_path}"
+            git -C "${checkout_path}" remote add origin "${submodule_url}"
+            git -C "${checkout_path}" fetch --quiet --depth 1 origin "${submodule_sha}"
+            git -C "${checkout_path}" checkout --quiet --detach FETCH_HEAD
+          }
+
+          materialize_gitlink third-party/llvm-project
+          materialize_gitlink third-party/torch-mlir
 
           git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
 
