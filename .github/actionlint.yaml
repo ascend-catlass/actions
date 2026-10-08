@@ -1,6 +1,6 @@
 self-hosted-runner:
   labels:
     - ascend950
-    - ascend950 bz
+    - bz
     - nondocker
     - publish
