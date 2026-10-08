@@ -13,7 +13,7 @@ On a host, it creates a container with the image's own runtime environment.
 | `container-worktree` | `/workspace/catlass` |
 
 Docker uses an existing local image when available. The PR workflow supplies
-`ascend-catlass-dsl` and `9.1.0-950-ubuntu22.04-py3.12` for the current local CI
+`ascend-catlass-dsl` and `9.1.0-950-ubuntu22.04-py3.11` for the current local CI
 image. The container keeps the image entrypoint, runs with `--privileged` and
 `--init`, and mounts only the source directory and these required driver paths:
 

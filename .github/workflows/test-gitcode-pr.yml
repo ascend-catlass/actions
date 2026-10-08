@@ -213,7 +213,7 @@ jobs:
         uses: ascend-catlass/actions/.github/actions/create-ascend-container@codex/test-gitcode-pr-container-1420
         with:
           image-repository: ascend-catlass-dsl
-          image-tag: 9.1.0-950-ubuntu22.04-py3.12
+          image-tag: 9.1.0-950-ubuntu22.04-py3.11
           name: ${{ env.RDV_CONTAINER }}
           worktree: ${{ steps.merge.outputs.worktree }}
 
