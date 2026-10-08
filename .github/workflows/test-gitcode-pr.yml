@@ -171,7 +171,11 @@ jobs:
                 change_type=non-code
                 ;;
 
-              python/tla_dsl/*)
+              # Include the DSL battery outside python/tla_dsl, without
+              # treating every file under tests/ as a DSL change.
+              python/tla_dsl/* | \
+              tests/run_dsl_test.sh | \
+              tests/dsl_battery/*)
                 change_type=dsl
                 run_dsl=true
                 ;;

@@ -11,6 +11,10 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   runners use their current environment; host runners create a disposable
   Ascend container and remove it after testing, including on failure or
   cancellation. Documentation-only PRs skip container creation and testing.
+  Code changes under `python/tla_dsl/`, `tests/run_dsl_test.sh`, or
+  `tests/dsl_battery/` trigger DSL tests; other code changes trigger non-DSL
+  tests. PRs touching both groups run both suites. Other files under `tests/`
+  do not trigger DSL tests.
 - `build-dsl-wheel.yml` is the reusable, build-only x86_64/aarch64 wheel
   workflow. Its `package_version` input accepts `dev` for an automatically
   derived nightly version or an exact stable version paired with its GitCode
