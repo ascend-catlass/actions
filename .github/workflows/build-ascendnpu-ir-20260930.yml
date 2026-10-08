@@ -157,11 +157,7 @@ jobs:
           git -C "${llvm_path}" fetch --quiet --depth 1 origin "${llvm_sha}"
           git -C "${llvm_path}" checkout --quiet --detach FETCH_HEAD
 
-          GIT_TRACE=1 \
-          GIT_TRACE_PACKET=1 \
-          GIT_TRACE_CURL=1 \
-          GIT_TRACE_CURL_NO_DATA=1 \
-            git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
+          git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
 
           source_sha=$(git -C "${WORK_PATH}" rev-parse HEAD)
           if [[ "${source_sha}" != "${NPUIR_REF}" ]]; then
