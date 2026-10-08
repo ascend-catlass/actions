@@ -398,10 +398,10 @@ jobs:
 
       - name: Debug login on failed ARM64 runner
         if: ${{ failure() && inputs.debug_login && matrix.target_arch == 'aarch64' }}
-        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
+        uses: lhotari/action-upterm@b0357f23233f5ea6d58947c0c402e0631bab7334
         with:
           limit-access-to-actor: true
-          install-dependencies: false
+          wait-timeout-minutes: 10
 
       - name: Clean up transient NPUIR resources
         if: ${{ always() }}
