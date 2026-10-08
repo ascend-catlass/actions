@@ -401,6 +401,7 @@ jobs:
         uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         with:
           limit-access-to-actor: true
+          install-dependencies: false
 
       - name: Clean up transient NPUIR resources
         if: ${{ always() }}
