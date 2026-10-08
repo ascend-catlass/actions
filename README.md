@@ -37,3 +37,11 @@ the NPU using `--privileged`, and mounts the host DCMI, `npu-smi`, driver librar
 driver version, and installation information read-only. Runtime dependencies
 come from the image; the workflow does not mount over `/root` or install or
 activate CANN, Conda, or AscendNPU-IR inside the container.
+
+Before either test suite, `prepare-ci-tests` installs the merged repository's
+root `requirements.txt` using `python3 -m pip`, then queries `npu-smi info -m`
+and `npu-smi info` inside the test environment. It selects the visible NPU with
+the fewest distinct processes (ties use the lowest logical ID) and passes its
+runtime index as `DEVICE_ID` to both suites and `--device` to the DSL suite.
+Unrecognized or incomplete device data fails preparation instead of selecting
+card 0. This is a snapshot of process occupancy, not a reservation of the NPU.

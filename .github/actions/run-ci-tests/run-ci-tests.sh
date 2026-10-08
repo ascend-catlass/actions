@@ -11,6 +11,11 @@ unset LD_PRELOAD FAKETIME FAKETIME_SHARED FAKETIME_DONT_FAKE_MONOTONIC
 
 # Hard timeout so any unknown hang cannot consume the full 90-minute platform limit.
 TEST_HARD_TIMEOUT=${TEST_HARD_TIMEOUT:-3600}
+export DEVICE_ID=${DEVICE_ID:-0}
+if [[ ! "${DEVICE_ID}" =~ ^[0-9]+$ ]]; then
+    echo "DEVICE_ID must be a nonnegative integer" >&2
+    exit 1
+fi
 
 if [[ ! -d "${RDV_WORKTREE}" ]]; then
     echo "CATLASS worktree does not exist: ${RDV_WORKTREE}" >&2
@@ -57,7 +62,7 @@ case "${CATLASS_TEST_SUITE}" in
         if [[ ! -f /.dockerenv ]]; then
             export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/workspace/AscendNPU-IR
         fi
-        timeout --signal=KILL "${TEST_HARD_TIMEOUT}" bash tests/run_dsl_test.sh --device 0
+        timeout --signal=KILL "${TEST_HARD_TIMEOUT}" bash tests/run_dsl_test.sh --device "${DEVICE_ID}"
         ;;
     all)
         timeout --signal=KILL "${TEST_HARD_TIMEOUT}" bash tests/run_all_test.sh 3510

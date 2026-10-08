@@ -217,6 +217,16 @@ jobs:
           name: ${{ env.RDV_CONTAINER }}
           worktree: ${{ steps.merge.outputs.worktree }}
 
+      - name: Prepare test dependencies and device
+        id: prepare_tests
+        if: >-
+          ${{ steps.merge.outputs.run_dsl == 'true' ||
+              steps.merge.outputs.run_all == 'true' }}
+        uses: ascend-catlass/actions/.github/actions/prepare-ci-tests@codex/test-gitcode-pr-container-1420
+        with:
+          worktree: ${{ steps.create_container.outputs.worktree }}
+          container: ${{ steps.create_container.outputs.container-name }}
+
       - name: Run DSL test stage
         if: ${{ steps.merge.outputs.run_dsl == 'true' }}
         uses: ascend-catlass/actions/.github/actions/run-ci-tests@codex/test-gitcode-pr-container-1420
@@ -224,18 +234,21 @@ jobs:
           suite: dsl
           worktree: ${{ steps.create_container.outputs.worktree }}
           container: ${{ steps.create_container.outputs.container-name }}
+          device-id: ${{ steps.prepare_tests.outputs.device-id }}
 
       - name: Run non-DSL test stage
         if: >-
           ${{ !cancelled() &&
               steps.merge.outcome == 'success' &&
               steps.create_container.outcome == 'success' &&
+              steps.prepare_tests.outcome == 'success' &&
               steps.merge.outputs.run_all == 'true' }}
         uses: ascend-catlass/actions/.github/actions/run-ci-tests@codex/test-gitcode-pr-container-1420
         with:
           suite: all
           worktree: ${{ steps.create_container.outputs.worktree }}
           container: ${{ steps.create_container.outputs.container-name }}
+          device-id: ${{ steps.prepare_tests.outputs.device-id }}
 
       - name: Delete test container
         if: ${{ always() && steps.create_container.outputs.container-name != '' }}
