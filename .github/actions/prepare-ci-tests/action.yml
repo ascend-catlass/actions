@@ -24,10 +24,10 @@ runs:
         set -euo pipefail
         if [[ ! -f /.dockerenv && -n "${RDV_CONTAINER}" ]]; then
           docker exec -i --workdir "${RDV_WORKTREE}" "${RDV_CONTAINER}" \
-            python3 - "${RDV_WORKTREE}" < "${GITHUB_ACTION_PATH}/install-requirements.py"
+            bash -s -- "${RDV_WORKTREE}" < "${GITHUB_ACTION_PATH}/install-requirements.sh"
         else
           cd "${RDV_WORKTREE}"
-          python3 "${GITHUB_ACTION_PATH}/install-requirements.py" "${RDV_WORKTREE}"
+          bash "${GITHUB_ACTION_PATH}/install-requirements.sh" "${RDV_WORKTREE}"
         fi
     - name: Select NPU with fewest processes
       id: device
