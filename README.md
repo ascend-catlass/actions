@@ -33,7 +33,7 @@ Release write access, and require a PyPI Trusted Publisher bound to the `pypi`
 environment and `release-dsl-wheel.yml`.
 
 Host PR runners require Docker and the local image
-`ascend-catlass-dsl:9.1.0-950-ubuntu22.04-py3.11`. The reusable
+`ascend-catlass-dsl:9.1.0-950-ubuntu22.04-py3.12`. The reusable
 [`create-ascend-container`](.github/actions/create-ascend-container/README.md)
 action accepts the image repository, tag, container name, and source mapping
 as inputs. It mounts the merged worktree at `/workspace/catlass`, passes through

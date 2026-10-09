@@ -217,7 +217,7 @@ jobs:
         uses: ascend-catlass/actions/.github/actions/create-ascend-container@main
         with:
           image-repository: ascend-catlass-dsl
-          image-tag: 9.1.0-950-ubuntu22.04-py3.11
+          image-tag: 9.1.0-950-ubuntu22.04-py3.12
           name: ${{ env.RDV_CONTAINER }}
           worktree: ${{ steps.merge.outputs.worktree }}
 
