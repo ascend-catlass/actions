@@ -48,7 +48,7 @@ come from the image; the workflow does not mount over `/root` or install or
 activate CANN, Conda, or AscendNPU-IR inside the container.
 
 Before either test suite, `prepare-ci-tests` downloads CPU Torch `2.9.0+cpu`
-and Torch NPU `2.9.0` for the active Linux CPython version (3.10-3.12) and CPU
+and Torch NPU `2.9.0.post8` for the active Linux CPython version (3.10-3.12) and CPU
 architecture (x86_64/aarch64), then uninstalls the existing pair and installs
 the downloaded wheels. Torch wheels come from the Nanjing University PyTorch
 mirror; Torch NPU and other dependencies use its PyPI mirror. It then installs

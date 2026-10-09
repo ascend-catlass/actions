@@ -33,13 +33,13 @@ filtered_requirements="$(mktemp "${PWD}/.ci-requirements-XXXXXX")"
 awk 'tolower($0) !~ /^[[:space:]]*torch[[:alnum:]_.-]*(\[|[[:space:]<>=!~@;]|$)/' \
     requirements.txt > "${filtered_requirements}"
 constraints="${download_dir}/constraints.txt"
-printf '%s\n' 'torch==2.9.0+cpu' 'torch-npu==2.9.0' > "${constraints}"
+printf '%s\n' 'torch==2.9.0+cpu' 'torch-npu==2.9.0.post8' > "${constraints}"
 
 # Download the matching pair before removing the installed packages.
 echo "Installing CPU Torch from ${torch_wheel}"
 python3 -m pip download --no-deps --only-binary=:all: \
     --index-url "${pypi_mirror}" --dest "${download_dir}" \
-    "${torch_wheel}" torch-npu==2.9.0
+    "${torch_wheel}" torch-npu==2.9.0.post8
 shopt -s nullglob
 wheels=("${download_dir}"/*.whl)
 [[ ${#wheels[@]} == 2 ]] || { echo "Expected two Torch wheels" >&2; exit 1; }
@@ -53,6 +53,6 @@ from importlib.metadata import version
 
 assert torch.__version__ == "2.9.0+cpu", torch.__version__
 assert torch.version.cuda is None, torch.version.cuda
-assert version("torch-npu") == "2.9.0", version("torch-npu")
-print("Verified torch=2.9.0+cpu, torch-npu=2.9.0, CUDA=None")
+assert version("torch-npu") == "2.9.0.post8", version("torch-npu")
+print("Verified torch=2.9.0+cpu, torch-npu=2.9.0.post8, CUDA=None")
 PY

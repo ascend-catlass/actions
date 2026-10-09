@@ -25,7 +25,7 @@ for ((i=1; i<=$#; i++)); do
     case "${arg}" in
         --dest) dest="${!next}" ;;
         -r) cp "${!next}" "${TEST_FILTERED}" ;;
-        -c) diff "${!next}" <(printf '%s\n' 'torch==2.9.0+cpu' 'torch-npu==2.9.0') ;;
+        -c) diff "${!next}" <(printf '%s\n' 'torch==2.9.0+cpu' 'torch-npu==2.9.0.post8') ;;
     esac
 done
 if [[ "$3" == download ]]; then
