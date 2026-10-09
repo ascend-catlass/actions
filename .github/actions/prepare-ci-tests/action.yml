@@ -1,5 +1,5 @@
 name: Prepare CATLASS CI tests
-description: Install non-Torch repository requirements and select the NPU with the fewest processes
+description: Install CPU Torch, repository requirements and select the NPU with the fewest processes
 inputs:
   worktree:
     description: Source path in the test environment
@@ -15,7 +15,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Install root requirements.txt excluding Torch packages
+    - name: Install CPU Torch and root requirements.txt
       shell: bash
       env:
         RDV_WORKTREE: ${{ inputs.worktree }}
