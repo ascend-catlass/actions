@@ -65,7 +65,8 @@ case "${CATLASS_TEST_SUITE}" in
         timeout --signal=KILL "${TEST_HARD_TIMEOUT}" bash tests/run_dsl_test.sh --device "${DEVICE_ID}"
         ;;
     all)
-        timeout --signal=KILL "${TEST_HARD_TIMEOUT}" bash tests/run_all_test.sh 3510
+        timeout --signal=KILL "${TEST_HARD_TIMEOUT}" \
+            bash "${RDV_ACTION_PATH:-$(dirname "${BASH_SOURCE[0]}")}/run-targeted-tests.sh"
         ;;
     *)
         echo "suite must be dsl or all" >&2

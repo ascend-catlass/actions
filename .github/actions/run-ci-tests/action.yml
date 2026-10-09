@@ -16,6 +16,12 @@ inputs:
     description: Runtime device index selected before testing
     required: false
     default: '0'
+  base-sha:
+    description: PR target commit for selective non-DSL tests (empty uses full tests)
+    default: ''
+  head-sha:
+    description: PR head commit for selective non-DSL tests
+    default: ''
 
 runs:
   using: composite
@@ -27,15 +33,22 @@ runs:
         RDV_WORKTREE: ${{ inputs.worktree }}
         RDV_CONTAINER: ${{ inputs.container }}
         DEVICE_ID: ${{ inputs.device-id }}
+        RDV_BASE_SHA: ${{ inputs.base-sha }}
+        RDV_HEAD_SHA: ${{ inputs.head-sha }}
+        RDV_ACTION_PATH: ${{ github.action_path }}
       run: |
         if [[ -f /.dockerenv ]]; then
           bash "${GITHUB_ACTION_PATH}/run-ci-tests.sh"
         elif [[ -n "${RDV_CONTAINER}" ]]; then
+          docker cp "${GITHUB_ACTION_PATH}/." "${RDV_CONTAINER}:/tmp/catlass-ci-tests"
           docker exec -i \
             --env "CATLASS_TEST_SUITE=${CATLASS_TEST_SUITE}" \
             --env "RDV_WORKTREE=${RDV_WORKTREE}" \
             --env "DEVICE_ID=${DEVICE_ID}" \
-            "${RDV_CONTAINER}" bash -s < "${GITHUB_ACTION_PATH}/run-ci-tests.sh"
+            --env "RDV_BASE_SHA=${RDV_BASE_SHA}" \
+            --env "RDV_HEAD_SHA=${RDV_HEAD_SHA}" \
+            --env RDV_ACTION_PATH=/tmp/catlass-ci-tests \
+            "${RDV_CONTAINER}" bash /tmp/catlass-ci-tests/run-ci-tests.sh
         else
           bash "${GITHUB_ACTION_PATH}/run-ci-tests.sh"
         fi

@@ -15,6 +15,11 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   `tests/dsl_battery/` trigger DSL tests; other code changes trigger non-DSL
   tests. PRs touching both groups run both suites. Other files under `tests/`
   do not trigger DSL tests.
+  Non-DSL tests use the main CATLASS CI's reverse header dependency selector to
+  run affected examples and trigger the corresponding test groups on Ascend 950.
+  Selective runs omit the duplicate all-example compilation. Unknown/shared
+  changes fall back to the full 3510 suite. See the
+  [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
 - `build-dsl-wheel.yml` is the reusable, build-only x86_64/aarch64 wheel
   workflow. Its `package_version` input accepts `dev` for an automatically
   derived nightly version or an exact stable version paired with its GitCode
