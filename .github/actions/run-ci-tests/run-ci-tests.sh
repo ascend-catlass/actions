@@ -57,6 +57,11 @@ if [[ ! -f /.dockerenv ]]; then
 fi
 
 cd "${RDV_WORKTREE}"
+# The host-owned checkout is mounted into a container running as another user.
+# Trust this checkout for all Git commands launched by the test scripts.
+if [[ -f /.dockerenv ]]; then
+    git config --global --add safe.directory "${PWD}"
+fi
 case "${CATLASS_TEST_SUITE}" in
     dsl)
         if [[ ! -f /.dockerenv ]]; then
