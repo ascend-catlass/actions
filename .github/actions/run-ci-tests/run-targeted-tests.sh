@@ -99,15 +99,8 @@ if [[ "${unittest}" == true ]]; then
     run_test ./build/tests/unittest/catlass_unittest_3510
 fi
 if [[ "${examples_all}" == true ]]; then
-    run_test bash scripts/build.sh -DCATLASS_ARCH=3510 catlass_examples
     run_test python3 -m pytest -v tests/test_example.py
 elif [[ ${#cases[@]} -gt 0 ]]; then
-    # Handwritten tests such as 62 run gen_data_compare.py directly instead of
-    # using pytest's run_case build helper. Install every selected executable
-    # first; do not clean between targets and remove previously built binaries.
-    while IFS= read -r case_name; do
-        run_test bash scripts/build.sh -DCATLASS_ARCH=3510 "${case_name}"
-    done < <(printf '%s\n' "${cases[@]}" | sort -u)
     # Numeric prefixes include handwritten variants whose names differ from directories.
     filter=""
     while IFS= read -r case_name; do

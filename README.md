@@ -17,8 +17,8 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   do not trigger DSL tests.
   Non-DSL tests use the main CATLASS CI's reverse header dependency selector to
   run affected examples and trigger the corresponding test groups on Ascend 950.
-  Selective runs build the affected example executables before testing and omit
-  all-example compilation. The optest wheel and runtime tests use Ascend 950.
+  Example tests incrementally build their own targets; the action does not
+  prebuild examples. The optest wheel and runtime tests use Ascend 950.
   Unknown/shared
   changes fall back to the full 3510 suite. See the
   [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
