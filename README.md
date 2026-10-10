@@ -14,6 +14,9 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   scheduling Ascend 950 work. Documentation-only PRs finish successfully there
   and skip the Ascend 950 job entirely. Environment preparation and DSL/non-DSL
   tests run only on the Ascend 950 runner.
+  Each job uses the target branch it fetches; target updates do not abort the
+  run. The Ascend 950 job merges the PR into that target and fails on conflicts.
+  Selective non-DSL tests use the actual pre-merge target SHA.
   Code changes under `python/tla_dsl/`, `tests/run_dsl_test.sh`, or
   `tests/dsl_battery/` trigger DSL tests; other code changes trigger non-DSL
   tests. PRs touching both groups run both suites. Other files under `tests/`
