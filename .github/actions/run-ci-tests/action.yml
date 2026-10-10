@@ -17,7 +17,7 @@ inputs:
     required: false
     default: '0'
   base-sha:
-    description: PR target commit for selective non-DSL tests (empty uses full tests)
+    description: PR target commit required for selective non-DSL tests
     default: ''
   head-sha:
     description: PR head commit for selective non-DSL tests

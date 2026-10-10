@@ -10,7 +10,10 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   `ascend950` runner. It checks `/.dockerenv` before other job steps: container
   runners use their current environment; host runners create a disposable
   Ascend container and remove it after testing, including on failure or
-  cancellation. Documentation-only PRs skip container creation and testing.
+  cancellation. PR changes are classified on a GitHub-hosted runner before
+  scheduling Ascend 950 work. Documentation-only PRs finish successfully there
+  and skip the Ascend 950 job entirely. Environment preparation and DSL/non-DSL
+  tests run only on the Ascend 950 runner.
   Code changes under `python/tla_dsl/`, `tests/run_dsl_test.sh`, or
   `tests/dsl_battery/` trigger DSL tests; other code changes trigger non-DSL
   tests. PRs touching both groups run both suites. Other files under `tests/`
@@ -19,8 +22,9 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   run affected examples and trigger the corresponding test groups on Ascend 950.
   Example tests incrementally build their own targets; the action does not
   prebuild examples. The optest wheel and runtime tests use Ascend 950.
-  Unknown/shared
-  changes fall back to the full 3510 suite. See the
+  Selection follows GitCode pre_smoke: unrelated paths do not force a full
+  suite, and the unsupported tuner group is skipped on Ascend 950. Only
+  explicitly shared build/test dependencies require the full 3510 suite. See the
   [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
 - `build-dsl-wheel.yml` is the reusable, build-only x86_64/aarch64 wheel
   workflow. Its `package_version` input accepts `dev` for an automatically
