@@ -37,8 +37,11 @@ mkdir -p "$downloads"
 mirror=https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-mirror/software/master
 for package in toolkit "$chip-ops"; do
   file="Ascend-cann-${package}_${version}_linux-${cpu}.run"
-  curl -fSL --proto '=https' --proto-redir '=https' --retry 4 --connect-timeout 30 --max-time 3600 \
-    "$mirror/$build/$file" -o "$downloads/$file"
+  if [[ ! -f "$downloads/$file" ]]; then
+    curl -fSL --proto '=https' --proto-redir '=https' --retry 4 --connect-timeout 30 --max-time 3600 \
+      "$mirror/$build/$file" -o "$downloads/$file.part"
+    mv "$downloads/$file.part" "$downloads/$file"
+  fi
   bash "$downloads/$file" --check
 done
 mkdir -p "$target" "$downloads/extract"
