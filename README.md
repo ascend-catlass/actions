@@ -4,6 +4,28 @@ Shared GitHub Actions automation for the `ascend-catlass` organization.
 
 The workflows in `.github/workflows/` run from this repository's `main` branch:
 
+- `install-cann-weekly.yml` scans the official CANN `software/master/` mirror
+  daily at 02:00 Asia/Shanghai (18:00 UTC), or on manual dispatch. One pinned
+  build and version are used by the two host workers selected with `self-hosted`, `Linux`,
+  `bz`, and `X64`/`ARM64`. The worker detects its actual CPU and NPU chip family
+  using `uname -m` and `lspci`: `d802` selects 910b, `d803` selects A3 and
+  `d806` selects 950. It installs Toolkit plus matching ops into `/opt/cann_weekly/YYYYMMDD`, where
+  the date comes from the mirror and package version. Root or passwordless
+  `sudo` is required, along with curl, bash and pciutils.
+  Driver, firmware and CANN's normal installation dependencies are prerequisites.
+  Completed installations are skipped; failed managed attempts
+  can be retried without overwriting a completed date. A single visible
+  `installed-version.txt` records a successful installation.
+  `/opt/cann_weekly/latest` points to the completed date directory and is
+  refreshed after installation or when an already-installed build is reused.
+  Conflicting builds on the same date and unknown PCI IDs fail explicitly. One worker's failure
+  does not cancel the other. Installation logs are kept as
+  workflow artifacts for 30 days. Historical installations and downloaded
+  packages are retained locally. See the
+  [design and operational limits](docs/plans/2026-10-13-cann-weekly-design.md).
+  Select a completed version by sourcing its actual environment script, e.g.
+  `/opt/cann_weekly/20261009/cann/set_env.sh` for the current package layout;
+  the installer also accepts `ascend-toolkit/set_env.sh` layouts.
 - `sync-gitcode.yml` mirrors GitCode `master` and tags to
   `ascend-catlass/catlass` every day or on manual dispatch.
 - `test-gitcode-pr.yml` manually validates a GitCode pull request on the

@@ -1,0 +1,92 @@
+name: Install CANN weekly on bz hosts
+
+on:
+  # Temporary trigger for the initial two-host installation verification.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/install-cann-weekly.yml
+      - scripts/install-cann-weekly.sh
+  schedule:
+    # Daily 02:00 Asia/Shanghai; GitHub schedules use UTC.
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: install-cann-weekly
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      build: ${{ steps.weekly.outputs.build }}
+      version: ${{ steps.weekly.outputs.version }}
+    steps:
+      - name: Pin the latest master build for both hosts
+        id: weekly
+        shell: bash
+        run: |
+          set -euo pipefail
+          mirror=https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-mirror/software/master
+          index=$(curl -fsSL --retry 3 --connect-timeout 30 --max-time 120 "$mirror/")
+          build=$(printf '%s\n' "$index" | sed -nE 's/.*href="([0-9]{17})\/".*/\1/p' | sort -r | sed -n '1p')
+          [[ "$build" =~ ^[0-9]{17}$ ]]
+          packages=$(curl -fsSL --retry 3 --connect-timeout 30 --max-time 120 "$mirror/$build/")
+          versions=$(printf '%s\n' "$packages" | grep -oE 'Ascend-cann-toolkit_[0-9]+\.[0-9]+\.[0-9]+~weekly\.[0-9]{8}\.[0-9]+_linux-x86_64\.run' | sort -u)
+          [[ $(printf '%s\n' "$versions" | wc -l) == 1 ]]
+          version=${versions#Ascend-cann-toolkit_}
+          version=${version%_linux-x86_64.run}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+~weekly\.([0-9]{8})\.[0-9]+$ ]]
+          [[ "${BASH_REMATCH[1]}" == "${build:0:8}" ]]
+          for cpu in x86_64 aarch64; do
+            for package in toolkit 910b-ops 950-ops A3-ops; do
+              grep -Fq "href=\"Ascend-cann-${package}_${version}_linux-${cpu}.run\"" <<< "$packages"
+            done
+          done
+          printf 'build=%s\nversion=%s\n' "$build" "$version" >> "$GITHUB_OUTPUT"
+          printf 'CANN %s, mirror build %s\n' "$version" "$build" >> "$GITHUB_STEP_SUMMARY"
+
+  install:
+    needs: resolve
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cpu: x86_64
+            runner_arch: X64
+          - cpu: aarch64
+            runner_arch: ARM64
+    runs-on: [self-hosted, Linux, bz, "${{ matrix.runner_arch }}"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install only if this build is missing on the host
+        shell: bash
+        env:
+          WEEKLY_BUILD: ${{ needs.resolve.outputs.build }}
+          WEEKLY_VERSION: ${{ needs.resolve.outputs.version }}
+          EXPECTED_CPU: ${{ matrix.cpu }}
+        run: |
+          set -euo pipefail
+          mkdir -p weekly-logs
+          args=(scripts/install-cann-weekly.sh "$WEEKLY_BUILD" "$WEEKLY_VERSION" "$EXPECTED_CPU")
+          if [[ $(id -u) == 0 ]]; then
+            bash "${args[@]}" 2>&1 | tee weekly-logs/install.log
+          else
+            sudo -n bash "${args[@]}" 2>&1 | tee weekly-logs/install.log
+          fi
+          tail -n 1 weekly-logs/install.log >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cann-weekly-${{ matrix.cpu }}-${{ github.run_attempt }}
+          path: weekly-logs/
+          if-no-files-found: warn
+          retention-days: 30
