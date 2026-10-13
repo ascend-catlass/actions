@@ -1,4 +1,4 @@
-name: Build AscendNPU-IR 20260930
+name: Build AscendNPU-IR 20261013
 
 on:
   workflow_call:
@@ -44,15 +44,16 @@ on:
         required: true
         default: 64
         type: number
-run-name: NPUIR 20260930 · ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }} · x86_64 + aarch64
+run-name: NPUIR 20261013 · ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }} · x86_64 + aarch64
 
 permissions:
   contents: read
 
 env:
+  NPUIR_ARCHIVE_ROOT: /opt/AscendNPU-IR
   NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
   NPUIR_BUILD_CONTRACT: clang19-lld19-release-rtti-assert-triton-zstd-off-v1
-  NPUIR_BASELINE_DATE: "20260930"
+  NPUIR_BASELINE_DATE: "20261013"
   NPUIR_LEGACY_POSTFIX: "20260930"
 
 concurrency:
@@ -100,6 +101,7 @@ jobs:
         uses: ./.github/actions/npuir-local-archive
         with:
           operation: lookup
+          archive_root: ${{ env.NPUIR_ARCHIVE_ROOT }}
           source_sha: ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }}
           target_arch: ${{ env.NPUIR_TARGET_ARCH }}
           build_contract: ${{ env.NPUIR_BUILD_CONTRACT }}
@@ -310,6 +312,7 @@ jobs:
         uses: ./.github/actions/npuir-local-archive
         with:
           operation: publish
+          archive_root: ${{ env.NPUIR_ARCHIVE_ROOT }}
           source_sha: ${{ steps.source.outputs.source_sha }}
           target_arch: ${{ env.NPUIR_TARGET_ARCH }}
           build_contract: ${{ env.NPUIR_BUILD_CONTRACT }}
@@ -358,8 +361,9 @@ jobs:
             echo "- Baseline date: ${BASELINE_DATE}"
             echo "- Build fingerprint: ${NPUIR_BUILD_FINGERPRINT}"
             echo "- Path: ${NPUIR_PATH}"
+            echo "- Latest: ${NPUIR_ARCHIVE_ROOT}/latest (advances only to a newer date)"
             echo "- Reused existing archive: ${CACHE_HIT}"
-            echo "- Used transitional dated archive: ${LEGACY_CACHE_HIT}"
+            echo "- Migrated runner-local archive: ${LEGACY_CACHE_HIT}"
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Clean up transient NPUIR resources

@@ -46,6 +46,58 @@ secrets. Stable releases use the existing `GITCODE_TOKEN`, which must have
 Release write access, and require a PyPI Trusted Publisher bound to the `pypi`
 environment and `release-dsl-wheel.yml`.
 
+NPUIR builds on each publish worker share complete source/build/install trees at
+`/opt/AscendNPU-IR/<YYYYMMDD>/AscendNPU-IR`. The date is the workflow's
+`NPUIR_BASELINE_DATE` (currently `20260720` or `20261013`), not the run date.
+The archive action provisions the root with passwordless `sudo` when necessary;
+the runner account must have write access to it. Published trees grant all local
+users read and directory traversal access, preserving executable bits.
+Each worker stores its native CPU architecture; dates cannot be reused for a
+different commit, architecture, or build contract.
+
+`/opt/AscendNPU-IR/latest` points directly to the completed
+`<YYYYMMDD>/AscendNPU-IR` tree. Publication and cache reuse create this link if
+missing and advance it only for a strictly newer date. A worker-local file lock
+serializes the date comparison and atomic symlink replacement. Failed builds
+remain under `.building-*` for inspection and never become `latest`.
+Validated archives from the previous runner-local `_npuir-pipeline` directory
+are copied into the shared layout when requested; originals remain available
+to existing consumers. Wheel builds continue selecting the exact dated archive
+and validating its gitlink and build contract.
+
+To migrate a previously completed cache manually, run as the CI runner account
+from an updated checkout of this repository on each build worker:
+
+Alternatively, dispatch `migrate-npuir-cache.yml` with version `20261013`
+(default) or `20260720`. It migrates on both the x86_64 and aarch64 publish
+workers using their existing cache location next to `RUNNER_TEMP`. A missing
+matching cache fails that worker's job; the migration workflow never compiles.
+
+```bash
+bash scripts/migrate-npuir-cache.sh /path/to/runner/_work/_npuir-pipeline
+```
+
+The default migrates commit `693abf31f3d88d13d30d9578fcf6513b90c0ee33`
+to version `20261013`, accepting both the old content-keyed cache and the legacy
+`20260930` cache. It validates the build, copies the complete tree, fixes submodule
+Git paths, preserves original build provenance, and updates `latest` under the
+same lock used by CI. The original cache remains intact. Missing or conflicting
+caches fail without starting a compilation. For the older version:
+
+```bash
+bash scripts/migrate-npuir-cache.sh /path/to/runner/_work/_npuir-pipeline \
+  20260720 a07821269ede7a5e683ac02c8a2d291608083741 20260720
+```
+
+Local users can select the default installation with:
+
+```bash
+export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR/latest
+export CATLASS_DSL_ASCENDNPU_IR_ROOT=/opt/AscendNPU-IR/latest
+export CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=/opt/AscendNPU-IR/latest/build/install
+export PATH=/opt/AscendNPU-IR/latest/build/install/bin:$PATH
+```
+
 Host PR runners require Docker and the local image
 `ascend-catlass-dsl:9.1.0-950-ubuntu22.04-py3.12`. The reusable
 [`create-ascend-container`](.github/actions/create-ascend-container/README.md)

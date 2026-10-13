@@ -43,6 +43,7 @@ run-name: Build ascend-catlass-dsl ${{ inputs.package_version || 'dev' }} from $
 
 env:
   CANN_ROOT: /usr/local/Ascend/cann-9.1.0
+  NPUIR_ARCHIVE_ROOT: /opt/AscendNPU-IR
   NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
   NPUIR_BUILD_CONTRACT: clang19-lld19-release-rtti-assert-triton-zstd-off-v1
   NPUIR_BASELINE_DATE: "20260720"
@@ -253,6 +254,7 @@ jobs:
         uses: ./.github/actions/npuir-local-archive
         with:
           operation: lookup
+          archive_root: ${{ env.NPUIR_ARCHIVE_ROOT }}
           source_sha: ${{ steps.source.outputs.npuir_sha }}
           target_arch: ${{ env.NPUIR_TARGET_ARCH }}
           build_contract: ${{ env.NPUIR_BUILD_CONTRACT }}
@@ -419,7 +421,7 @@ jobs:
             echo "- Build contract: ${NPUIR_BUILD_CONTRACT}"
             echo "- Baseline date: ${NPUIR_ARCHIVE_BASELINE_DATE}"
             echo "- Reused existing NPUIR: ${NPUIR_CACHE_HIT}"
-            echo "- Used transitional dated archive: ${NPUIR_LEGACY_CACHE_HIT}"
+            echo "- Migrated runner-local archive: ${NPUIR_LEGACY_CACHE_HIT}"
             echo "- Wheels: ${wheel_files}"
           } > "${npuir_notes}"
 
