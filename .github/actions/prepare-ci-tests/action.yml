@@ -1,5 +1,5 @@
 name: Prepare CATLASS CI tests
-description: Install CPU Torch, repository requirements and select the NPU with the fewest processes
+description: Use image dependencies and select the NPU with the fewest processes
 inputs:
   worktree:
     description: Source path in the test environment
@@ -15,20 +15,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Install CPU Torch and root requirements.txt
-      shell: bash
-      env:
-        RDV_WORKTREE: ${{ inputs.worktree }}
-        RDV_CONTAINER: ${{ inputs.container }}
-      run: |
-        set -euo pipefail
-        if [[ ! -f /.dockerenv && -n "${RDV_CONTAINER}" ]]; then
-          docker exec -i --workdir "${RDV_WORKTREE}" "${RDV_CONTAINER}" \
-            bash -s -- "${RDV_WORKTREE}" < "${GITHUB_ACTION_PATH}/install-requirements.sh"
-        else
-          cd "${RDV_WORKTREE}"
-          bash "${GITHUB_ACTION_PATH}/install-requirements.sh" "${RDV_WORKTREE}"
-        fi
     - name: Select NPU with fewest processes
       id: device
       shell: bash

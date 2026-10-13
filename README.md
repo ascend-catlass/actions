@@ -141,15 +141,8 @@ driver version, and installation information read-only. Runtime dependencies
 come from the image; the workflow does not mount over `/root` or install or
 activate CANN, Conda, or AscendNPU-IR inside the container.
 
-Before either test suite, `prepare-ci-tests` downloads CPU Torch `2.9.0+cpu`
-and Torch NPU `2.9.0.post8` for the active Linux CPython version (3.10-3.12) and CPU
-architecture (x86_64/aarch64), then uninstalls the existing pair and installs
-the downloaded wheels. Torch wheels come from the Nanjing University PyTorch
-mirror; Torch NPU and other dependencies use its PyPI mirror. It then installs
-the merged repository's root `requirements.txt`, excluding Torch-prefixed
-packages and constraining both Torch versions against dependency upgrades.
-The step verifies the installed versions and that CUDA support is absent,
-then runs the vendored
+Test dependencies, including Torch and Torch NPU, come from the image.
+`prepare-ci-tests` does not run pip or replace packages; it only runs the vendored
 [`detect_npu.sh`](.github/actions/prepare-ci-tests/detect_npu.sh) from
 MinghuasLab/flash-attention-npu inside the test environment. The upstream
 selector supports 910B and 950 tables and sorts eligible cards by process count,
