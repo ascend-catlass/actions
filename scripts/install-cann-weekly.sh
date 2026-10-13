@@ -55,10 +55,12 @@ done
   set +u
   source "$env_file"
   set -u
-  [[ "$ASCEND_HOME_PATH" == "$target/"* && "$ASCEND_OPP_PATH" == "$target/"* ]]
-  [[ -d "$ASCEND_OPP_PATH" && $(command -v bisheng) == "$target/"* ]]
+  actual_target=$(readlink -f "$target")
+  echo "CANN home: $ASCEND_HOME_PATH; OPP: $ASCEND_OPP_PATH"
+  [[ $(readlink -f "$ASCEND_HOME_PATH") == "$actual_target/"* && $(readlink -f "$ASCEND_OPP_PATH") == "$actual_target/"* ]]
+  [[ -d "$ASCEND_OPP_PATH" && $(readlink -f "$(command -v bisheng)") == "$actual_target/"* ]]
   bisheng --version
 )
 printf '%s\n' "$stamp" > "$target/installed-version.txt"
 ln -sfnT "$target" "$root/latest"
-echo "Installed: $target ($version, $cpu, $chip)"
+echo "Installed: $target ($version, $cpu, $chip); latest -> $(readlink "$root/latest")"
