@@ -151,3 +151,8 @@ process count <4. The selected card is passed as `DEVICE_ID` to both suites and
 `--device` to the DSL suite. No candidate fails preparation. Selection is a
 snapshot, not an NPU reservation. The upstream source and BSD license are
 recorded alongside the vendored script.
+
+Before container tests, the action registers the mounted checkout and submodule
+paths from `.gitmodules` as Git safe directories, including uninitialized
+submodules such as googletest. Existing nested submodules are handled recursively.
+Paths outside the checkout are rejected; repeated stages do not duplicate entries.

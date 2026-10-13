@@ -58,9 +58,9 @@ fi
 
 cd "${RDV_WORKTREE}"
 # The host-owned checkout is mounted into a container running as another user.
-# Trust this checkout for all Git commands launched by the test scripts.
+# Trust the checkout and declared submodules before any build initializes them.
 if [[ -f /.dockerenv ]]; then
-    git config --global --add safe.directory "${PWD}"
+    bash "${RDV_ACTION_PATH:-$(dirname "${BASH_SOURCE[0]}")}/trust-checkout.sh" "${PWD}"
 fi
 case "${CATLASS_TEST_SUITE}" in
     dsl-dev | dsl-ir | dsl-lit)
