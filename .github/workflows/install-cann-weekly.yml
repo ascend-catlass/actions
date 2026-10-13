@@ -1,12 +1,6 @@
 name: Install CANN weekly on bz hosts
 
 on:
-  # Temporary trigger for the initial two-host installation verification.
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/install-cann-weekly.yml
-      - scripts/install-cann-weekly.sh
   schedule:
     # Daily 02:00 Asia/Shanghai; GitHub schedules use UTC.
     - cron: "0 18 * * *"

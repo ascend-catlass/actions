@@ -18,6 +18,8 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   `installed-version.txt` records a successful installation.
   `/opt/cann_weekly/latest` points to the completed date directory and is
   refreshed after installation or when an already-installed build is reused.
+  Existing host `/opt` symlinks are supported; installation arguments and the
+  `latest` link retain the `/opt/cann_weekly` path.
   Conflicting builds on the same date and unknown PCI IDs fail explicitly. One worker's failure
   does not cancel the other. Installation logs are kept as
   workflow artifacts for 30 days. Historical installations and downloaded

@@ -26,6 +26,8 @@ Actions 并发组防止本流水线重叠运行。只有全部包安装成功、
 
 安装成功后更新 `/opt/cann_weekly/latest` 软链接，指向该日期目录；扫描到同构建已经成功安装时也刷新该链接。安装失败时不更新链接。
 
+保留两台 host 现有的 `/opt` 软链接，不修改存储布局。安装参数与 latest 路径始终使用 `/opt/cann_weekly`；验证环境时比较解析后的真实路径，兼容安装器在日志中显示 `/home/opt`。
+
 本地检查 workflow YAML、全部内嵌 shell 和安装脚本语法，并使用真实镜像验证版本解析。真实 host 权限、软件安装器对系统登记信息的影响及与已有 CANN 共存行为，由 Actions 首跑确认。只有进入仓库默认分支后，定时触发才会生效。
 
 参考：[官方 master 镜像](https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-mirror/software/master/)、[用户指定的快速安装页](https://www.hiascend.com/cann/download?versionId=801&ids=d806%2Ch0501%2Ch0601%2Ch0703&currentTab=1)。2026-10-13 查到的构建是 `20261009000323778`，包版本 `9.3.0~weekly.20261009.01`，应安装到 `/opt/cann_weekly/20261009`。

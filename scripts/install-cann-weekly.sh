@@ -27,7 +27,7 @@ if [[ -f "$target/installed-version.txt" ]]; then
   [[ $(cat "$target/installed-version.txt") == "$stamp" ]] || { echo 'Conflicting build in this date directory' >&2; exit 1; }
   [[ -f "$target/cann/set_env.sh" || -f "$target/ascend-toolkit/set_env.sh" ]]
   ln -sfnT "$target" "$root/latest"
-  echo "Already installed: $target ($version)"
+  echo "Already installed: $target ($version); latest -> $(readlink "$root/latest")"
   exit 0
 fi
 retry=()
