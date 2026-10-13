@@ -55,9 +55,9 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
 - `test-gitcode-pr-cann-9-2-beta-2.yml` uses the CANN 9.2.0 beta.2 image.
   DSL changes first build in dev mode and run the upstream IR pytest suite and
-  `check-tla-lit` target, sharing that build. The dev stage installs Lit
-  from the image's AscendNPU-IR LLVM source and configures CMake
-  to use its `lit.py`, avoiding a mismatched Lit from the package index.
+  `check-tla-lit` target, sharing that build. The dev stage temporarily installs
+  Lit from the package index without a version pin; the image's LLVM Lit source
+  installation will replace this later.
   The existing Release wheel build and device battery run afterwards.
   Test failures do not suppress the other
   suites, and any failure still fails the job; a failed dev build skips its
