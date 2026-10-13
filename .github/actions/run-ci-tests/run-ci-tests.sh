@@ -25,8 +25,12 @@ fi
 # The CI image supplies its own runtime environment. Keep the existing setup
 # only for callers that intentionally run this shared action on the host.
 if [[ ! -f /.dockerenv ]]; then
-    CANN_VERSION="9.1.0"
-    if [[ -f /workspace/Ascend/${CANN_VERSION}/cann/set_env.sh ]]; then
+    CANN_VERSION="9.2.0-beta.2"
+    if [[ -n "${ASCEND_HOME_PATH:-}" && -f "${ASCEND_HOME_PATH}/set_env.sh" ]]; then
+        cann_env="${ASCEND_HOME_PATH}/set_env.sh"
+    elif [[ -f /usr/local/Ascend/cann-${CANN_VERSION}/set_env.sh ]]; then
+        cann_env="/usr/local/Ascend/cann-${CANN_VERSION}/set_env.sh"
+    elif [[ -f /workspace/Ascend/${CANN_VERSION}/cann/set_env.sh ]]; then
         cann_env=/workspace/Ascend/${CANN_VERSION}/cann/set_env.sh
     elif [[ -f /workspace/Ascend/cann/set_env.sh ]]; then
         cann_env=/workspace/Ascend/cann/set_env.sh

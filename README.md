@@ -53,7 +53,9 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   suite, and the unsupported tuner group is skipped on Ascend 950. Only
   explicitly shared build/test dependencies require the full 3510 suite. See the
   [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
-- `test-gitcode-pr-cann-9-2-beta-2.yml` uses the CANN 9.2.0 beta.2 image.
+- Both `test-gitcode-pr.yml` and `test-gitcode-pr-cann-9-2-beta-2.yml` use the
+  CANN 9.2.0 beta.2 image and the same test stages. The latter remains available
+  as the version-named manual entrypoint.
   DSL changes first build in dev mode and run the upstream IR pytest suite and
   `check-tla-lit` target, sharing that build. The dev stage temporarily installs
   Lit from the package index without a version pin; the image's LLVM Lit source
@@ -61,11 +63,15 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   The existing Release wheel build and device battery run afterwards.
   Test failures do not suppress the other
   suites, and any failure still fails the job; a failed dev build skips its
-  dependent suites. The original 9.1.0 workflow keeps its existing stages.
+  dependent suites.
 - `build-dsl-wheel.yml` is the reusable, build-only x86_64/aarch64 wheel
   workflow. Its `package_version` input accepts `dev` for an automatically
   derived nightly version or an exact stable version paired with its GitCode
   `vMAJOR.MINOR.PATCH` tag.
+  All manual, nightly and release wheel builds use host CANN 9.2.0 beta.2
+  (`/usr/local/Ascend/cann-9.2.0-beta.2`) and the `20261013` NPUIR preparation
+  workflow/archive baseline. NPUIR source revisions still follow the selected
+  CATLASS commit's exact gitlink, including builds of older release tags.
 - `nightly-dsl-wheel.yml` runs the build workflow every day at 01:00
   Asia/Shanghai and publishes the validated wheels to the GitHub Release-backed
   package index.
@@ -132,7 +138,7 @@ export PATH=/opt/AscendNPU-IR/latest/build/install/bin:$PATH
 ```
 
 Host PR runners require Docker and the local image
-`ascend-catlass-dsl:9.1.0-950-ubuntu22.04-py3.12`. The reusable
+`ascend-catlass-dsl:9.2.0-beta.2-950-ubuntu22.04-py3.12`. The reusable
 [`create-ascend-container`](.github/actions/create-ascend-container/README.md)
 action accepts the image repository, tag, container name, and source mapping
 as inputs. It mounts the merged worktree at `/workspace/catlass`, passes through

@@ -5,11 +5,11 @@ inputs:
   image-repository:
     description: Container image repository (CANN_REPO)
     required: false
-    default: swr.cn-south-1.myhuaweicloud.com/ascendhub/cann
+    default: ascend-catlass-dsl
   image-tag:
     description: Container image tag (CANN_TAG)
     required: false
-    default: 9.1.1-910b-ubuntu22.04-py3.12
+    default: 9.2.0-beta.2-950-ubuntu22.04-py3.12
   name:
     description: Unique container name (NAME)
     required: true

@@ -6,14 +6,14 @@ On a host, it creates a container with the image's own runtime environment.
 
 | Input | Default / requirement |
 | --- | --- |
-| `image-repository` | `swr.cn-south-1.myhuaweicloud.com/ascendhub/cann` (`CANN_REPO`) |
-| `image-tag` | `9.1.1-910b-ubuntu22.04-py3.12` (`CANN_TAG`) |
+| `image-repository` | `ascend-catlass-dsl` (`CANN_REPO`) |
+| `image-tag` | `9.2.0-beta.2-950-ubuntu22.04-py3.12` (`CANN_TAG`) |
 | `name` | Required, unique Docker name (`NAME`) |
 | `worktree` | Required, existing absolute host source directory |
 | `container-worktree` | `/workspace/catlass` |
 
 Docker uses an existing local image when available. The PR workflow supplies
-`ascend-catlass-dsl` and `9.1.0-950-ubuntu22.04-py3.11` for the current local CI
+`ascend-catlass-dsl` and `9.2.0-beta.2-950-ubuntu22.04-py3.12` for the current local CI
 image. The container keeps the image entrypoint, runs with `--privileged` and
 `--init`, and mounts only the source directory and these required driver paths:
 

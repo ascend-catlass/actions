@@ -42,12 +42,12 @@ on:
 run-name: Build ascend-catlass-dsl ${{ inputs.package_version || 'dev' }} from ${{ inputs.catlass_ref || 'master' }}
 
 env:
-  CANN_ROOT: /usr/local/Ascend/cann-9.1.0
+  CANN_ROOT: /usr/local/Ascend/cann-9.2.0-beta.2
   NPUIR_ARCHIVE_ROOT: /opt/AscendNPU-IR
   NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
   NPUIR_BUILD_CONTRACT: clang19-lld19-release-rtti-assert-triton-zstd-off-v1
-  NPUIR_BASELINE_DATE: "20260720"
-  NPUIR_LEGACY_POSTFIX: "20260720"
+  NPUIR_BASELINE_DATE: "20261013"
+  NPUIR_LEGACY_POSTFIX: "20260930"
 
 permissions:
   contents: read
@@ -153,7 +153,7 @@ jobs:
   npuir:
     name: Prepare NPUIR on build workers
     needs: resolve
-    uses: ./.github/workflows/build-ascendnpu-ir-20260720.yml
+    uses: ./.github/workflows/build-ascendnpu-ir-20261013.yml
     with:
       ref: ${{ needs.resolve.outputs.npuir_sha }}
       branch: feature/regbase
