@@ -3,7 +3,7 @@ description: Run one CATLASS test stage using the container environment or the l
 
 inputs:
   suite:
-    description: Test suite to run (dsl or all)
+    description: Test suite to run (dsl-dev, dsl-ir, dsl-lit, dsl or all)
     required: true
   worktree:
     description: Merged CATLASS worktree to test

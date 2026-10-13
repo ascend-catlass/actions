@@ -264,8 +264,38 @@ jobs:
           worktree: ${{ steps.create_container.outputs.worktree }}
           container: ${{ steps.create_container.outputs.container-name }}
 
-      - name: Run DSL test stage
+      - name: Build DSL in dev mode
+        id: dsl_dev
         if: ${{ needs.prepare.outputs.run_dsl == 'true' }}
+        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        with:
+          suite: dsl-dev
+          worktree: ${{ steps.create_container.outputs.worktree }}
+          container: ${{ steps.create_container.outputs.container-name }}
+          device-id: ${{ steps.prepare_tests.outputs.device-id }}
+
+      - name: Run DSL IR tests
+        id: dsl_ir
+        if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
+        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        with:
+          suite: dsl-ir
+          worktree: ${{ steps.create_container.outputs.worktree }}
+          container: ${{ steps.create_container.outputs.container-name }}
+          device-id: ${{ steps.prepare_tests.outputs.device-id }}
+
+      - name: Run DSL Lit tests
+        id: dsl_lit
+        if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
+        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        with:
+          suite: dsl-lit
+          worktree: ${{ steps.create_container.outputs.worktree }}
+          container: ${{ steps.create_container.outputs.container-name }}
+          device-id: ${{ steps.prepare_tests.outputs.device-id }}
+
+      - name: Build Release wheel and run DSL device tests
+        if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
         uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
         with:
           suite: dsl

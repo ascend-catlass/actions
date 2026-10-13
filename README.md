@@ -53,6 +53,12 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   suite, and the unsupported tuner group is skipped on Ascend 950. Only
   explicitly shared build/test dependencies require the full 3510 suite. See the
   [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
+- `test-gitcode-pr-cann-9-2-beta-2.yml` uses the CANN 9.2.0 beta.2 image.
+  DSL changes first build in dev mode and run the upstream IR pytest suite and
+  `check-tla-lit` target, sharing that build. The existing Release wheel build
+  and device battery run afterwards. Test failures do not suppress the other
+  suites, and any failure still fails the job; a failed dev build skips its
+  dependent suites. The original 9.1.0 workflow keeps its existing stages.
 - `build-dsl-wheel.yml` is the reusable, build-only x86_64/aarch64 wheel
   workflow. Its `package_version` input accepts `dev` for an automatically
   derived nightly version or an exact stable version paired with its GitCode

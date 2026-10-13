@@ -63,6 +63,10 @@ if [[ -f /.dockerenv ]]; then
     git config --global --add safe.directory "${PWD}"
 fi
 case "${CATLASS_TEST_SUITE}" in
+    dsl-dev | dsl-ir | dsl-lit)
+        timeout --signal=KILL "${TEST_HARD_TIMEOUT}" \
+            bash "${RDV_ACTION_PATH:-$(dirname "${BASH_SOURCE[0]}")}/run-dsl-unit-tests.sh" "${CATLASS_TEST_SUITE}"
+        ;;
     dsl)
         if [[ ! -f /.dockerenv ]]; then
             export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/workspace/AscendNPU-IR
@@ -74,7 +78,7 @@ case "${CATLASS_TEST_SUITE}" in
             bash "${RDV_ACTION_PATH:-$(dirname "${BASH_SOURCE[0]}")}/run-targeted-tests.sh"
         ;;
     *)
-        echo "suite must be dsl or all" >&2
+        echo "suite must be dsl-dev, dsl-ir, dsl-lit, dsl or all" >&2
         exit 1
         ;;
 esac
