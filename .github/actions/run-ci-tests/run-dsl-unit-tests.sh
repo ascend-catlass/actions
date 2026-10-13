@@ -15,7 +15,15 @@ export PYTHONPATH="${PWD}:${PYTHONPATH:-}"
 
 case "$1" in
     dsl-dev)
-        python -m pip install --index-url https://mirrors.nju.edu.cn/pypi/web/simple 'lit==19.1.7'
+        lit_source="${CATLASS_DSL_ASCENDNPU_IR_ROOT:-${CATLASS_DSL_PREBUILT_ASCENDNPU_IR}}/third-party/llvm-project/llvm/utils/lit"
+        if [[ ! -f "${lit_source}/lit.py" ]]; then
+            echo "LLVM Lit source was not found: ${lit_source}" >&2
+            exit 1
+        fi
+        python -m pip install --no-deps --no-build-isolation --force-reinstall "${lit_source}"
+        # Force CMake to run this source version, even if an older llvm-lit
+        # executable is present in the image's toolchain bin directory.
+        export CMAKE_ARGS="${CMAKE_ARGS:-} -DLLVM_EXTERNAL_LIT=\"${lit_source}/lit.py\""
         bash build.sh
         python -c 'import catlass; print("Dev package:", catlass.__file__)'
         ;;
