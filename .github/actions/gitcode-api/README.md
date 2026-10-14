@@ -24,8 +24,10 @@ Issue workflow 先调用 `gitcode-issue` 的 `prepare`，再调用模型 stage�
 文件。`path` 仅允许固定 `https://api.gitcode.com/api/v5` 下的路径。
 此通用 stage 不替调用方决定发布权限或幂等策略；业务 stage 负责这些约束。
 
-2026-10-14 已在 GitHub Linux worker 通过 39 项测试，并对 CATLASS Issue
-#739 使用显式 DeepSeek-V4.1-Flash 完成获取、分析、发布和回查。
+2026-10-14 已在 GitHub Linux worker 通过 40 项测试，并对 CATLASS Issue
+#739 使用显式 DeepSeek-V4.1-Flash 完成获取、分析、发布和回查，重跑更新同一评论。
+GitCode 的成功 PATCH/DELETE 可能返回空 body；通用 stage 兼容空响应，业务
+stage 通过 GET 校验实际结果，不因空响应重复创建评论。
 
 示例：
 

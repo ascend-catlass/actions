@@ -64,3 +64,7 @@ GitCode Issue、通用 API、PR 元数据与 Release API 操作均封装为 comp
 stage，既有 RDV 状态 stage 继续复用；原 PR/Release workflows 改为调用这些
 stage。最终实测 run 38508835564 全部步骤成功，39 项 Linux 测试通过，Issue
 #739 评论 193711771 已回查正文与署名，只有一条本账号自动回复。
+
+幂等重跑验收：修正 GitCode 成功 PATCH 返回空 body 的兼容性后，run
+38509543620 全部步骤成功，40 项 Linux 测试通过；更新既有评论后 GET 回查
+成功。API stage 对空成功响应返回空对象，业务 stage 仍独立验证变更结果。
