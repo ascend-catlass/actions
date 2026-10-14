@@ -1,0 +1,29 @@
+name: Reply to a GitCode PR after CI passes
+run-name: "PR #${{ inputs.pr_number }} CI review reminder"
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number in cann/catlass on GitCode
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Serialize redeliveries so the comment check runs after the previous write.
+concurrency:
+  group: reply-gitcode-ci-passed-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: ascend-catlass/actions/.github/actions/gitcode-ci-passed@main
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          token: ${{ secrets.GITCODE_TOKEN }}

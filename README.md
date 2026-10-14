@@ -33,6 +33,13 @@ temporary integration-test branch triggers have been removed.
   Select a completed version by sourcing its actual environment script, e.g.
   `/opt/cann_weekly/20261009/cann/set_env.sh` for the current package layout;
   the installer also accepts `ascend-toolkit/set_env.sh` layouts.
+- `reply-gitcode-ci-passed.yml` is dispatched by the dev webhook gateway for
+  CATLASS CI-passed label events. Its reusable
+  [`gitcode-ci-passed` action](.github/actions/gitcode-ci-passed/README.md) checks
+  the current PR state and labels, scans all comment pages, and posts the review,
+  SIG and Ascend 950 reminder once. Runs for the same PR are serialized.
+  `GITCODE_TOKEN` is an Actions secret here; dev only needs its GitHub dispatch
+  credential. Publish this workflow on `main` before deploying the new gateway.
 - `sync-gitcode.yml` mirrors GitCode `master` and tags to
   `ascend-catlass/catlass` every day or on manual dispatch.
 - `test-gitcode-pr.yml` manually validates a GitCode pull request on the
