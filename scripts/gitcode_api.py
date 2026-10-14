@@ -39,7 +39,10 @@ class GitCodeAPI:
         req = urllib.request.Request(API_ROOT + path, data=data, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=60) as response:
-                return json.load(response)
+                content = response.read()
+                # GitCode PATCH/DELETE may succeed with HTTP 204 or an empty
+                # response. Business stages verify mutations with a separate GET.
+                return json.loads(content) if content.strip() else {}
         except urllib.error.HTTPError as error:
             raise RuntimeError(f"GitCode {method} request failed (HTTP {error.code})") from None
 

@@ -24,6 +24,7 @@ on:
       - scripts/gitcode_issue_reply.py
       - scripts/gitcode_api.py
       - tests/test_gitcode_issue_reply.py
+      - '!.github/actions/**/*.md'
 
 permissions:
   contents: read

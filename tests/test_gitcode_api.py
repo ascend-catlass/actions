@@ -35,6 +35,11 @@ class ApiTests(unittest.TestCase):
                     GitCodeAPI("token").request(method, path, body)
             open_url.assert_not_called()
 
+    def test_empty_successful_mutation_response_is_supported(self):
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(b"")):
+            self.assertEqual(GitCodeAPI("token").request(
+                "PATCH", "/repos/cann/catlass/issues/comments/42", {"body": "updated"}), {})
+
 
 if __name__ == "__main__":
     unittest.main()
