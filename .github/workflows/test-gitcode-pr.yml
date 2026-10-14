@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   prepare:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Register and classify PR test
     runs-on: ubuntu-latest
     outputs:
@@ -140,7 +141,7 @@ jobs:
   merge-and-test:
     name: Test PR #${{ inputs.pr_number }}
     needs: prepare
-    if: ${{ needs.prepare.outputs.run_dsl == 'true' || needs.prepare.outputs.run_all == 'true' }}
+    if: ${{ github.ref == 'refs/heads/main' && (needs.prepare.outputs.run_dsl == 'true' || needs.prepare.outputs.run_all == 'true') }}
     runs-on: [self-hosted, ascend950]
     timeout-minutes: 90
     env:
@@ -294,7 +295,7 @@ jobs:
 
   report:
     name: Report PR result
-    if: ${{ always() && needs.prepare.result == 'success' }}
+    if: ${{ github.ref == 'refs/heads/main' && (always() && needs.prepare.result == 'success') }}
     needs:
       - prepare
       - merge-and-test

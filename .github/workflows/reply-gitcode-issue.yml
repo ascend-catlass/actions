@@ -13,23 +13,6 @@ on:
         description: Publish the automated reply or role-member assignment comment
         type: boolean
         default: true
-  push:
-    # Explicit integration-test branch for the user-authorized Issue #739 test.
-    branches: [codex/trae-cn-issue-739]
-    paths:
-      - .github/actions/trae-cn/**
-      - .github/actions/gitcode-*/**
-      - .github/workflows/reply-gitcode-issue.yml
-      - .github/prompts/gitcode-issue-reply.md
-      - scripts/gitcode_issue_reply.py
-      - scripts/gitcode_api.py
-      - scripts/community_repo_roles.py
-      - scripts/issue_reply_eligibility.py
-      - .github/actions/community-repo-roles/**
-      - tests/test_community_repo_roles.py
-      - tests/test_issue_reply_eligibility.py
-      - tests/test_gitcode_issue_reply.py
-      - '!.github/actions/**/*.md'
 
 permissions:
   contents: read
@@ -40,6 +23,7 @@ concurrency:
 
 jobs:
   reply:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     env:
@@ -60,6 +44,7 @@ jobs:
           python3 -m unittest discover -s tests -p test_pr_test_routing.py -v
           python3 -m unittest discover -s tests -p test_community_repo_roles.py -v
           python3 -m unittest discover -s tests -p test_issue_reply_eligibility.py -v
+          python3 -m unittest discover -s tests -p test_main_only_workflows.py -v
       - name: Resolve Issue repository
         id: issue_repository
         shell: bash
@@ -124,7 +109,7 @@ jobs:
           echo "$cli_dir" >> "$GITHUB_PATH"
       - name: Assign role-member Issue to its author
         id: assign
-        if: ${{ steps.eligibility.outputs.assign == 'true' && (github.event_name == 'push' || inputs.publish) }}
+        if: ${{ steps.eligibility.outputs.assign == 'true' && (inputs.publish) }}
         uses: ./.github/actions/gitcode-issue
         with:
           operation: assign
@@ -153,7 +138,7 @@ jobs:
           sandbox: read-only
           timeout-seconds: '900'
       - name: Publish and read back the short reply
-        if: ${{ steps.eligibility.outputs.analyze == 'true' && steps.trae.outputs.status == 'success' && (github.event_name == 'push' || inputs.publish) }}
+        if: ${{ steps.eligibility.outputs.analyze == 'true' && steps.trae.outputs.status == 'success' && (inputs.publish) }}
         uses: ./.github/actions/gitcode-issue
         with:
           operation: publish

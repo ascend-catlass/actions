@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Build nightly wheels
     uses: ./.github/workflows/build-dsl-wheel.yml
     with:
@@ -25,6 +26,7 @@ jobs:
     secrets: inherit
 
   prepare:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Validate nightly bundle
     needs: build
     runs-on: ubuntu-latest
@@ -66,6 +68,7 @@ jobs:
           retention-days: 30
 
   publish-github:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Publish nightly GitHub Release
     needs: [build, prepare]
     runs-on: ubuntu-latest

@@ -31,6 +31,7 @@ env:
 
 jobs:
   migrate:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Migrate NPUIR (${{ matrix.target_arch }})
     strategy:
       fail-fast: false

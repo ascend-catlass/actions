@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   adapter-tests:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -26,6 +27,7 @@ jobs:
       - name: Verify adapter including Linux process cleanup
         run: python3 -m unittest discover -s tests -p test_trae_cn_stage.py -v
   smoke:
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs: adapter-tests
     # Provision a dedicated, disposable worker with the official China CLI 2.0.
     # Do not use a privileged NPU/build host to execute outside contributors' code.

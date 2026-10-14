@@ -4,6 +4,11 @@ Shared GitHub Actions automation for the `ascend-catlass` organization.
 
 The workflows in `.github/workflows/` run from this repository's `main` branch:
 
+Every job, including cleanup and reusable workflow jobs, requires
+`github.ref == 'refs/heads/main'`. A manual dispatch selecting another branch
+cannot execute workers or publish comments. The Issue workflow is manual-only;
+temporary integration-test branch triggers have been removed.
+
 - `install-cann-weekly.yml` scans the official CANN `software/master/` mirror
   daily at 02:00 Asia/Shanghai (18:00 UTC), or on manual dispatch. One pinned
   build and version are used by the two host workers selected with `self-hosted`, `Linux`,
@@ -198,8 +203,7 @@ publication; account matching ignores case. Missing author identities or failed
 role queries stop the run. Preparation and publication recheck eligibility, and
 an author change during analysis blocks publication.
 Manual dispatch accepts
-an Issue URL and a `publish` switch; the integration-test branch
-`codex/trae-cn-issue-739` tests the explicitly selected CATLASS Issue #739.
+an Issue URL and a `publish` switch; the default test target is CATLASS Issue #739.
 Issue/discussion changes block stale replies. The GitCode token is available only
 to context and publishing steps. Results and publication evidence are saved for
 seven days. Requires `TRAE_CN_PAT` and `GITCODE_TOKEN`; `TRAE_CN_HOST` is optional.

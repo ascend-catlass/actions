@@ -58,6 +58,7 @@ concurrency:
 
 jobs:
   resolve:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Resolve CATLASS and NPUIR revisions
     runs-on: ubuntu-latest
     outputs:
@@ -151,6 +152,7 @@ jobs:
           echo "CATLASS ${source_sha} requires NPUIR ${npuir_sha}; package version ${package_version}"
 
   npuir:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Prepare NPUIR on build workers
     needs: resolve
     uses: ./.github/workflows/build-ascendnpu-ir-20261013.yml
@@ -161,6 +163,7 @@ jobs:
       build_jobs: 64
 
   build:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Build ascend-catlass-dsl wheel (${{ matrix.target_arch }})
     needs: [resolve, npuir]
     strategy:
@@ -455,7 +458,7 @@ jobs:
     name: Build summary
     needs: [resolve, npuir, build]
     runs-on: ubuntu-latest
-    if: ${{ always() }}
+    if: ${{ github.ref == 'refs/heads/main' && (always()) }}
     env:
       BUILD_RESULT: ${{ needs.build.result }}
       NPUIR_RESULT: ${{ needs.npuir.result }}
