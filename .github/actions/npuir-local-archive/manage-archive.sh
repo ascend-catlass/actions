@@ -88,26 +88,32 @@ write_manifest() {
 }
 
 update_latest() {
-  local latest="${archive_root}/latest" current target current_date temporary
+  local latest="${archive_root}/latest" current target current_date temporary current_tree
+  local link_date=${BASELINE_DATE}
   if [[ -L "${latest}" ]]; then
     current=$(readlink -f "${latest}") || fail 'latest is a dangling symlink'
     target=${current#"${archive_root}/"}
-    [[ "${target}" =~ ^([0-9]{8})/AscendNPU-IR$ ]] || fail "Unexpected latest target: ${current}"
+    [[ "${target}" =~ ^([0-9]{8})(/AscendNPU-IR)?$ ]] || fail "Unexpected latest target: ${current}"
     current_date=${BASH_REMATCH[1]}
-    [[ -f "${current}/.npuir-pipeline" && -f "${current}/build/install/lib/cmake/mlir/MLIRConfig.cmake" ]] || fail 'latest points to an incomplete archive'
-    [[ "$(manifest_value BASELINE_DATE "${current}/.npuir-pipeline")" == "${current_date}" ]] || fail 'latest date does not match its manifest'
+    current_tree="${archive_root}/${current_date}/AscendNPU-IR"
+    [[ -f "${current_tree}/.npuir-pipeline" && -f "${current_tree}/build/install/lib/cmake/mlir/MLIRConfig.cmake" ]] || fail 'latest points to an incomplete archive'
+    [[ "$(manifest_value BASELINE_DATE "${current_tree}/.npuir-pipeline")" == "${current_date}" ]] || fail 'latest date does not match its manifest'
     if [[ "${BASELINE_DATE}" < "${current_date}" || "${BASELINE_DATE}" == "${current_date}" ]]; then
-      echo "Keeping latest at ${current_date}"
-      return
+      if [[ "${target}" == "${current_date}" ]]; then
+        echo "Keeping latest at ${current_date}"
+        return
+      fi
+      # Repair the previous nested link without rolling its version back.
+      link_date=${current_date}
     fi
   elif [[ -e "${latest}" ]]; then
     fail "latest exists and is not a symlink: ${latest}"
   fi
   temporary="${archive_root}/.latest-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
   [[ ! -e "${temporary}" && ! -L "${temporary}" ]] || fail "Temporary latest link already exists: ${temporary}"
-  ln -s "${BASELINE_DATE}/AscendNPU-IR" "${temporary}"
+  ln -s "${link_date}" "${temporary}"
   mv -Tf "${temporary}" "${latest}"
-  echo "Updated latest -> ${BASELINE_DATE}/AscendNPU-IR"
+  echo "Updated latest -> ${link_date}"
 }
 
 publish_tree() {

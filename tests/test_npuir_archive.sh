@@ -80,21 +80,29 @@ publish() {
 }
 
 publish 20260720
-[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260720/AscendNPU-IR ]]
-[[ -x "${ARCHIVE_ROOT_INPUT}/latest/build/install/bin/bishengir-opt" ]]
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260720 ]]
+[[ -x "${ARCHIVE_ROOT_INPUT}/latest/AscendNPU-IR/build/install/bin/bishengir-opt" ]]
 if [[ "${native_lock}" == true ]]; then
-  [[ "$(stat -c %a "${ARCHIVE_ROOT_INPUT}/latest/build/install/bin/bishengir-opt")" == 755 ]]
+  [[ "$(stat -c %a "${ARCHIVE_ROOT_INPUT}/latest/AscendNPU-IR/build/install/bin/bishengir-opt")" == 755 ]]
 fi
 
 publish 20260930
-[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260930/AscendNPU-IR ]]
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260930 ]]
 publish 20260801
-[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260930/AscendNPU-IR ]]
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260930 ]]
 export BASELINE_DATE=20260930 OPERATION=lookup
 before=$(stat -c %i "${ARCHIVE_ROOT_INPUT}/latest")
 run_manager
 [[ "$(output cache_hit)" == true ]]
 [[ "$(stat -c %i "${ARCHIVE_ROOT_INPUT}/latest")" == "${before}" ]]
+
+# Repair the previously deployed nested link, including during an older lookup.
+rm "${ARCHIVE_ROOT_INPUT}/latest"
+ln -s 20260930/AscendNPU-IR "${ARCHIVE_ROOT_INPUT}/latest"
+export BASELINE_DATE=20260720
+run_manager
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260930 ]]
+export BASELINE_DATE=20260930
 
 # Refuse same-date content conflicts and incomplete builds without changing latest.
 original_sha=${SOURCE_SHA}
@@ -107,7 +115,7 @@ SOURCE_PATH=$(output work_path)
 mkdir -p "${SOURCE_PATH}"
 export OPERATION=publish
 expect_failure
-[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260930/AscendNPU-IR ]]
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20260930 ]]
 export BASELINE_DATE=20260230 OPERATION=lookup
 expect_failure
 
@@ -119,7 +127,7 @@ cp "${ARCHIVE_ROOT_INPUT}/20260930/AscendNPU-IR/.npuir-pipeline" "${old}/.npuir-
 run_manager
 [[ "$(output legacy_cache_hit)" == true && -d "${old}" ]]
 [[ "$(git -C "$(output path)/third-party/llvm-project" rev-parse HEAD)" == "${SOURCE_SHA}" ]]
-[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20261002/AscendNPU-IR ]]
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20261002 ]]
 # Move the old content-keyed fixture aside to test the legacy fallback.
 mv "${old}" "${test_root}/old-saved"
 export BASELINE_DATE=20261013 LEGACY_POSTFIX=20260930 LEGACY_BUILD_FINGERPRINT=${BUILD_FINGERPRINT}
@@ -131,7 +139,7 @@ ln -s "${old}" "${test_root}/runner/_npuir-pipeline/v2-${SOURCE_SHA}-${TARGET_AR
 run_manager
 [[ "$(output legacy_cache_hit)" == true ]]
 [[ "$(git -C "$(output path)/third-party/llvm-project" rev-parse HEAD)" == "${SOURCE_SHA}" ]]
-[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20261013/AscendNPU-IR ]]
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20261013 ]]
 
 if [[ "${native_lock}" == true ]]; then
   # A lookup must wait while another publisher owns the worker lock.
@@ -148,7 +156,7 @@ fi
 # Cache reuse can restore a missing latest link, but cannot overwrite a directory.
 rm "${ARCHIVE_ROOT_INPUT}/latest"
 run_manager
-[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20261013/AscendNPU-IR ]]
+[[ "$(readlink "${ARCHIVE_ROOT_INPUT}/latest")" == 20261013 ]]
 rm "${ARCHIVE_ROOT_INPUT}/latest"
 mkdir "${ARCHIVE_ROOT_INPUT}/latest"
 expect_failure
@@ -158,6 +166,6 @@ sed -i 's/^BUILD_FINGERPRINT=.*/BUILD_FINGERPRINT=clang-19.1.7+lld-19.1.7/' "${o
 GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.longpaths GIT_CONFIG_VALUE_0=true \
   NPUIR_ARCHIVE_ROOT="${test_root}/manual-shared" bash "${repo_root}/scripts/migrate-npuir-cache.sh" \
   "${test_root}/runner/_npuir-pipeline" 20261013 "${original_sha}" 20260930
-[[ "$(readlink "${test_root}/manual-shared/latest")" == 20261013/AscendNPU-IR ]]
+[[ "$(readlink "${test_root}/manual-shared/latest")" == 20261013 ]]
 [[ -d "${old}" ]]
 echo 'NPUIR archive tests passed'

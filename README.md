@@ -94,8 +94,8 @@ users read and directory traversal access, preserving executable bits.
 Each worker stores its native CPU architecture; dates cannot be reused for a
 different commit, architecture, or build contract.
 
-`/opt/AscendNPU-IR/latest` points directly to the completed
-`<YYYYMMDD>/AscendNPU-IR` tree. Publication and cache reuse create this link if
+`/opt/AscendNPU-IR/latest` points to the completed
+`<YYYYMMDD>` directory, matching the dated directory layout. Publication and cache reuse create this link if
 missing and advance it only for a strictly newer date. A worker-local file lock
 serializes the date comparison and atomic symlink replacement. Failed builds
 remain under `.building-*` for inspection and never become `latest`.
@@ -131,10 +131,10 @@ bash scripts/migrate-npuir-cache.sh /path/to/runner/_work/_npuir-pipeline \
 Local users can select the default installation with:
 
 ```bash
-export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR/latest
-export CATLASS_DSL_ASCENDNPU_IR_ROOT=/opt/AscendNPU-IR/latest
-export CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=/opt/AscendNPU-IR/latest/build/install
-export PATH=/opt/AscendNPU-IR/latest/build/install/bin:$PATH
+export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR/latest/AscendNPU-IR
+export CATLASS_DSL_ASCENDNPU_IR_ROOT=/opt/AscendNPU-IR/latest/AscendNPU-IR
+export CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=/opt/AscendNPU-IR/latest/AscendNPU-IR/build/install
+export PATH=/opt/AscendNPU-IR/latest/AscendNPU-IR/build/install/bin:$PATH
 ```
 
 Host PR runners require Docker and the local image
