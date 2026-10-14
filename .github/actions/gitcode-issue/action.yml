@@ -25,6 +25,9 @@ inputs:
   model:
     description: Actual model name for the single final By line
     default: DeepSeek-V4.1-Flash
+  roles-file:
+    description: Optional community repository role JSON; rechecks author eligibility before analysis or publication
+    default: ''
 outputs:
   comment-url:
     description: Published comment URL
@@ -46,19 +49,22 @@ runs:
         ISSUE_RESULT: ${{ inputs.result-directory }}
         ISSUE_RESPONSE: ${{ inputs.response-file }}
         ISSUE_MODEL: ${{ inputs.model }}
+        ISSUE_ROLES: ${{ inputs.roles-file }}
       run: |
         set -euo pipefail
         script="${GITHUB_ACTION_PATH}/../../../scripts/gitcode_issue_reply.py"
+        role_args=()
+        if [[ -n "$ISSUE_ROLES" ]]; then role_args=(--roles-file "$ISSUE_ROLES"); fi
         case "$ISSUE_OPERATION" in
           prepare)
             if [[ ! -d "$ISSUE_WORKTREE" ]]; then
               source_url=$(PYTHONPATH="${GITHUB_ACTION_PATH}/../../.." python3 -c 'import os; from scripts.gitcode_issue_reply import parse_url; owner,repo,_=parse_url(os.environ["ISSUE_URL"]); print(f"https://gitcode.com/{owner}/{repo}.git")')
               git clone --depth 200 "$source_url" "$ISSUE_WORKTREE"
             fi
-            python3 "$script" prepare --issue-url "$ISSUE_URL" --worktree "$ISSUE_WORKTREE" --template "$ISSUE_TEMPLATE" --output "$ISSUE_RESULT"
+            python3 "$script" prepare --issue-url "$ISSUE_URL" --worktree "$ISSUE_WORKTREE" --template "$ISSUE_TEMPLATE" --output "$ISSUE_RESULT" "${role_args[@]}"
             ;;
           publish)
-            python3 "$script" publish --issue-url "$ISSUE_URL" --output "$ISSUE_RESULT" --response "$ISSUE_RESPONSE" --model "$ISSUE_MODEL"
+            python3 "$script" publish --issue-url "$ISSUE_URL" --output "$ISSUE_RESULT" --response "$ISSUE_RESPONSE" --model "$ISSUE_MODEL" "${role_args[@]}"
             ;;
           *) echo 'operation must be prepare or publish' >&2; exit 1 ;;
         esac

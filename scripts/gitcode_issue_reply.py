@@ -55,6 +55,7 @@ def owned(comment, user_id):
 
 def snapshot(issue, comments, user_id):
     return {"issue": {key: issue.get(key) for key in ("number", "title", "body", "state")},
+            "author_login": (issue.get("user") or {}).get("login"),
             "comments": [{key: comment.get(key) for key in ("id", "body", "updated_at")}
                          for comment in comments if not owned(comment, user_id)]}
 
@@ -63,9 +64,22 @@ def fingerprint(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
-def prepare(client, url, worktree, template, output):
+def check_author_roles(issue, url, roles):
+    if roles is None:
+        return
+    try:
+        from .issue_reply_eligibility import eligibility
+    except ImportError:
+        from issue_reply_eligibility import eligibility
+    owner, repo, _ = parse_url(url)
+    if not eligibility(issue, roles, f"{owner}/{repo}")["analyze"]:
+        raise ValueError("Issue author is ineligible for automated analysis and reply")
+
+
+def prepare(client, url, worktree, template, output, roles=None):
     identity = client.request("GET", "/user")
     issue, comments = client.issue(), client.comments()
+    check_author_roles(issue, url, roles)
     if issue.get("state") not in {"open", "opened"}:
         raise ValueError("Issue is not open; refusing to create a new automated reply")
     context = snapshot(issue, comments, identity["id"])
@@ -87,7 +101,7 @@ def prepare(client, url, worktree, template, output):
     return metadata
 
 
-def publish(client, metadata, answer, model):
+def publish(client, metadata, answer, model, roles=None):
     if not answer.strip() or len(answer.encode("utf-8")) > 2400:
         raise ValueError("Reply must be nonempty and at most 2400 UTF-8 bytes")
     if MARKER in answer or LEGACY_MARKER in answer:
@@ -100,6 +114,7 @@ def publish(client, metadata, answer, model):
     if identity["id"] != metadata["user_id"]:
         raise ValueError("GitCode publishing identity changed")
     current = client.issue()
+    check_author_roles(current, metadata["issue_url"], roles)
     comments = client.comments()
     if fingerprint(snapshot(current, comments, identity["id"])) != metadata["fingerprint"]:
         raise ValueError("Issue or discussion changed during analysis; rerun before publishing")
@@ -132,18 +147,20 @@ def main():
     parser.add_argument("--template", type=Path)
     parser.add_argument("--response", type=Path)
     parser.add_argument("--model", default="DeepSeek-V4.1-Flash")
+    parser.add_argument("--roles-file", type=Path)
     args = parser.parse_args()
     token = os.environ.get("GITCODE_TOKEN", "")
     if not token:
         raise ValueError("GITCODE_TOKEN secret is required")
     client = Client(args.issue_url, token)
+    roles = json.loads(args.roles_file.read_text(encoding="utf-8")) if args.roles_file else None
     if args.mode == "prepare":
-        result = prepare(client, args.issue_url, args.worktree.resolve(), args.template, args.output)
+        result = prepare(client, args.issue_url, args.worktree.resolve(), args.template, args.output, roles)
     else:
         metadata = json.loads((args.output / "issue.json").read_text(encoding="utf-8"))
         if metadata["issue_url"] != args.issue_url:
             raise ValueError("Issue URL does not match the analyzed context")
-        result = publish(client, metadata, args.response.read_text(encoding="utf-8"), args.model)
+        result = publish(client, metadata, args.response.read_text(encoding="utf-8"), args.model, roles)
         (args.output / "published.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:

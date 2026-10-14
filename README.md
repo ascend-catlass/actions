@@ -79,8 +79,14 @@ The workflows in `.github/workflows/` run from this repository's `main` branch:
   starts a build, then publishes the same validated wheels to PyPI and the
   corresponding GitCode Release.
 
-Composite actions and their scripts live under `.github/actions/`. The
-workflows require the `GITCODE_TOKEN` and `CATLASS_DEPLOY_KEY` repository
+Composite actions and their scripts live under `.github/actions/`.
+The
+[`community-repo-roles`](.github/actions/community-repo-roles/README.md) action
+reads an existing CANN community checkout to return a repository's maintainer
+and declared committer IDs, personnel details, SIGs, and scoped configurations.
+It requires no GitCode token.
+
+The workflows require the `GITCODE_TOKEN` and `CATLASS_DEPLOY_KEY` repository
 secrets. Stable releases use the existing `GITCODE_TOKEN`, which must have
 Release write access, and require a PyPI Trusted Publisher bound to the `pypi`
 environment and `release-dsl-wheel.yml`.
@@ -181,7 +187,14 @@ See the [design and current verification limits](docs/plans/2026-10-14-trae-cn-s
 `reply-gitcode-issue.yml` combines that stage with GitCode Issue/context fetching
 and a short public reply. It installs the pinned official China enterprise CLI
 on a disposable GitHub-hosted Linux runner, then reads the selected repository
-and publishes or updates one owned automation comment. Manual dispatch accepts
+and publishes or updates one owned automation comment.
+Before downloading the CLI or checking out Issue source, it reads the author's
+login and queries both repository role lists from the CANN community checkout.
+Issues opened by declared committers or maintainers are skipped without analysis
+or a comment; account matching ignores case. Missing author identities or failed
+role queries stop the run. Preparation and publication recheck eligibility, and
+an author change during analysis blocks publication.
+Manual dispatch accepts
 an Issue URL and a `publish` switch; the integration-test branch
 `codex/trae-cn-issue-739` tests the explicitly selected CATLASS Issue #739.
 Issue/discussion changes block stale replies. The GitCode token is available only

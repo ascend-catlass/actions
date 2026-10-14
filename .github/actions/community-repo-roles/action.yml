@@ -1,0 +1,45 @@
+name: Read community repository roles
+description: Resolve declared maintainers and committers from a CANN community checkout
+inputs:
+  repository:
+    description: owner/repo or HTTPS GitCode/AtomGit repository URL
+    required: true
+  community-path:
+    description: Path to an existing community checkout (relative to workspace or absolute)
+    required: true
+outputs:
+  maintainers:
+    description: JSON array of maintainer GitCode IDs
+    value: ${{ steps.lookup.outputs.maintainers }}
+  committers:
+    description: JSON array of explicitly declared SIG and repository committer GitCode IDs
+    value: ${{ steps.lookup.outputs.committers }}
+  sigs:
+    description: JSON array of SIG names managing the repository
+    value: ${{ steps.lookup.outputs.sigs }}
+  result:
+    description: JSON object with people details, scoped configurations and source files
+    value: ${{ steps.lookup.outputs.result }}
+  result-file:
+    description: Absolute path to the JSON result file
+    value: ${{ steps.lookup.outputs.result-file }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - shell: bash
+      run: python -m pip install --disable-pip-version-check PyYAML==6.0.3
+    - id: lookup
+      shell: bash
+      env:
+        COMMUNITY_PATH: ${{ inputs.community-path }}
+        ROLE_REPOSITORY: ${{ inputs.repository }}
+      run: |
+        set -euo pipefail
+        result_directory=$(mktemp -d "${RUNNER_TEMP}/community-roles.XXXXXX")
+        python "${GITHUB_ACTION_PATH}/../../../scripts/community_repo_roles.py" \
+          --community-path "$COMMUNITY_PATH" \
+          --repository "$ROLE_REPOSITORY" \
+          --output-file "${result_directory}/result.json"

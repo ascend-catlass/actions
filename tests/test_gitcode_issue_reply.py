@@ -50,6 +50,27 @@ def metadata(client):
 
 
 class IssueReplyTests(unittest.TestCase):
+    def test_role_members_cannot_prepare_or_publish(self):
+        roles = {"repository": "cann/catlass", "maintainer_ids": ["Owner"],
+                 "committer_ids": ["Reviewer"]}
+        for login in ["owner", "REVIEWER"]:
+            client = FakeClient()
+            client.value["user"] = {"login": login}
+            with self.subTest(login=login), self.assertRaisesRegex(ValueError, "ineligible"):
+                reply.prepare(client, URL, Path("unused"), Path("unused"), Path("unused"), roles)
+            with self.subTest(login=login), self.assertRaisesRegex(ValueError, "ineligible"):
+                reply.publish(client, metadata(client), "感谢反馈，可以检查边界条件。", RUN, roles)
+            self.assertEqual(client.writes, [])
+
+    def test_author_change_during_analysis_blocks_publication(self):
+        client = FakeClient()
+        client.value["user"] = {"login": "contributor"}
+        context = metadata(client)
+        client.value["user"] = {"login": "another-contributor"}
+        with self.assertRaisesRegex(ValueError, "changed during analysis"):
+            reply.publish(client, context, "感谢反馈，可以检查边界条件。", RUN)
+        self.assertEqual(client.writes, [])
+
     def test_url_parser_rejects_unrelated_hosts_and_shell_text(self):
         self.assertEqual(reply.parse_url(URL), ("cann", "catlass", "739"))
         for url in ["http://gitcode.com/cann/catlass/issues/739", URL + "?token=x",

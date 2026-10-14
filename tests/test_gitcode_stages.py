@@ -32,6 +32,22 @@ class StageContracts(unittest.TestCase):
         self.assertTrue(any(s.get("uses") == "./.github/actions/gitcode-release"
                             for s in workflow["jobs"]["publish-gitcode"]["steps"]))
 
+    def test_issue_role_gate_precedes_all_analysis_and_publication(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/reply-gitcode-issue.yml").read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["reply"]["steps"]
+        roles = next(s for s in steps if s.get("id") == "roles")
+        self.assertEqual(roles["uses"], "./.github/actions/community-repo-roles")
+        gate_index = next(i for i, s in enumerate(steps) if s.get("id") == "eligibility")
+        guarded = [s for s in steps if s.get("id") == "trae"
+                   or s.get("uses") == "./.github/actions/gitcode-issue"
+                   or s.get("name", "").startswith("Install pinned")]
+        self.assertEqual(len(guarded), 4)
+        for step in guarded:
+            self.assertLess(gate_index, steps.index(step))
+            self.assertIn("steps.eligibility.outputs.analyze == 'true'", step["if"])
+            if step.get("uses") == "./.github/actions/gitcode-issue":
+                self.assertEqual(step["with"]["roles-file"], "${{ steps.roles.outputs.result-file }}")
+
 
 if __name__ == "__main__":
     unittest.main()

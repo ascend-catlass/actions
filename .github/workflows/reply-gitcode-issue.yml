@@ -23,6 +23,11 @@ on:
       - .github/prompts/gitcode-issue-reply.md
       - scripts/gitcode_issue_reply.py
       - scripts/gitcode_api.py
+      - scripts/community_repo_roles.py
+      - scripts/issue_reply_eligibility.py
+      - .github/actions/community-repo-roles/**
+      - tests/test_community_repo_roles.py
+      - tests/test_issue_reply_eligibility.py
       - tests/test_gitcode_issue_reply.py
       - '!.github/actions/**/*.md'
 
@@ -53,7 +58,47 @@ jobs:
           python3 -m unittest discover -s tests -p test_workflow_baselines.py -v
           python3 -m unittest discover -s tests -p test_publish_gitcode_release.py -v
           python3 -m unittest discover -s tests -p test_pr_test_routing.py -v
+          python3 -m unittest discover -s tests -p test_community_repo_roles.py -v
+          python3 -m unittest discover -s tests -p test_issue_reply_eligibility.py -v
+      - name: Resolve Issue repository
+        id: issue_repository
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from scripts.gitcode_issue_reply import parse_url
+          owner, repo, number = parse_url(os.environ['ISSUE_URL'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+              handle.write(f'repository={owner}/{repo}\n')
+              handle.write(f'path=/repos/{owner}/{repo}/issues/{number}\n')
+          PY
+      - name: Read Issue author
+        id: issue_author
+        uses: ./.github/actions/gitcode-api
+        with:
+          token: ${{ secrets.GITCODE_TOKEN }}
+          path: ${{ steps.issue_repository.outputs.path }}
+      - name: Checkout community role declarations
+        shell: bash
+        run: git clone --depth 1 https://atomgit.com/cann/community.git _issue-community
+      - name: Query repository committers and maintainers
+        id: roles
+        uses: ./.github/actions/community-repo-roles
+        with:
+          repository: ${{ steps.issue_repository.outputs.repository }}
+          community-path: _issue-community
+      - name: Check whether the Issue author needs an automated reply
+        id: eligibility
+        shell: bash
+        env:
+          ISSUE_FILE: ${{ steps.issue_author.outputs.response-file }}
+          ROLES_FILE: ${{ steps.roles.outputs.result-file }}
+          REPOSITORY: ${{ steps.issue_repository.outputs.repository }}
+        run: |
+          python3 -m scripts.issue_reply_eligibility \
+            --issue-file "$ISSUE_FILE" --roles-file "$ROLES_FILE" --repository "$REPOSITORY"
       - name: Install pinned official China enterprise CLI
+        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -78,13 +123,16 @@ jobs:
           fi
           echo "$cli_dir" >> "$GITHUB_PATH"
       - name: Checkout Issue repository and prepare prompt
+        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
         uses: ./.github/actions/gitcode-issue
         with:
           operation: prepare
+          roles-file: ${{ steps.roles.outputs.result-file }}
           token: ${{ secrets.GITCODE_TOKEN }}
           issue-url: ${{ inputs.issue_url || 'https://gitcode.com/cann/catlass/issues/739' }}
       - name: Analyze Issue and source
         id: trae
+        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
         uses: ./.github/actions/trae-cn
         with:
           trae-pat: ${{ secrets.TRAE_CN_PAT }}
@@ -96,16 +144,17 @@ jobs:
           sandbox: read-only
           timeout-seconds: '900'
       - name: Publish and read back the short reply
-        if: ${{ steps.trae.outputs.status == 'success' && (github.event_name == 'push' || inputs.publish) }}
+        if: ${{ steps.eligibility.outputs.analyze == 'true' && steps.trae.outputs.status == 'success' && (github.event_name == 'push' || inputs.publish) }}
         uses: ./.github/actions/gitcode-issue
         with:
           operation: publish
+          roles-file: ${{ steps.roles.outputs.result-file }}
           token: ${{ secrets.GITCODE_TOKEN }}
           issue-url: ${{ inputs.issue_url || 'https://gitcode.com/cann/catlass/issues/739' }}
           response-file: ${{ steps.trae.outputs.response-file }}
           model: DeepSeek-V4.1-Flash
       - name: Save analysis and publication evidence
-        if: ${{ always() }}
+        if: ${{ always() && steps.trae.outputs.result-directory != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: gitcode-issue-reply-${{ github.run_id }}-${{ github.run_attempt }}
