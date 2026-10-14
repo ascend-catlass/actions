@@ -187,8 +187,8 @@ def main() -> int:
             if invoke([cli, "login", "--with-trae-pat"], private, login_env, deadline,
                       private / "login.out", private / "login.err"):
                 raise StageError("Trae PAT login failed; check enterprise CLI entitlement and host")
-            argv = [cli, "exec", "--json", "--color", "never", "--ephemeral",
-                    "--ignore-user-config", "--sandbox", sandbox, "--ask-for-approval", "never",
+            argv = [cli, "--ask-for-approval", "never", "exec", "--json", "--color", "never", "--ephemeral",
+                    "--ignore-user-config", "--sandbox", sandbox,
                     "--output-last-message", str(files["response-file"])]
             if input_value("MODEL"):
                 argv.extend(["--model", input_value("MODEL")])

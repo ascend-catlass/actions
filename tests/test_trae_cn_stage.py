@@ -44,7 +44,7 @@ class StageTests(unittest.TestCase):
             stdout.write_text("traecli 2.0.1\n", encoding="utf-8")
         elif "--help" in argv:
             stdout.write_text("--json --output-last-message --ephemeral --ignore-user-config")
-        elif argv[1] == "exec":
+        elif "exec" in argv:
             Path(argv[argv.index("--output-last-message") + 1]).write_text(
                 "答复\n::warning::literal\nprivate-test-token\n", encoding="utf-8")
             stdout.write_text('{"type":"done"}\n', encoding="utf-8")
@@ -67,6 +67,7 @@ class StageTests(unittest.TestCase):
         self.assertEqual(argv[-1], "-")
         self.assertEqual(argv[argv.index("--sandbox") + 1], "read-only")
         self.assertEqual(argv[argv.index("--ask-for-approval") + 1], "never")
+        self.assertLess(argv.index("--ask-for-approval"), argv.index("exec"))
         for name in ["GITHUB_TOKEN", "OTHER_SECRET", "TRAE_STAGE_PAT", "TRAECLI_PERSONAL_ACCESS_TOKEN"]:
             self.assertNotIn(name, env)
         login_call = next(call for call in self.calls if call[0][1] == "login")
@@ -85,7 +86,7 @@ class StageTests(unittest.TestCase):
 
         def invoke(*args, **kwargs):
             code = self.fake_invoke(*args, **kwargs)
-            if args[0][1] == "exec" and "--help" not in args[0]:
+            if "exec" in args[0] and "--help" not in args[0]:
                 argv = args[0]
                 self.assertEqual(json.loads(Path(argv[argv.index("--output-schema") + 1]).read_text()),
                                  {"type": "object"})
@@ -99,7 +100,7 @@ class StageTests(unittest.TestCase):
 
     def test_timeout_fails_and_preserves_manifest(self):
         def timeout(*args, **kwargs):
-            if args[0][1] == "exec" and "--help" not in args[0]:
+            if "exec" in args[0] and "--help" not in args[0]:
                 raise subprocess.TimeoutExpired(args[0], 1)
             return self.fake_invoke(*args, **kwargs)
         code, result, _ = self.run_stage(timeout)
@@ -118,14 +119,14 @@ class StageTests(unittest.TestCase):
     def test_nonzero_agent_exit_is_preserved(self):
         def fail(*args, **kwargs):
             self.fake_invoke(*args, **kwargs)
-            return 9 if args[0][1] == "exec" and "--help" not in args[0] else 0
+            return 9 if "exec" in args[0] and "--help" not in args[0] else 0
         code, result, _ = self.run_stage(fail)
         self.assertEqual((code, result["status"], result["exit_code"]), (9, "failed", 9))
 
     def test_no_answer_is_failure(self):
         def empty(*args, **kwargs):
             self.fake_invoke(*args, **kwargs)
-            if args[0][1] == "exec" and "--help" not in args[0]:
+            if "exec" in args[0] and "--help" not in args[0]:
                 Path(args[0][args[0].index("--output-last-message") + 1]).unlink()
             return 0
         self.assertEqual(self.run_stage(empty)[0], 1)
@@ -146,7 +147,7 @@ class StageTests(unittest.TestCase):
 
     def test_cancelled_cleans_credentials(self):
         def cancel(*args, **kwargs):
-            if args[0][1] == "exec" and "--help" not in args[0]:
+            if "exec" in args[0] and "--help" not in args[0]:
                 raise KeyboardInterrupt
             return self.fake_invoke(*args, **kwargs)
         code, result, _ = self.run_stage(cancel)
