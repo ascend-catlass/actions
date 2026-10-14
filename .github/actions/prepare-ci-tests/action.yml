@@ -1,5 +1,5 @@
 name: Prepare CATLASS CI tests
-description: Use image dependencies and select the NPU with the fewest processes
+description: Install filtered repository requirements, then select the NPU
 inputs:
   worktree:
     description: Source path in the test environment
@@ -15,6 +15,27 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Safely install repository Python requirements
+      shell: bash
+      env:
+        RDV_WORKTREE: ${{ inputs.worktree }}
+        RDV_CONTAINER: ${{ inputs.container }}
+      run: |
+        set -euo pipefail
+        if [[ ! -f /.dockerenv && -n "${RDV_CONTAINER}" ]]; then
+          docker exec -i "${RDV_CONTAINER}" bash -s -- "${RDV_WORKTREE}" <<'BASH'
+          set -euo pipefail
+          filtered=$(mktemp)
+          trap 'rm -f -- "${filtered}"' EXIT
+          awk 'tolower($0) !~ /^[[:space:]]*(torch([_-]npu)?|lit)([^[:alnum:]_-]|$)/' "$1/requirements.txt" > "${filtered}"
+          python -m pip install -r "${filtered}"
+        BASH
+        else
+          filtered=$(mktemp)
+          trap 'rm -f -- "${filtered}"' EXIT
+          awk 'tolower($0) !~ /^[[:space:]]*(torch([_-]npu)?|lit)([^[:alnum:]_-]|$)/' "${RDV_WORKTREE}/requirements.txt" > "${filtered}"
+          python -m pip install -r "${filtered}"
+        fi
     - name: Select NPU with fewest processes
       id: device
       shell: bash

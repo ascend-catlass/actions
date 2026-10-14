@@ -147,8 +147,13 @@ driver version, and installation information read-only. Runtime dependencies
 come from the image; the workflow does not mount over `/root` or install or
 activate CANN, Conda, or AscendNPU-IR inside the container.
 
-Test dependencies, including Torch and Torch NPU, come from the image.
-`prepare-ci-tests` does not run pip or replace packages; it only runs the vendored
+Torch and Torch NPU come from the image. `prepare-ci-tests` filters Lit, Torch
+and Torch NPU from the root `requirements.txt` and directly installs the remaining
+packages with `pip install -r`. This avoids direct installation requests for
+the filtered packages; pip still resolves transitive dependencies normally.
+The repository requirements file remains unchanged. The dev stage can still
+install Lit when the image lacks it.
+Preparation then runs the vendored
 [`detect_npu.sh`](.github/actions/prepare-ci-tests/detect_npu.sh) from
 MinghuasLab/flash-attention-npu inside the test environment. The upstream
 selector supports 910B and 950 tables and sorts eligible cards by process count,
