@@ -7,12 +7,13 @@ import json
 import os
 from pathlib import Path
 import re
-import urllib.error
-import urllib.parse
-import urllib.request
+try:
+    from .gitcode_api import GitCodeAPI
+except ImportError:
+    from gitcode_api import GitCodeAPI
 
-MARKER = "<!-- trae-cn-issue-reply:v1 -->"
-API = "https://api.gitcode.com/api/v5"
+MARKER = "<!-- issue-assistant-reply:v1 -->"
+LEGACY_MARKER = "<!-- trae-cn-issue-reply:v1 -->"
 
 
 def parse_url(url):
@@ -27,22 +28,10 @@ class Client:
         owner, repo, number = parse_url(url)
         self.root = f"/repos/{owner}/{repo}"
         self.number = number
-        self.headers = {"Authorization": f"Bearer {token}", "Accept": "application/json",
-                        "User-Agent": "ascend-catlass-issue-reply"}
+        self.api = GitCodeAPI(token)
 
     def request(self, method, path, body=None):
-        headers = dict(self.headers)
-        data = None
-        if body is not None:
-            data = urllib.parse.urlencode(body).encode("utf-8")
-            headers["Content-Type"] = "application/x-www-form-urlencoded"
-        req = urllib.request.Request(API + path, data=data, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=60) as response:
-                return json.load(response)
-        except urllib.error.HTTPError as error:
-            # Never print server responses which might echo credentials.
-            raise RuntimeError(f"GitCode {method} request failed (HTTP {error.code})") from None
+        return self.api.request(method, path, body)
 
     def issue(self):
         return self.request("GET", f"{self.root}/issues/{self.number}")
@@ -60,7 +49,8 @@ class Client:
 
 
 def owned(comment, user_id):
-    return (comment.get("user") or {}).get("id") == user_id and MARKER in (comment.get("body") or "")
+    body = comment.get("body") or ""
+    return (comment.get("user") or {}).get("id") == user_id and (MARKER in body or LEGACY_MARKER in body)
 
 
 def snapshot(issue, comments, user_id):
@@ -97,11 +87,15 @@ def prepare(client, url, worktree, template, output):
     return metadata
 
 
-def publish(client, metadata, answer, run_url):
+def publish(client, metadata, answer, model):
     if not answer.strip() or len(answer.encode("utf-8")) > 2400:
         raise ValueError("Reply must be nonempty and at most 2400 UTF-8 bytes")
-    if MARKER in answer:
+    if MARKER in answer or LEGACY_MARKER in answer:
         raise ValueError("Model reply must not contain the automation marker")
+    if re.search(r"(?i)trae|自动分析|运行记录|(?m:^By\s)", answer):
+        raise ValueError("Reply must contain natural discussion text without tool branding or signature")
+    if model != "DeepSeek-V4.1-Flash":
+        raise ValueError("This reply workflow currently requires DeepSeek-V4.1-Flash")
     identity = client.request("GET", "/user")
     if identity["id"] != metadata["user_id"]:
         raise ValueError("GitCode publishing identity changed")
@@ -109,13 +103,7 @@ def publish(client, metadata, answer, run_url):
     comments = client.comments()
     if fingerprint(snapshot(current, comments, identity["id"])) != metadata["fingerprint"]:
         raise ValueError("Issue or discussion changed during analysis; rerun before publishing")
-    if not re.fullmatch(r"https://github\.com/ascend-catlass/actions/actions/runs/[0-9]+", run_url):
-        raise ValueError("Unexpected workflow run URL")
-    provenance = f"源码 `{metadata['source_sha'][:12]}`"
-    if metadata.get("reported_sha"):
-        provenance += f" · Issue 报告基线 `{metadata['reported_sha'][:12]}`"
-    body = (f"{MARKER}\n{answer.strip()}\n\n---\n"
-            f"Trae 中国版自动分析 · {provenance} · [运行记录]({run_url})")
+    body = f"{MARKER}\n{answer.strip()}\n\nBy DeepSeek V4.1 Flash"
     if len(body.encode()) > 3000:
         raise ValueError("Final comment exceeds the short-comment limit")
     matches = [c for c in comments if owned(c, identity["id"])]
@@ -131,7 +119,8 @@ def publish(client, metadata, answer, run_url):
     verified = client.request("GET", f"{client.root}/issues/comments/{comment_id}")
     if verified.get("body", "").replace("\r\n", "\n") != body:
         raise RuntimeError("Published comment failed read-back verification; inspect before retrying")
-    return {"comment_id": comment_id, "comment_url": f"{metadata['issue_url']}#note_{comment_id}", "body": body}
+    return {"comment_id": comment_id, "comment_url": f"{metadata['issue_url']}#note_{comment_id}",
+            "model": model, "source_sha": metadata["source_sha"], "body": body}
 
 
 def main():
@@ -142,6 +131,7 @@ def main():
     parser.add_argument("--worktree", type=Path)
     parser.add_argument("--template", type=Path)
     parser.add_argument("--response", type=Path)
+    parser.add_argument("--model", default="DeepSeek-V4.1-Flash")
     args = parser.parse_args()
     token = os.environ.get("GITCODE_TOKEN", "")
     if not token:
@@ -153,8 +143,13 @@ def main():
         metadata = json.loads((args.output / "issue.json").read_text(encoding="utf-8"))
         if metadata["issue_url"] != args.issue_url:
             raise ValueError("Issue URL does not match the analyzed context")
-        result = publish(client, metadata, args.response.read_text(encoding="utf-8"), os.environ["WORKFLOW_RUN_URL"])
+        result = publish(client, metadata, args.response.read_text(encoding="utf-8"), args.model)
         (args.output / "published.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    if os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
+            stream.write(f"result-directory={args.output.resolve()}\n")
+            if result.get("comment_url"):
+                stream.write(f"comment-url={result['comment_url']}\n")
     print(json.dumps({k: v for k, v in result.items() if k != "body"}, ensure_ascii=True))
 
 

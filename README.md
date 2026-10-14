@@ -187,3 +187,11 @@ an Issue URL and a `publish` switch; the integration-test branch
 Issue/discussion changes block stale replies. The GitCode token is available only
 to context and publishing steps. Results and publication evidence are saved for
 seven days. Requires `TRAE_CN_PAT` and `GITCODE_TOKEN`; `TRAE_CN_HOST` is optional.
+
+GitCode API operations are exposed through reusable stages: `gitcode-api`,
+`gitcode-issue`, `gitcode-pr-metadata`, `gitcode-release`, and the existing
+`rdv-status`. The PR test and release workflows use those stages as well.
+See the [stage interfaces and composition example](.github/actions/gitcode-api/README.md).
+Issue replies explicitly use `DeepSeek-V4.1-Flash`, use natural discussion prose,
+and end with only `By DeepSeek V4.1 Flash`. Source revisions, model selection,
+and workflow evidence are kept in artifacts instead of the public signature.

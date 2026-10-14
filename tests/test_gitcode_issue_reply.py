@@ -8,7 +8,7 @@ from scripts import gitcode_issue_reply as reply
 
 
 URL = "https://gitcode.com/cann/catlass/issues/739"
-RUN = "https://github.com/ascend-catlass/actions/actions/runs/123"
+RUN = "DeepSeek-V4.1-Flash"
 SHA = "a" * 40
 
 
@@ -80,6 +80,9 @@ class IssueReplyTests(unittest.TestCase):
         context = metadata(client)
         result = reply.publish(client, context, "比较应使用相等判断。", RUN)
         self.assertEqual(result["comment_id"], 42)
+        self.assertTrue(result["body"].endswith("By DeepSeek V4.1 Flash"))
+        self.assertNotIn("Trae", result["body"])
+        self.assertNotIn("运行记录", result["body"])
         self.assertEqual(client.writes[0][0], "POST")
         reply.publish(client, context, "使用实际源码验证比较边界。", RUN)
         self.assertEqual(client.writes[-1][0], "PATCH")
@@ -121,6 +124,21 @@ class IssueReplyTests(unittest.TestCase):
         client.identity = {"id": 8}
         with self.assertRaisesRegex(ValueError, "identity changed"):
             reply.publish(client, context, "answer", RUN)
+
+    def test_legacy_owned_comment_is_migrated_without_duplicate(self):
+        client = FakeClient()
+        client.notes.append({"id": 42, "body": reply.LEGACY_MARKER + "old reply", "user": {"id": 7}})
+        result = reply.publish(client, metadata(client), "新的自然回复。", RUN)
+        self.assertEqual(client.writes[0][0], "PATCH")
+        self.assertEqual(len(client.notes), 1)
+        self.assertNotIn(reply.LEGACY_MARKER, result["body"])
+
+    def test_branding_or_duplicate_signature_is_rejected(self):
+        for answer in ["Trae 中国版自动分析", "正文\nBy DeepSeek V4.1 Flash", "运行记录：URL"]:
+            client = FakeClient()
+            with self.subTest(answer=answer), self.assertRaises(ValueError):
+                reply.publish(client, metadata(client), answer, RUN)
+            self.assertEqual(client.writes, [])
 
     def test_readback_mismatch_is_reported_without_duplicate_post(self):
         client = FakeClient()

@@ -18,9 +18,11 @@ on:
     branches: [codex/trae-cn-issue-739]
     paths:
       - .github/actions/trae-cn/**
+      - .github/actions/gitcode-*/**
       - .github/workflows/reply-gitcode-issue.yml
       - .github/prompts/gitcode-issue-reply.md
       - scripts/gitcode_issue_reply.py
+      - scripts/gitcode_api.py
       - tests/test_gitcode_issue_reply.py
 
 permissions:
@@ -42,8 +44,14 @@ jobs:
           persist-credentials: false
       - name: Verify adapters
         run: |
+          python3 -m pip install 'PyYAML==6.0.3'
           python3 -m unittest discover -s tests -p test_trae_cn_stage.py -v
           python3 -m unittest discover -s tests -p test_gitcode_issue_reply.py -v
+          python3 -m unittest discover -s tests -p test_gitcode_api.py -v
+          python3 -m unittest discover -s tests -p test_gitcode_stages.py -v
+          python3 -m unittest discover -s tests -p test_workflow_baselines.py -v
+          python3 -m unittest discover -s tests -p test_publish_gitcode_release.py -v
+          python3 -m unittest discover -s tests -p test_pr_test_routing.py -v
       - name: Install pinned official China enterprise CLI
         shell: bash
         run: |
@@ -69,13 +77,11 @@ jobs:
           fi
           echo "$cli_dir" >> "$GITHUB_PATH"
       - name: Checkout Issue repository and prepare prompt
-        env:
-          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
-        run: |
-          set -euo pipefail
-          source_url=$(python3 -c 'import os; from scripts.gitcode_issue_reply import parse_url; owner,repo,_=parse_url(os.environ["ISSUE_URL"]); print(f"https://gitcode.com/{owner}/{repo}.git")')
-          git clone --depth 200 "$source_url" _issue-source
-          python3 scripts/gitcode_issue_reply.py prepare --issue-url "$ISSUE_URL" --worktree _issue-source --template .github/prompts/gitcode-issue-reply.md --output _issue-result
+        uses: ./.github/actions/gitcode-issue
+        with:
+          operation: prepare
+          token: ${{ secrets.GITCODE_TOKEN }}
+          issue-url: ${{ inputs.issue_url || 'https://gitcode.com/cann/catlass/issues/739' }}
       - name: Analyze Issue and source
         id: trae
         uses: ./.github/actions/trae-cn
@@ -83,17 +89,20 @@ jobs:
           trae-pat: ${{ secrets.TRAE_CN_PAT }}
           host: ${{ vars.TRAE_CN_HOST }}
           expected-version: 0.209.1
+          model: DeepSeek-V4.1-Flash
           working-directory: _issue-source
           prompt-file: .trae-issue-context/prompt.md
           sandbox: read-only
           timeout-seconds: '900'
       - name: Publish and read back the short reply
         if: ${{ steps.trae.outputs.status == 'success' && (github.event_name == 'push' || inputs.publish) }}
-        env:
-          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
-          RESPONSE_FILE: ${{ steps.trae.outputs.response-file }}
-          WORKFLOW_RUN_URL: https://github.com/ascend-catlass/actions/actions/runs/${{ github.run_id }}
-        run: python3 scripts/gitcode_issue_reply.py publish --issue-url "$ISSUE_URL" --output _issue-result --response "$RESPONSE_FILE"
+        uses: ./.github/actions/gitcode-issue
+        with:
+          operation: publish
+          token: ${{ secrets.GITCODE_TOKEN }}
+          issue-url: ${{ inputs.issue_url || 'https://gitcode.com/cann/catlass/issues/739' }}
+          response-file: ${{ steps.trae.outputs.response-file }}
+          model: DeepSeek-V4.1-Flash
       - name: Save analysis and publication evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

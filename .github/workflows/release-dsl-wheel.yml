@@ -183,15 +183,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attach wheels to the corresponding GitCode tag release
-        env:
-          GITCODE_RELEASE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
-        run: |
-          python3 scripts/publish_gitcode_release.py \
-            --owner cann \
-            --repo catlass \
-            --tag "${{ needs.preflight.outputs.tag }}" \
-            --version "${{ needs.preflight.outputs.version }}" \
-            --bundle release-bundle
+        uses: ./.github/actions/gitcode-release
+        with:
+          token: ${{ secrets.GITCODE_TOKEN }}
+          tag: ${{ needs.preflight.outputs.tag }}
+          version: ${{ needs.preflight.outputs.version }}
+          bundle: release-bundle
 
   summary:
     name: Release summary

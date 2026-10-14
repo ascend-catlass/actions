@@ -33,48 +33,10 @@ jobs:
     steps:
       - name: Read pull request metadata from GitCode
         id: pr
-        shell: bash
-        env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          if [[ ! "${PR_NUMBER}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "pr_number must be a positive integer" >&2
-            exit 1
-          fi
-
-          api_url="https://api.gitcode.com/api/v5/repos/cann/catlass/pulls/${PR_NUMBER}"
-          pr_json="$(curl --fail --silent --show-error --location \
-            --header "PRIVATE-TOKEN: ${GITCODE_TOKEN}" \
-            "${api_url}")"
-
-          state="$(jq -er '.state' <<<"${pr_json}")"
-          base_ref="$(jq -er '.base.ref // .target_branch' <<<"${pr_json}")"
-          head_ref="$(jq -er '.head.ref // .source_branch' <<<"${pr_json}")"
-          head_sha="$(jq -er '.head.sha' <<<"${pr_json}")"
-
-          if [[ "${state}" != "open" && "${state}" != "opened" ]]; then
-            echo "PR #${PR_NUMBER} is not open (state: ${state})" >&2
-            exit 1
-          fi
-
-          git check-ref-format --branch "${base_ref}" >/dev/null
-          git check-ref-format --branch "${head_ref}" >/dev/null
-
-          if [[ ! "${head_sha}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "GitCode returned an invalid head SHA" >&2
-            exit 1
-          fi
-
-          {
-            echo "base_ref=${base_ref}"
-            echo "head_ref=${head_ref}"
-            echo "head_sha=${head_sha}"
-          } >>"${GITHUB_OUTPUT}"
-
-          echo "PR #${PR_NUMBER}: ${head_ref}@${head_sha} -> cann/catlass@${base_ref}"
+        uses: ascend-catlass/actions/.github/actions/gitcode-pr-metadata@main
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          token: ${{ secrets.GITCODE_TOKEN }}
 
       - name: Mark the pull request as running
         id: rdv_start
