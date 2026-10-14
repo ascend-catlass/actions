@@ -51,3 +51,9 @@ Linux 进程组测试只在 Linux 执行，手动 workflow 先在 GitHub-hosted 
 跳过。三个相关 YAML 文件解析成功，git diff --check 通过。
 全仓库 Python 测试额外遇到现有 NPU 检测测试无法找到 Bash 的环境错误；
 未修改这些测试。尚未进行真实 Trae 调用，也未提交或推送这些改动。
+
+后续实测：GitHub Linux worker 的 23 项适配层/发布测试全部通过。中国版企业
+CLI 0.209.1（ToB 发行版）通过官方 CDN 固定 SHA-256 下载、PAT 登录和只读
+exec，成功回复 CATLASS Issue #739 并 GET 回查。实际 CLI 要求 approval 参数
+置于 exec 之前，已据实修正。分析源码版本和 Issue 报告版本分别记录，重跑更新
+相同作者的自动评论。手动 workflow 支持仅生成、不发布。
