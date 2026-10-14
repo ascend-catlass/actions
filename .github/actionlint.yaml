@@ -4,3 +4,4 @@ self-hosted-runner:
     - bz
     - nondocker
     - publish
+    - trae-cn

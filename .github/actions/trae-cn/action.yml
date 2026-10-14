@@ -1,0 +1,77 @@
+name: Run Trae China CLI stage
+description: Run official TraeCode CLI 2.0 with a repository prompt and return files for downstream stages
+inputs:
+  trae-pat:
+    description: Enterprise Trae personal access token (use an Actions secret)
+    required: true
+  prompt:
+    description: Literal prompt; provide exactly one of prompt or prompt-file
+    default: ''
+  prompt-file:
+    description: UTF-8 prompt file inside working-directory, relative to that directory
+    default: ''
+  working-directory:
+    description: Checked-out Git repository, relative to GITHUB_WORKSPACE
+    default: '.'
+  cli-path:
+    description: Preinstalled official China CLI 2.0 executable (not trae-cli from trae-agent)
+    default: traecli
+  expected-version:
+    description: Optional exact numeric CLI version to enforce before login
+    default: ''
+  model:
+    description: Optional model; empty uses the enterprise account default
+    default: ''
+  host:
+    description: Optional HTTPS enterprise API domain; empty uses the China CLI default
+    default: ''
+  sandbox:
+    description: read-only for analysis or workspace-write for code changes
+    default: read-only
+  output-schema-file:
+    description: Optional JSON Schema file inside working-directory for the final response
+    default: ''
+  timeout-seconds:
+    description: Total subprocess budget including version check, login and execution
+    default: '900'
+outputs:
+  result-directory:
+    description: Unique directory containing final response, JSONL events, stderr and result.json
+    value: ${{ steps.run.outputs.result-directory }}
+  response-file:
+    description: Final answer path (consume only when status is success)
+    value: ${{ steps.run.outputs.response-file }}
+  events-file:
+    description: CLI stdout JSONL file
+    value: ${{ steps.run.outputs.events-file }}
+  stderr-file:
+    description: CLI stderr log
+    value: ${{ steps.run.outputs.stderr-file }}
+  result-file:
+    description: Machine-readable stage status and CLI version
+    value: ${{ steps.run.outputs.result-file }}
+  status:
+    description: success, failed, timeout or cancelled
+    value: ${{ steps.run.outputs.status }}
+  exit-code:
+    description: Stage exit code (124 on timeout; nonzero fails the action)
+    value: ${{ steps.run.outputs.exit-code }}
+runs:
+  using: composite
+  steps:
+    - name: Execute Trae China stage
+      id: run
+      shell: bash
+      env:
+        TRAE_STAGE_PAT: ${{ inputs.trae-pat }}
+        TRAE_STAGE_PROMPT: ${{ inputs.prompt }}
+        TRAE_STAGE_PROMPT_FILE: ${{ inputs.prompt-file }}
+        TRAE_STAGE_WORKDIR: ${{ inputs.working-directory }}
+        TRAE_STAGE_CLI: ${{ inputs.cli-path }}
+        TRAE_STAGE_VERSION: ${{ inputs.expected-version }}
+        TRAE_STAGE_MODEL: ${{ inputs.model }}
+        TRAE_STAGE_HOST: ${{ inputs.host }}
+        TRAE_STAGE_SANDBOX: ${{ inputs.sandbox }}
+        TRAE_STAGE_SCHEMA: ${{ inputs.output-schema-file }}
+        TRAE_STAGE_TIMEOUT: ${{ inputs.timeout-seconds }}
+      run: python3 "${GITHUB_ACTION_PATH}/run.py"

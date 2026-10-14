@@ -167,3 +167,23 @@ Before container tests, the action registers the mounted checkout and submodule
 paths from `.gitmodules` as Git safe directories, including uninitialized
 submodules such as googletest. Existing nested submodules are handled recursively.
 Paths outside the checkout are rejected; repeated stages do not duplicate entries.
+
+The reusable [`trae-cn`](.github/actions/trae-cn/README.md) stage runs the official
+China TraeCode CLI 2.0 against a checked-out repository, accepting a literal prompt
+or a repository prompt file. It returns a final answer file, JSONL events, stderr,
+and a status manifest for downstream PR/Issue workflows. It defaults to read-only;
+code repair can explicitly select workspace-write. A preinstalled Linux CLI and an
+enterprise PAT (`TRAE_CN_PAT`) are required; email/password credentials alone are
+not the documented CI authentication interface. `trae-cn-smoke.yml` provides a
+manual test on a dedicated runner labeled `trae-cn`, with seven-day result artifacts.
+See the [design and current verification limits](docs/plans/2026-10-14-trae-cn-stage-design.md).
+
+`reply-gitcode-issue.yml` combines that stage with GitCode Issue/context fetching
+and a short public reply. It installs the pinned official China enterprise CLI
+on a disposable GitHub-hosted Linux runner, then reads the selected repository
+and publishes or updates one owned automation comment. Manual dispatch accepts
+an Issue URL and a `publish` switch; the integration-test branch
+`codex/trae-cn-issue-739` tests the explicitly selected CATLASS Issue #739.
+Issue/discussion changes block stale replies. The GitCode token is available only
+to context and publishing steps. Results and publication evidence are saved for
+seven days. Requires `TRAE_CN_PAT` and `GITCODE_TOKEN`; `TRAE_CN_HOST` is optional.
