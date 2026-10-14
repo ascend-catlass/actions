@@ -24,6 +24,9 @@ Issue workflow 先调用 `gitcode-issue` 的 `prepare`，再调用模型 stage�
 文件。`path` 仅允许固定 `https://api.gitcode.com/api/v5` 下的路径。
 此通用 stage 不替调用方决定发布权限或幂等策略；业务 stage 负责这些约束。
 
+2026-10-14 已在 GitHub Linux worker 通过 39 项测试，并对 CATLASS Issue
+#739 使用显式 DeepSeek-V4.1-Flash 完成获取、分析、发布和回查。
+
 示例：
 
 ```yaml

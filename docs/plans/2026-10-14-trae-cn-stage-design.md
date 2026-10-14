@@ -57,3 +57,10 @@ CLI 0.209.1（ToB 发行版）通过官方 CDN 固定 SHA-256 下载、PAT 登�
 exec，成功回复 CATLASS Issue #739 并 GET 回查。实际 CLI 要求 approval 参数
 置于 exec 之前，已据实修正。分析源码版本和 Issue 报告版本分别记录，重跑更新
 相同作者的自动评论。手动 workflow 支持仅生成、不发布。
+
+用户后续要求：显式使用 DeepSeek-V4.1-Flash，公开评论采用自然短段落，末行
+仅为 `By DeepSeek V4.1 Flash`。版本与运行证据移入 artifact。
+GitCode Issue、通用 API、PR 元数据与 Release API 操作均封装为 composite
+stage，既有 RDV 状态 stage 继续复用；原 PR/Release workflows 改为调用这些
+stage。最终实测 run 38508835564 全部步骤成功，39 项 Linux 测试通过，Issue
+#739 评论 193711771 已回查正文与署名，只有一条本账号自动回复。
