@@ -190,8 +190,11 @@ on a disposable GitHub-hosted Linux runner, then reads the selected repository
 and publishes or updates one owned automation comment.
 Before downloading the CLI or checking out Issue source, it reads the author's
 login and queries both repository role lists from the CANN community checkout.
-Issues opened by declared committers or maintainers are skipped without analysis
-or a comment; account matching ignores case. Missing author identities or failed
+Issues opened by declared committers or maintainers skip model analysis and receive
+only `/assign @author-login`, using the author's platform account ID. Repeated runs
+reuse an identical assignment comment from the automation account. Closed Issues
+receive no assignment. The `publish` switch controls both reply and assignment
+publication; account matching ignores case. Missing author identities or failed
 role queries stop the run. Preparation and publication recheck eligibility, and
 an author change during analysis blocks publication.
 Manual dispatch accepts

@@ -19,10 +19,16 @@ class EligibilityTests(unittest.TestCase):
             with self.subTest(login=login):
                 self.issue["user"]["login"] = login
                 self.assertFalse(self.check())
+                result = eligibility(self.issue, self.roles, "cann/catlass")
+                self.assertTrue(result["assign"])
+                self.assertEqual(result["atomgit_id"], login)
 
     def test_closed_issue_is_skipped(self):
         self.issue["state"] = "closed"
         self.assertFalse(self.check())
+        self.assertFalse(eligibility(self.issue, self.roles, "cann/catlass")["assign"])
+        self.issue["user"]["login"] = "Maintainer"
+        self.assertFalse(eligibility(self.issue, self.roles, "cann/catlass")["assign"])
 
     def test_missing_identity_and_invalid_roles_fail_closed(self):
         for user in [None, {}, {"name": "contributor"}, {"login": ""}, {"login": "user\nattack"}]:

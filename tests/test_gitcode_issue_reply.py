@@ -50,6 +50,58 @@ def metadata(client):
 
 
 class IssueReplyTests(unittest.TestCase):
+    def test_role_author_gets_exact_assignment_once(self):
+        client = FakeClient()
+        client.value["user"] = {"login": "OWNER", "id": 123, "name": "Display Name"}
+        roles = {"repository": "cann/catlass", "maintainer_ids": ["owner"], "committer_ids": []}
+        result = reply.assign_author(client, URL, roles)
+        self.assertEqual(result["body"], "/assign @OWNER")
+        self.assertEqual(client.writes[0][2], {"body": "/assign @OWNER"})
+        self.assertEqual(reply.assign_author(client, URL, roles)["comment_id"], result["comment_id"])
+        self.assertEqual(len(client.writes), 1)
+
+    def test_assignment_rejects_contributors_closed_issues_and_missing_roles(self):
+        roles = {"repository": "cann/catlass", "maintainer_ids": [], "committer_ids": ["reviewer"]}
+        for login, state, role_data in [("contributor", "open", roles), ("reviewer", "closed", roles),
+                                         ("reviewer", "open", None)]:
+            client = FakeClient()
+            client.value.update(user={"login": login}, state=state)
+            with self.subTest(login=login, state=state), self.assertRaises(ValueError):
+                reply.assign_author(client, URL, role_data)
+            self.assertEqual(client.writes, [])
+
+    def test_assignment_rechecks_author_before_posting(self):
+        client = FakeClient()
+        client.value["user"] = {"login": "reviewer"}
+        roles = {"repository": "cann/catlass", "maintainer_ids": [], "committer_ids": ["reviewer"]}
+        with patch.object(client, "issue", side_effect=[client.value.copy(),
+                          {**client.value, "user": {"login": "other"}}]):
+            with self.assertRaisesRegex(ValueError, "changed before assignment"):
+                reply.assign_author(client, URL, roles)
+        self.assertEqual(client.writes, [])
+
+    def test_foreign_assignment_comment_does_not_suppress_our_command(self):
+        client = FakeClient()
+        client.value["user"] = {"login": "reviewer"}
+        client.notes = [{"id": 10, "body": "/assign @reviewer", "user": {"id": 99}}]
+        roles = {"repository": "cann/catlass", "maintainer_ids": [], "committer_ids": ["reviewer"]}
+        reply.assign_author(client, URL, roles)
+        self.assertEqual(len(client.writes), 1)
+
+    def test_assignment_readback_failure_is_reported(self):
+        client = FakeClient()
+        client.value["user"] = {"login": "reviewer"}
+        roles = {"repository": "cann/catlass", "maintainer_ids": [], "committer_ids": ["reviewer"]}
+        original = client.request
+        def request(method, path, body=None):
+            if method == "GET" and "/issues/comments/" in path:
+                return {"body": "wrong", "user": client.identity}
+            return original(method, path, body)
+        with patch.object(client, "request", side_effect=request):
+            with self.assertRaisesRegex(RuntimeError, "read-back"):
+                reply.assign_author(client, URL, roles)
+        self.assertEqual(len(client.writes), 1)
+
     def test_role_members_cannot_prepare_or_publish(self):
         roles = {"repository": "cann/catlass", "maintainer_ids": ["Owner"],
                  "committer_ids": ["Reviewer"]}

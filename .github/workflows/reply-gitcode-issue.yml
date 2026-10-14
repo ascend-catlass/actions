@@ -10,7 +10,7 @@ on:
         required: true
         default: https://gitcode.com/cann/catlass/issues/739
       publish:
-        description: Publish or update the short automated reply
+        description: Publish the automated reply or role-member assignment comment
         type: boolean
         default: true
   push:
@@ -122,6 +122,15 @@ jobs:
             sudo apt-get install -y bubblewrap
           fi
           echo "$cli_dir" >> "$GITHUB_PATH"
+      - name: Assign role-member Issue to its author
+        id: assign
+        if: ${{ steps.eligibility.outputs.assign == 'true' && (github.event_name == 'push' || inputs.publish) }}
+        uses: ./.github/actions/gitcode-issue
+        with:
+          operation: assign
+          roles-file: ${{ steps.roles.outputs.result-file }}
+          token: ${{ secrets.GITCODE_TOKEN }}
+          issue-url: ${{ inputs.issue_url || 'https://gitcode.com/cann/catlass/issues/739' }}
       - name: Checkout Issue repository and prepare prompt
         if: ${{ steps.eligibility.outputs.analyze == 'true' }}
         uses: ./.github/actions/gitcode-issue
@@ -154,7 +163,7 @@ jobs:
           response-file: ${{ steps.trae.outputs.response-file }}
           model: DeepSeek-V4.1-Flash
       - name: Save analysis and publication evidence
-        if: ${{ always() && steps.trae.outputs.result-directory != '' }}
+        if: ${{ always() && (steps.trae.outputs.result-directory != '' || steps.assign.outputs.result-directory != '') }}
         uses: actions/upload-artifact@v4
         with:
           name: gitcode-issue-reply-${{ github.run_id }}-${{ github.run_attempt }}

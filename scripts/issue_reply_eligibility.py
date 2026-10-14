@@ -29,11 +29,12 @@ def eligibility(issue, roles, repository):
         ):
             raise ValueError(f"Invalid role list: {field}")
         members.update(value.casefold() for value in values)
-    if author.casefold() in members:
-        return {"analyze": False, "reason": "author-is-committer-or-maintainer"}
     if issue.get("state") not in {"open", "opened"}:
-        return {"analyze": False, "reason": "issue-is-not-open"}
-    return {"analyze": True, "reason": "author-is-not-committer-or-maintainer"}
+        return {"analyze": False, "assign": False, "reason": "issue-is-not-open"}
+    if author.casefold() in members:
+        return {"analyze": False, "assign": True, "atomgit_id": author,
+                "reason": "author-is-committer-or-maintainer"}
+    return {"analyze": True, "assign": False, "reason": "author-is-not-committer-or-maintainer"}
 
 
 def main():
@@ -47,7 +48,10 @@ def main():
                          args.repository)
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
         handle.write(f"analyze={str(result['analyze']).lower()}\n")
-    summary = "Proceed with Issue analysis." if result["analyze"] else "Skip Issue analysis and reply."
+        handle.write(f"assign={str(result['assign']).lower()}\n")
+    summary = ("Proceed with Issue analysis." if result["analyze"] else
+               "Assign Issue to its author without model analysis." if result["assign"] else
+               "Skip closed Issue.")
     with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
         handle.write(f"{summary} Reason: `{result['reason']}`.\n")
     print(summary)

@@ -76,6 +76,39 @@ def check_author_roles(issue, url, roles):
         raise ValueError("Issue author is ineligible for automated analysis and reply")
 
 
+def assign_author(client, url, roles):
+    """Post one exact assign command for a declared role member, without a model."""
+    try:
+        from .issue_reply_eligibility import eligibility
+    except ImportError:
+        from issue_reply_eligibility import eligibility
+    owner, repo, _ = parse_url(url)
+    issue = client.issue()
+    decision = eligibility(issue, roles, f"{owner}/{repo}")
+    if not decision["assign"]:
+        raise ValueError("Issue author is ineligible for automatic assignment")
+    # Use the API login, never a display name or a numeric database user id.
+    body = f"/assign @{decision['atomgit_id']}"
+    identity = client.request("GET", "/user")
+    matches = [comment for comment in client.comments()
+               if (comment.get("user") or {}).get("id") == identity["id"]
+               and (comment.get("body") or "").strip().casefold() == body.casefold()]
+    if matches:
+        comment_id = matches[-1]["id"]
+    else:
+        current = client.issue()
+        if (current.get("user") or {}).get("login") != decision["atomgit_id"] or current.get("state") != issue.get("state"):
+            raise ValueError("Issue author or state changed before assignment")
+        created = client.request("POST", f"{client.root}/issues/{client.number}/comments", {"body": body})
+        comment_id = created["id"]
+    verified = client.request("GET", f"{client.root}/issues/comments/{comment_id}")
+    if ((verified.get("body") or "").strip().casefold() != body.casefold()
+            or (verified.get("user") or {}).get("id") != identity["id"]):
+        raise RuntimeError("Assignment comment failed read-back verification")
+    return {"comment_id": comment_id, "comment_url": f"{url}#note_{comment_id}",
+            "atomgit_id": decision["atomgit_id"], "body": body}
+
+
 def prepare(client, url, worktree, template, output, roles=None):
     identity = client.request("GET", "/user")
     issue, comments = client.issue(), client.comments()
@@ -140,7 +173,7 @@ def publish(client, metadata, answer, model, roles=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["prepare", "publish"])
+    parser.add_argument("mode", choices=["prepare", "publish", "assign"])
     parser.add_argument("--issue-url", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--worktree", type=Path)
@@ -156,6 +189,12 @@ def main():
     roles = json.loads(args.roles_file.read_text(encoding="utf-8")) if args.roles_file else None
     if args.mode == "prepare":
         result = prepare(client, args.issue_url, args.worktree.resolve(), args.template, args.output, roles)
+    elif args.mode == "assign":
+        if roles is None:
+            raise ValueError("Assignment requires a community roles file")
+        result = assign_author(client, args.issue_url, roles)
+        args.output.mkdir(parents=True, exist_ok=True)
+        (args.output / "assigned.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     else:
         metadata = json.loads((args.output / "issue.json").read_text(encoding="utf-8"))
         if metadata["issue_url"] != args.issue_url:

@@ -22,7 +22,7 @@ class StageContracts(unittest.TestCase):
         workflow = yaml.safe_load((ROOT / ".github/workflows/reply-gitcode-issue.yml").read_text(encoding="utf-8"))
         steps = workflow["jobs"]["reply"]["steps"]
         api_steps = [s for s in steps if s.get("uses") == "./.github/actions/gitcode-issue"]
-        self.assertEqual([s["with"]["operation"] for s in api_steps], ["prepare", "publish"])
+        self.assertEqual([s["with"]["operation"] for s in api_steps], ["assign", "prepare", "publish"])
         analyze = next(s for s in steps if s.get("id") == "trae")
         self.assertEqual(analyze["with"]["model"], "DeepSeek-V4.1-Flash")
         self.assertNotIn("GITCODE_TOKEN", analyze.get("env", {}))
@@ -39,7 +39,7 @@ class StageContracts(unittest.TestCase):
         self.assertEqual(roles["uses"], "./.github/actions/community-repo-roles")
         gate_index = next(i for i, s in enumerate(steps) if s.get("id") == "eligibility")
         guarded = [s for s in steps if s.get("id") == "trae"
-                   or s.get("uses") == "./.github/actions/gitcode-issue"
+                   or (s.get("uses") == "./.github/actions/gitcode-issue" and s["with"]["operation"] != "assign")
                    or s.get("name", "").startswith("Install pinned")]
         self.assertEqual(len(guarded), 4)
         for step in guarded:
@@ -47,6 +47,10 @@ class StageContracts(unittest.TestCase):
             self.assertIn("steps.eligibility.outputs.analyze == 'true'", step["if"])
             if step.get("uses") == "./.github/actions/gitcode-issue":
                 self.assertEqual(step["with"]["roles-file"], "${{ steps.roles.outputs.result-file }}")
+        assignment = next(s for s in steps if s.get("id") == "assign")
+        self.assertIn("steps.eligibility.outputs.assign == 'true'", assignment["if"])
+        self.assertIn("inputs.publish", assignment["if"])
+        self.assertEqual(assignment["with"]["roles-file"], "${{ steps.roles.outputs.result-file }}")
 
 
 if __name__ == "__main__":

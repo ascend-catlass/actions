@@ -2,7 +2,7 @@ name: GitCode Issue context and reply
 description: Prepare source and Issue context or publish and verify one owned model reply
 inputs:
   operation:
-    description: prepare or publish
+    description: prepare, publish or assign (comment /assign @author for a role member)
     required: true
   token:
     description: GitCode token from an Actions secret
@@ -66,5 +66,8 @@ runs:
           publish)
             python3 "$script" publish --issue-url "$ISSUE_URL" --output "$ISSUE_RESULT" --response "$ISSUE_RESPONSE" --model "$ISSUE_MODEL" "${role_args[@]}"
             ;;
-          *) echo 'operation must be prepare or publish' >&2; exit 1 ;;
+          assign)
+            python3 "$script" assign --issue-url "$ISSUE_URL" --output "$ISSUE_RESULT" "${role_args[@]}"
+            ;;
+          *) echo 'operation must be prepare, publish or assign' >&2; exit 1 ;;
         esac
