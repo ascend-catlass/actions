@@ -1,0 +1,8 @@
+:root { --bs-link-color: #1769aa; --bs-link-hover-color: #124f80; }
+body { font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.col-md-9 { line-height: 1.8; }
+h1, h2, h3 { line-height: 1.35; }
+table { font-size: .92rem; }
+td, th { vertical-align: top; }
+pre { border-radius: 6px; }
+.language-links { margin: 1rem 0; }

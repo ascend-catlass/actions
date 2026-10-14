@@ -1,5 +1,7 @@
 # GitCode CI-passed reminder
 
+[中文手册](../../../docs/zh/actions/gitcode-ci-passed.md) · [English guide](../../../docs/en/actions/gitcode-ci-passed.md)
+
 Called by `reply-gitcode-ci-passed.yml`, which the dev webhook gateway dispatches
 on CATLASS PR label events. The gateway needs only `GITHUB_ACTIONS_TOKEN`;
 `GITCODE_TOKEN` stays in this repository's Actions secrets.

@@ -1,5 +1,7 @@
 # Create Ascend container
 
+[中文手册](../../../docs/zh/actions/create-ascend-container.md) · [English guide](../../../docs/en/actions/create-ascend-container.md)
+
 This composite action checks `/.dockerenv` before using Docker. Inside a
 container, it returns the input source path and an empty `container-name`.
 On a host, it creates a container with the image's own runtime environment.

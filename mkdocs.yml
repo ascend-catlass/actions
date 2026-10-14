@@ -1,0 +1,71 @@
+site_name: CATLASS Automation · 自动化手册
+site_description: Practical Chinese and English guides to CATLASS reusable GitHub
+  Actions
+repo_url: https://github.com/ascend-catlass/actions
+repo_name: ascend-catlass/actions
+edit_uri: edit/main/docs/
+docs_dir: docs
+site_dir: site
+exclude_docs: '/plans/
+
+  '
+theme:
+  name: mkdocs
+  locale: zh_CN
+  navigation_depth: 3
+plugins:
+- search:
+    lang:
+    - en
+markdown_extensions:
+- tables
+- admonition
+- toc:
+    permalink: true
+extra_css:
+- assets/docs.css
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+nav:
+- Start / 入口: index.md
+- 中文:
+  - 概览: zh/index.md
+  - 工作流: zh/workflows.md
+  - 术语: zh/glossary.md
+  - Actions:
+    - community-repo-roles · 查询社区维护者与 Committer: zh/actions/community-repo-roles.md
+    - create-ascend-container · 创建昇腾测试容器: zh/actions/create-ascend-container.md
+    - gitcode-api · 调用 GitCode API: zh/actions/gitcode-api.md
+    - gitcode-ci-passed · CI 通过后提醒代码检视: zh/actions/gitcode-ci-passed.md
+    - gitcode-issue · 准备、回复或分配 GitCode Issue: zh/actions/gitcode-issue.md
+    - gitcode-pr-metadata · 读取并校验 PR 版本信息: zh/actions/gitcode-pr-metadata.md
+    - gitcode-release · 发布 GitCode Release 安装包: zh/actions/gitcode-release.md
+    - npuir-local-archive · 复用本机 AscendNPU-IR 构建归档: zh/actions/npuir-local-archive.md
+    - prepare-ci-tests · 准备测试依赖并选择 NPU: zh/actions/prepare-ci-tests.md
+    - rdv-status · 把 RDV 测试状态写回 PR: zh/actions/rdv-status.md
+    - run-ci-tests · 运行 CATLASS 测试阶段: zh/actions/run-ci-tests.md
+    - trae-cn · 运行 TRAE CN 分析任务: zh/actions/trae-cn.md
+  - 文档维护: zh/maintaining.md
+- English:
+  - Overview: en/index.md
+  - Workflows: en/workflows.md
+  - Glossary: en/glossary.md
+  - Actions:
+    - community-repo-roles · Look up community maintainers and committers: en/actions/community-repo-roles.md
+    - create-ascend-container · Create an Ascend test container: en/actions/create-ascend-container.md
+    - gitcode-api · Call the GitCode API: en/actions/gitcode-api.md
+    - gitcode-ci-passed · Send a review reminder after CI passes: en/actions/gitcode-ci-passed.md
+    - gitcode-issue · Prepare, reply to or assign a GitCode Issue: en/actions/gitcode-issue.md
+    - gitcode-pr-metadata · Read and validate PR metadata: en/actions/gitcode-pr-metadata.md
+    - gitcode-release · Publish a GitCode release bundle: en/actions/gitcode-release.md
+    - npuir-local-archive · Reuse local AscendNPU-IR build archives: en/actions/npuir-local-archive.md
+    - prepare-ci-tests · Prepare test dependencies and select an NPU: en/actions/prepare-ci-tests.md
+    - rdv-status · Report RDV test status on a PR: en/actions/rdv-status.md
+    - run-ci-tests · Run a CATLASS test stage: en/actions/run-ci-tests.md
+    - trae-cn · Run a TRAE CN analysis task: en/actions/trae-cn.md
+  - Maintain the docs: en/maintaining.md

@@ -2,6 +2,24 @@
 
 Shared GitHub Actions automation for the `ascend-catlass` organization.
 
+本仓库将 PR 测试、社区协作、环境准备和发布流程封装为可复用的自动化步骤。
+每个 Action 的用途、前置条件、调用示例和输入输出见
+[中文手册](docs/zh/index.md) · [English guide](docs/en/index.md)。
+工作流如何串联这些步骤见
+[中文工作流说明](docs/zh/workflows.md) · [English workflows](docs/en/workflows.md)。
+
+Build or preview the bilingual MkDocs site:
+
+```text
+python -m pip install -r requirements-docs.txt
+python scripts/check_docs.py
+python -m mkdocs build --strict
+python -m mkdocs serve
+```
+
+The built site is saved in `site/`; `docs-build.yml` also produces a downloadable
+site artifact. Documentation is not automatically published to GitHub Pages.
+
 The workflows in `.github/workflows/` run from this repository's `main` branch:
 
 Every job, including cleanup and reusable workflow jobs, requires

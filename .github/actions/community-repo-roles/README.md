@@ -1,5 +1,7 @@
 # community-repo-roles
 
+[中文手册](../../../docs/zh/actions/community-repo-roles.md) · [English guide](../../../docs/en/actions/community-repo-roles.md)
+
 从已检出的 CANN community 仓库查询某个 repo 的 maintainer 和 committer。
 不需要 GitCode token，不调用人员 API；结果对应传入 checkout 的配置版本。
 运行环境需要 Bash，action 使用 Python 3.12 和 PyYAML 6.0.3。

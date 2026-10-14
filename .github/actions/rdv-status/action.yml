@@ -18,7 +18,7 @@ inputs:
     description: CI result URL published in the status comment
     required: true
   comment-id:
-    description: Comment created by the start phase and edited by the finish phase
+    description: Reserved input; current finish phase posts a new comment and does not use this ID
     required: false
 
 outputs:

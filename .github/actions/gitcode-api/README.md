@@ -1,5 +1,7 @@
 # GitCode stages
 
+[中文手册](../../../docs/zh/actions/gitcode-api.md) · [English guide](../../../docs/en/actions/gitcode-api.md)
+
 仓库中的 GitCode API 操作通过以下 composite stages 调用：
 
 | Stage | 用途 |

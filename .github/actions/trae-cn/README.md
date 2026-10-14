@@ -1,5 +1,7 @@
 # TRAE CN基础 stage
 
+[中文手册](../../../docs/zh/actions/trae-cn.md) · [English guide](../../../docs/en/actions/trae-cn.md)
+
 通过**官方中国版 TraeCode CLI 2.0** 执行一个任务。接收字符串或仓库里的
 UTF-8 提示词，返回最终答复、JSONL 执行事件、stderr 和机器可读状态。
 后续的 PR review、Issue triage、修复 workflow 可以组合这个 stage。
@@ -116,9 +118,9 @@ artifact 的访问范围和保留时间需按实际仓库配置。
   socket、无 NPU 设备、无 sudo 的可销毁 worker；共享编译/NPU runner 不适合。
   本 stage 不自动净化项目级规则、hooks、插件或 MCP，须由上层工作区准备负责。
 
-首版只提供基础执行能力和手动 smoke workflow，不开启自动评论、推送或合并。
-GitCode 的 PR/Issue 上下文获取与发布也可以复用这个 stage，但认证和 API
-适配应放在独立 stage。
+本 Action 只提供执行能力，不直接评论、推送或合并。现有
+`reply-gitcode-issue.yml` 通过独立的 `gitcode-issue` Action 准备上下文并发布评论，
+也支持按社区角色分配 Issue；当前工作流由维护者手动触发。
 
 ## 调研来源
 
@@ -132,5 +134,7 @@ GitCode 的 PR/Issue 上下文获取与发布也可以复用这个 stage，但�
 - [ByteDance trae-agent](https://github.com/bytedance/trae-agent)：开源 agent 使用
   独立模型 provider/API key，不是中国版企业账号的替代登录方式。
 
-未复制这些项目源码。接口以 2026-10-14 的官方文档为依据；真实 CLI 合约仍待
-有权限的 runner 试跑确认。
+未复制这些项目源码。接口以 2026-10-14 的官方文档及固定版本 CLI 实测为依据。
+Issue 工作流已完成 CLI 0.209.1 的登录、分析和评论回查；后续更换 CLI、模型或
+企业账号时仍应运行 smoke 验证。实测记录见
+[设计记录](../../../docs/plans/2026-10-14-trae-cn-stage-design.md)。
