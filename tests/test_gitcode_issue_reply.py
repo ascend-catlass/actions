@@ -80,7 +80,7 @@ class IssueReplyTests(unittest.TestCase):
         context = metadata(client)
         result = reply.publish(client, context, "比较应使用相等判断。", RUN)
         self.assertEqual(result["comment_id"], 42)
-        self.assertTrue(result["body"].endswith("By DeepSeek V4.1 Flash"))
+        self.assertTrue(result["body"].endswith("<sub>By DeepSeek-V4.1-Flash</sub>"))
         self.assertNotIn("Trae", result["body"])
         self.assertNotIn("运行记录", result["body"])
         self.assertEqual(client.writes[0][0], "POST")

@@ -1,4 +1,4 @@
-"""File-oriented adapter for the official China TraeCode CLI 2.0, Linux only."""
+"""File-oriented adapter for the official TRAE CN CLI 2.0, Linux only."""
 from __future__ import annotations
 
 import json
@@ -182,11 +182,11 @@ def main() -> int:
             help_text = help_file.read_text(encoding="utf-8", errors="replace")
             if help_code or any(flag not in help_text for flag in (
                     "--json", "--output-last-message", "--ephemeral", "--ignore-user-config")):
-                raise StageError("Installed CLI lacks the required 2.0 exec interface; upgrade the China CLI")
+                raise StageError("Installed CLI lacks the required 2.0 exec interface; upgrade the TRAE CN CLI")
             login_env = dict(env, TRAECLI_PERSONAL_ACCESS_TOKEN=secret)
             if invoke([cli, "login", "--with-trae-pat"], private, login_env, deadline,
                       private / "login.out", private / "login.err"):
-                raise StageError("Trae PAT login failed; check enterprise CLI entitlement and host")
+                raise StageError("TRAE CN PAT login failed; check enterprise CLI entitlement and host")
             argv = [cli, "--ask-for-approval", "never", "exec", "--json", "--color", "never", "--ephemeral",
                     "--ignore-user-config", "--sandbox", sandbox,
                     "--output-last-message", str(files["response-file"])]
@@ -200,7 +200,7 @@ def main() -> int:
             code = invoke(argv, workdir, env, deadline, files["events-file"],
                           files["stderr-file"], prompt.encode("utf-8"))
             if code:
-                message = "Trae execution failed; inspect stderr.log and events.jsonl"
+                message = "TRAE CN execution failed; inspect stderr.log and events.jsonl"
             elif not files["response-file"].is_file() or files["response-file"].stat().st_size == 0:
                 code, message = 1, "CLI succeeded without a nonempty final response"
             elif files["response-file"].stat().st_size > 10 * 1024 * 1024:
@@ -213,9 +213,9 @@ def main() -> int:
                     json.loads(answer)
                 status = "success"
     except subprocess.TimeoutExpired:
-        status, code, message = "timeout", 124, "Trae stage exceeded timeout-seconds"
+        status, code, message = "timeout", 124, "TRAE CN stage exceeded timeout-seconds"
     except KeyboardInterrupt:
-        status, code, message = "cancelled", 130, "Trae stage was cancelled"
+        status, code, message = "cancelled", 130, "TRAE CN stage was cancelled"
     except (StageError, OSError, ValueError, KeyError) as error:
         code = 1
         # File paths / OS error strings can contain arbitrary input. Keep the public
@@ -232,7 +232,7 @@ def main() -> int:
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         emit_output("status", status)
         emit_output("exit-code", str(code))
-    print(f"Trae China stage: {status}; result directory: {result_dir}")
+    print(f"TRAE CN stage: {status}; result directory: {result_dir}")
     if message:
         print(f"Stage detail: {message}")
     return code if code >= 0 else 1

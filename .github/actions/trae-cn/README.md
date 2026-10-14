@@ -1,4 +1,4 @@
-# Trae 中国版基础 stage
+# TRAE CN基础 stage
 
 通过**官方中国版 TraeCode CLI 2.0** 执行一个任务。接收字符串或仓库里的
 UTF-8 提示词，返回最终答复、JSONL 执行事件、stderr 和机器可读状态。
@@ -26,7 +26,7 @@ Stage 不安装 CLI、不修改 runner 的全局登录状态。部署人员先�
 1. 为专用 Linux runner 添加 `trae-cn` 标签，预装官方 CLI 2.0。
 2. 在 GitHub 仓库 Settings → Secrets and variables → Actions 中新增
    `TRAE_CN_PAT` Secret；如使用自定义企业 API 域，新增 `TRAE_CN_HOST` 变量。
-3. 在 Actions 页面手动运行 **Test Trae China stage**。
+3. 在 Actions 页面手动运行 **Test TRAE CN stage**。
    默认读取 `.github/prompts/trae-cn-smoke.md`，以只读方式分析本仓库。
 4. 下载 `trae-cn-<run_id>-<attempt>` artifact。`response.md` 是最终答复；
    `result.json` 记录状态、版本和错误说明。只有 `status=success` 才消费答复。

@@ -1,5 +1,5 @@
-name: Analyze and reply to a GitCode Issue with Trae China
-run-name: Trae China reply to ${{ inputs.issue_url || 'https://gitcode.com/cann/catlass/issues/739' }}
+name: Analyze and reply to a GitCode Issue with TRAE CN
+run-name: TRAE CN reply to ${{ inputs.issue_url || 'https://gitcode.com/cann/catlass/issues/739' }}
 
 on:
   workflow_dispatch:

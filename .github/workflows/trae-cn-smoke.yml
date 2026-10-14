@@ -1,4 +1,4 @@
-name: Test Trae China stage
+name: Test TRAE CN stage
 
 on:
   workflow_dispatch:

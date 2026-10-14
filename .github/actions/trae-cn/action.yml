@@ -1,8 +1,8 @@
-name: Run Trae China CLI stage
+name: Run TRAE CN CLI stage
 description: Run official TraeCode CLI 2.0 with a repository prompt and return files for downstream stages
 inputs:
   trae-pat:
-    description: Enterprise Trae personal access token (use an Actions secret)
+    description: Enterprise TRAE CN personal access token (use an Actions secret)
     required: true
   prompt:
     description: Literal prompt; provide exactly one of prompt or prompt-file
@@ -14,7 +14,7 @@ inputs:
     description: Checked-out Git repository, relative to GITHUB_WORKSPACE
     default: '.'
   cli-path:
-    description: Preinstalled official China CLI 2.0 executable (not trae-cli from trae-agent)
+    description: Preinstalled official TRAE CN CLI 2.0 executable (not trae-cli from trae-agent)
     default: traecli
   expected-version:
     description: Optional exact numeric CLI version to enforce before login
@@ -23,7 +23,7 @@ inputs:
     description: Optional model; empty uses the enterprise account default
     default: ''
   host:
-    description: Optional HTTPS enterprise API domain; empty uses the China CLI default
+    description: Optional HTTPS enterprise API domain; empty uses the TRAE CN CLI default
     default: ''
   sandbox:
     description: read-only for analysis or workspace-write for code changes
@@ -59,7 +59,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Execute Trae China stage
+    - name: Execute TRAE CN stage
       id: run
       shell: bash
       env:

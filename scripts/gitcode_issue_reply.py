@@ -1,4 +1,4 @@
-"""Prepare an Issue prompt and publish a short, idempotent Trae reply."""
+"""Prepare an Issue prompt and publish a short, idempotent model reply."""
 from __future__ import annotations
 
 import argparse
@@ -103,7 +103,7 @@ def publish(client, metadata, answer, model):
     comments = client.comments()
     if fingerprint(snapshot(current, comments, identity["id"])) != metadata["fingerprint"]:
         raise ValueError("Issue or discussion changed during analysis; rerun before publishing")
-    body = f"{MARKER}\n{answer.strip()}\n\nBy DeepSeek V4.1 Flash"
+    body = f"{MARKER}\n{answer.strip()}\n\n<sub>By {model}</sub>"
     if len(body.encode()) > 3000:
         raise ValueError("Final comment exceeds the short-comment limit")
     matches = [c for c in comments if owned(c, identity["id"])]

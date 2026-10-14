@@ -14,7 +14,7 @@ Issue workflow 先调用 `gitcode-issue` 的 `prepare`，再调用模型 stage�
 调用 `publish`。GitCode token 不传给模型。Issue 或讨论变化时拒绝发布过时
 答复；仅更新同一身份的自动回复，别人伪造的标记不会被覆盖。旧标记兼容迁移。
 
-公开回复采用自然讨论语气，最后一行固定为 `By DeepSeek V4.1 Flash`。
+公开回复采用自然讨论语气，最后一行固定为 `<sub>By DeepSeek-V4.1-Flash</sub>`。
 不展示工具名称、流水线记录、源码 SHA 附注；源码版本、报告基线、模型与
 发布回查结果保存在 artifact 中。此 workflow 显式使用 `DeepSeek-V4.1-Flash`，
 不在调用失败时切换其他模型。

@@ -169,7 +169,7 @@ submodules such as googletest. Existing nested submodules are handled recursivel
 Paths outside the checkout are rejected; repeated stages do not duplicate entries.
 
 The reusable [`trae-cn`](.github/actions/trae-cn/README.md) stage runs the official
-China TraeCode CLI 2.0 against a checked-out repository, accepting a literal prompt
+TRAE CN CLI 2.0 against a checked-out repository, accepting a literal prompt
 or a repository prompt file. It returns a final answer file, JSONL events, stderr,
 and a status manifest for downstream PR/Issue workflows. It defaults to read-only;
 code repair can explicitly select workspace-write. A preinstalled Linux CLI and an
@@ -193,5 +193,5 @@ GitCode API operations are exposed through reusable stages: `gitcode-api`,
 `rdv-status`. The PR test and release workflows use those stages as well.
 See the [stage interfaces and composition example](.github/actions/gitcode-api/README.md).
 Issue replies explicitly use `DeepSeek-V4.1-Flash`, use natural discussion prose,
-and end with only `By DeepSeek V4.1 Flash`. Source revisions, model selection,
+and end with only `<sub>By DeepSeek-V4.1-Flash</sub>`. Source revisions, model selection,
 and workflow evidence are kept in artifacts instead of the public signature.
