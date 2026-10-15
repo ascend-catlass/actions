@@ -44,7 +44,7 @@ on:
         required: true
         default: 64
         type: number
-run-name: NPUIR 20261013 · ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }} · x86_64 + aarch64
+run-name: NPUIR 20261013 �� ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }} �� x86_64 + aarch64
 
 permissions:
   contents: read
@@ -76,7 +76,7 @@ jobs:
             runner_arch: ARM64
             container_image: quay.io/pypa/manylinux_2_28_aarch64
             use_all_cores: true
-    runs-on: [self-hosted, publish, "${{ matrix.runner_arch }}"]
+    runs-on: [self-hosted, Linux, ascend-catlass-dsl-build, "${{ matrix.runner_arch }}"]
     timeout-minutes: 720
     env:
       NPUIR_TARGET_ARCH: ${{ matrix.target_arch }}

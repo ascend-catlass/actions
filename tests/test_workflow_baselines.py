@@ -29,5 +29,21 @@ class BaselineTests(unittest.TestCase):
             self.assertTrue(any(j.get('uses') == './.github/workflows/build-dsl-wheel.yml'
                                 for j in workflow(name)['jobs'].values()))
 
+    def test_wheel_and_dependency_jobs_use_same_dedicated_worker_pool(self):
+        wheel = workflow('build-dsl-wheel.yml')['jobs']['build']
+        npuir = workflow('build-ascendnpu-ir-20261013.yml')['jobs']['prepare']
+        expected = ['self-hosted', 'Linux', 'ascend-catlass-dsl-build', '${{ matrix.runner_arch }}']
+        self.assertEqual(wheel['runs-on'], expected)
+        self.assertEqual(npuir['runs-on'], expected)
+        for job in [wheel, npuir]:
+            self.assertEqual({row['target_arch']: row['runner_arch']
+                              for row in job['strategy']['matrix']['include']},
+                             {'x86_64': 'X64', 'aarch64': 'ARM64'})
+        # Release transport and historical diagnosis have separate routing.
+        self.assertEqual(workflow('release-dsl-wheel.yml')['jobs']['publish-atomgit']['runs-on'],
+                         ['self-hosted', 'publish', 'X64'])
+        self.assertEqual(workflow('build-ascendnpu-ir-20260720.yml')['jobs']['prepare']['runs-on'],
+                         ['self-hosted', 'publish', '${{ matrix.runner_arch }}'])
+
 if __name__ == '__main__':
     unittest.main()
