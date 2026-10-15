@@ -1,0 +1,46 @@
+name: "AtomGit Issue analysis · compatible entry"
+run-name: TRAE CN reply to ${{ inputs.issue_url }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_url:
+        description: AtomGit Issue URL
+        type: string
+        required: true
+        default: https://atomgit.com/cann/catlass/issues/739
+      publish:
+        description: Publish the short analysis reply (role members are skipped)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  normalize:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      issue-url: ${{ steps.url.outputs.issue-url }}
+    steps:
+      - name: Normalize the compatible Issue URL
+        id: url
+        shell: bash
+        env:
+          ISSUE_URL: ${{ inputs.issue_url }}
+        run: |
+          set -euo pipefail
+          [[ "$ISSUE_URL" =~ ^https://(gitcode|atomgit)\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*/?$ ]] || { echo 'Invalid Issue URL' >&2; exit 1; }
+          if [[ "$ISSUE_URL" == https://gitcode.com/* ]]; then
+            ISSUE_URL="https://atomgit.com/${ISSUE_URL#https://gitcode.com/}"
+          fi
+          printf 'issue-url=%s\n' "$ISSUE_URL" >> "$GITHUB_OUTPUT"
+  run:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: normalize
+    uses: ./.github/workflows/reply-atomgit-issue.yml
+    with:
+      issue_url: ${{ needs.normalize.outputs.issue-url }}
+      publish: ${{ inputs.publish }}
+    secrets: inherit

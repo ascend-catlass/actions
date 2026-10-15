@@ -9,3 +9,4 @@
 - Run relevant behavior tests and bilingual documentation checks before submitting.
 - Prefer established Actions for GitHub transport and infrastructure. Put reusable business steps behind composite Actions; keep workflows focused on wiring inputs and outputs. Small standalone scripts are appropriate for prompt preparation, data shaping and comment assembly. Do not replace one script language with another or inline implementation merely to avoid scripts.
 - Preserve credential compatibility: prefer ATOMGIT_TOKEN and fall back to GITCODE_TOKEN when empty; keep existing deployment environment identifiers.
+- Workflow filenames and dispatch inputs are compatibility interfaces. Preserve existing dispatch paths when changing platform branding.
