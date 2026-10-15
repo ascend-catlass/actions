@@ -13,6 +13,10 @@ class MainOnlyWorkflowTests(unittest.TestCase):
             for name, job in workflow["jobs"].items():
                 with self.subTest(workflow=path.name, job=name):
                     condition = job["if"]
+                    if path.name == 'docs-build.yml':
+                        self.assertEqual(condition, "${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}")
+                        self.assertNotIn('secrets.', path.read_text(encoding='utf-8'))
+                        continue
                     self.assertTrue(condition.startswith("${{ github.ref == 'refs/heads/main'"))
                     self.assertNotIn("||", condition.split("&&", 1)[0])
 

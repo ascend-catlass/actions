@@ -67,8 +67,8 @@
 ## 说明与常见问题
 
 - roles-file 在接口中可选；现有 Issue 工作流会提供它，并在准备和发布时重新校验作者资格。assign 操作需要角色结果。
-- publish 前若 Issue 或讨论变化，会拒绝过期答复。角色成员的 Issue 跳过模型分析，以平台账号发送 /assign @author-login；评论命令是否生效仍由 GitCode 处理。
-- reply-gitcode-issue.yml 的 publish 默认为 true；设为 false 可分析但不发布回复或分配评论。当前工作流为手动触发。
+- publish 前若 Issue 或讨论变化，会拒绝过期答复。当前简要分析工作流对角色成员直接跳过，不调用 assign；assign 仍是供其他调用方选择的可复用操作。
+- reply-gitcode-issue.yml 的 publish 默认为 true；设为 false 可分析但不发布回复。当前工作流由符合条件的新建/重开 Issue hook 或手动触发，与手动修复工作流独立。
 
 ## 实现与调用方
 
