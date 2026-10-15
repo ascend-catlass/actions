@@ -246,15 +246,33 @@ jobs:
           container: ${{ steps.create_container.outputs.container-name }}
           device-id: ${{ steps.prepare_tests.outputs.device-id }}
 
-      - name: Delete test container
-        if: ${{ always() && steps.create_container.outputs.container-name != '' }}
+      - name: Delete test container and source directory
+        if: ${{ always() }}
         shell: bash
         env:
           CONTAINER_NAME: ${{ steps.create_container.outputs.container-name }}
+          SOURCE_DIR: ${{ github.workspace }}/.rdv-work/pr-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          if docker container inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
+          workspace=$(realpath -e "${GITHUB_WORKSPACE}")
+          expected="${workspace}/.rdv-work/pr-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          [[ "${GITHUB_RUN_ID}" =~ ^[1-9][0-9]*$ && "${GITHUB_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]]
+          [[ ! -L "${SOURCE_DIR}" && "$(realpath -m "${SOURCE_DIR}")" == "${expected}" ]] || {
+            echo '::error::Refusing to clean an unexpected source directory'
+            exit 1
+          }
+          if [[ -n "${CONTAINER_NAME}" ]]; then
+            [[ "${CONTAINER_NAME}" == "catlass-rdv-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ]]
+          fi
+          if [[ -n "${CONTAINER_NAME}" ]] && docker container inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
             docker rm --force "${CONTAINER_NAME}"
+          fi
+          if [[ -d "${SOURCE_DIR}" ]]; then
+            if [[ "$(id -u)" == 0 ]]; then
+              rm -rf --one-file-system -- "${SOURCE_DIR}"
+            else
+              sudo -n rm -rf --one-file-system -- "${SOURCE_DIR}"
+            fi
           fi
 
   analyze-failure:
