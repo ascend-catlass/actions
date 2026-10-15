@@ -1,0 +1,21 @@
+name: "AtomGit CI reminder · compatible entry"
+run-name: "PR #${{ inputs.pr_number }} CI review reminder"
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number in cann/catlass on AtomGit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/reply-atomgit-ci-passed.yml
+    with:
+      pr_number: ${{ inputs.pr_number }}
+    secrets: inherit

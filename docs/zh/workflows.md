@@ -97,3 +97,7 @@ Token 通过 Secret 传给需要它的步骤；不要放进源码、提示词或
 11 个通用步骤均引用 `yuantao313/actions` 的固定提交 `4042e6e501fab8a2cee4e87fca0248b2347e05df`。CATLASS Python 策略需要传输 helpers 时，工作流将同一版本检出到 `shared_actions`。本地忽略该目录；公共实现及其单元测试由上游维护。
 
 凭据优先读取 `ATOMGIT_TOKEN`，未设置或为空时回退到原有 `GITCODE_TOKEN`，已有配置无需改名。发布环境保留原有标识 `gitcode-release` 及其权限配置。工作流入口文件已统一为 `atomgit` 名称。历史 NPUIR 20260720 保留诊断行为，仅更新上游域名和平台称谓。
+
+## 工作流入口兼容
+
+保留已有 API 调度路径 `test-gitcode-pr.yml`、`reply-gitcode-ci-passed.yml`、`reply-gitcode-issue.yml`。这三个轻量入口转发参数和已有 Secret，通过 `workflow_call` 复用 AtomGit 工作流实现。Issue 兼容入口会先将旧平台网址规范化，再调用正式工作流。显示名称与正式文档链接使用 AtomGit，原有调用方无需改配置。

@@ -44,7 +44,9 @@ class PublicActionConsumers(unittest.TestCase):
         for path in [*(ROOT / '.github').rglob('*.yml'), *(ROOT / 'scripts').glob('*.py'),
                      *(ROOT / 'docs').rglob('*.md'), ROOT / 'README.md', ROOT / 'README.en.md']:
             text = path.read_text(encoding='utf-8')
-            self.assertNotRegex(text, r'(?i)(?:https?://[^\s/]*gitcode\.com|dev[ -](?:web)?hook|dev gateway)', path)
+            self.assertNotRegex(text, r'(?i)(?:dev[ -](?:web)?hook|dev gateway)', path)
+            if path.name != 'reply-gitcode-issue.yml':
+                self.assertNotRegex(text, r'(?i)https?://[^\s/]*gitcode\.com', path)
 
     def test_metadata_and_merge_output_names_match_public_contract(self):
         config = yaml.safe_load((ROOT / '.github/workflows/test-atomgit-pr.yml').read_text(encoding='utf-8'))
