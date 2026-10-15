@@ -9,10 +9,8 @@ def workflow(name):
     return yaml.safe_load((ROOT / '.github/workflows' / name).read_text(encoding='utf-8'))
 
 class BaselineTests(unittest.TestCase):
-    def test_pr_entrypoints_use_same_stages_and_image(self):
+    def test_pr_entrypoint_uses_expected_stages_and_image(self):
         main = workflow('test-gitcode-pr.yml')
-        beta = workflow('test-gitcode-pr-cann-9-2-beta-2.yml')
-        self.assertEqual(main['jobs'], beta['jobs'])
         steps = main['jobs']['merge-and-test']['steps']
         container = next(s for s in steps if s.get('id') == 'create_container')
         self.assertEqual(container['with']['image-tag'], '9.2.0-beta.2-950-ubuntu22.04-py3.12')

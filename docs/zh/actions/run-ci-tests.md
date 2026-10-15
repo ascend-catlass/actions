@@ -69,5 +69,4 @@
 - [.github/actions/run-ci-tests/run-targeted-tests.sh](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/run-targeted-tests.sh)
 - [.github/actions/run-ci-tests/run-dsl-unit-tests.sh](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/run-dsl-unit-tests.sh)
 - [.github/actions/run-ci-tests/SOURCE.md](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/SOURCE.md)
-- [.github/workflows/test-gitcode-pr-cann-9-2-beta-2.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr-cann-9-2-beta-2.yml)
 - [.github/workflows/test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml)

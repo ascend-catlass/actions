@@ -9,13 +9,10 @@ An Action performs a reusable step. A workflow connects steps into a complete pr
 | Workflow | What it does | When it runs |
 | --- | --- | --- |
 | [test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml) | Merge and test a GitCode PR, then report RDV status | Manual; the dev webhook also dispatches for allowed accounts posting `compile` or `rdvcompile` |
-| [test-gitcode-pr-cann-9-2-beta-2.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr-cann-9-2-beta-2.yml) | Version-named entry point for the same PR tests | Manual |
 | [reply-gitcode-ci-passed.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-ci-passed.yml) | Post a review reminder after CI passes | Manual; the dev webhook also dispatches on passed-label events |
 | [reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml) | Assign an Issue according to its author's roles, or analyze and reply | Manual; `publish` defaults to enabled |
-| [trae-cn-smoke.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/trae-cn-smoke.yml) | Verify the TRAE adapter and actual CLI execution | Manual |
 | [build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml) | Prepare NPUIR archives using the current date baseline | Manual or called by another workflow |
-| [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | Prepare archives for the earlier date baseline | Manual or called by another workflow |
-| [migrate-npuir-cache.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/migrate-npuir-cache.yml) | Migrate completed older caches into dated archives without recompiling | Manual; choose `20261013` or `20260720` |
+| [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | Retain the earlier NPUIR baseline for debugging historical problems | Manual or called by another workflow |
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | Build and save x86_64 and aarch64 DSL wheels | Manual or called by nightly/release workflows |
 | [nightly-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/nightly-dsl-wheel.yml) | Build a development version and publish to the GitHub Release-backed package index | Daily at 01:00 Asia/Shanghai, or manual |
 | [release-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/release-dsl-wheel.yml) | Validate a stable tag, build and publish to PyPI and GitCode Release | Manual |

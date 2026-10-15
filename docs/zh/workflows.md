@@ -9,13 +9,10 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | 工作流 | 做什么 | 什么时候运行 |
 | --- | --- | --- |
 | [test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml) | 合并并测试 GitCode PR，再写回 RDV 状态 | 手动；dev webhook 收到白名单账号的 `compile` 或 `rdvcompile` 评论也会触发 |
-| [test-gitcode-pr-cann-9-2-beta-2.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr-cann-9-2-beta-2.yml) | 同一套 PR 测试的版本命名入口 | 手动 |
 | [reply-gitcode-ci-passed.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-ci-passed.yml) | CI 通过后发送检视提醒 | 手动；dev webhook 收到通过标签事件也会触发 |
 | [reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml) | 按作者角色分配 Issue，或分析并回复 | 手动，`publish` 默认开启 |
-| [trae-cn-smoke.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/trae-cn-smoke.yml) | 验证 TRAE 适配层和真实 CLI 执行 | 手动 |
 | [build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml) | 准备当前日期基线的 NPUIR 依赖归档 | 手动或被其他工作流调用 |
-| [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | 准备较早日期基线的 NPUIR 归档 | 手动或被其他工作流调用 |
-| [migrate-npuir-cache.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/migrate-npuir-cache.yml) | 把已完成的旧缓存迁入日期归档，不重新编译 | 手动，选择 `20261013` 或 `20260720` |
+| [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | 保留旧 NPUIR 日期基线，供历史问题定位 | 手动或被其他工作流调用 |
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | 构建 x86_64、aarch64 的 DSL wheel 并保存产物 | 手动或被 nightly/release 调用 |
 | [nightly-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/nightly-dsl-wheel.yml) | 构建开发版本并发布到 GitHub Release 支撑的包索引 | 每日北京时间 01:00，或手动 |
 | [release-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/release-dsl-wheel.yml) | 校验稳定 tag，构建并发布到 PyPI 与 GitCode Release | 手动 |

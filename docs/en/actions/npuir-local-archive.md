@@ -86,4 +86,3 @@ Required follows action.yml. Some optional fields become necessary for a particu
 - [.github/workflows/build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml)
 - [.github/workflows/build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml)
 - [.github/workflows/build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml)
-- [.github/workflows/migrate-npuir-cache.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/migrate-npuir-cache.yml)

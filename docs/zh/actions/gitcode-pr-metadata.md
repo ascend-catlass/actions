@@ -60,5 +60,4 @@ PR 测试开始前，获取合并和测试所需的分支与提交版本。
 ## 实现与调用方
 
 - [.github/actions/gitcode-pr-metadata/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/gitcode-pr-metadata/action.yml)
-- [.github/workflows/test-gitcode-pr-cann-9-2-beta-2.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr-cann-9-2-beta-2.yml)
 - [.github/workflows/test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml)

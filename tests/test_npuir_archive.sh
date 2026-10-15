@@ -161,11 +161,4 @@ rm "${ARCHIVE_ROOT_INPUT}/latest"
 mkdir "${ARCHIVE_ROOT_INPUT}/latest"
 expect_failure
 [[ -d "${ARCHIVE_ROOT_INPUT}/latest" ]]
-# Exercise the user-facing migration command with its production build profile.
-sed -i 's/^BUILD_FINGERPRINT=.*/BUILD_FINGERPRINT=clang-19.1.7+lld-19.1.7/' "${old}/.npuir-pipeline"
-GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.longpaths GIT_CONFIG_VALUE_0=true \
-  NPUIR_ARCHIVE_ROOT="${test_root}/manual-shared" bash "${repo_root}/scripts/migrate-npuir-cache.sh" \
-  "${test_root}/runner/_npuir-pipeline" 20261013 "${original_sha}" 20260930
-[[ "$(readlink "${test_root}/manual-shared/latest")" == 20261013 ]]
-[[ -d "${old}" ]]
 echo 'NPUIR archive tests passed'

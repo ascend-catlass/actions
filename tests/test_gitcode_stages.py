@@ -12,11 +12,10 @@ class StageContracts(unittest.TestCase):
             with self.subTest(path=path.name):
                 self.assertNotIn("api.gitcode.com", path.read_text(encoding="utf-8"))
 
-    def test_pr_metadata_stage_is_shared_by_both_entrypoints(self):
-        for name in ["test-gitcode-pr.yml", "test-gitcode-pr-cann-9-2-beta-2.yml"]:
-            workflow = yaml.safe_load((ROOT / ".github/workflows" / name).read_text(encoding="utf-8"))
-            stage = next(step for step in workflow["jobs"]["prepare"]["steps"] if step.get("id") == "pr")
-            self.assertIn("/.github/actions/gitcode-pr-metadata@", stage["uses"])
+    def test_pr_workflow_uses_metadata_stage(self):
+        workflow = yaml.safe_load((ROOT / ".github/workflows/test-gitcode-pr.yml").read_text(encoding="utf-8"))
+        stage = next(step for step in workflow["jobs"]["prepare"]["steps"] if step.get("id") == "pr")
+        self.assertIn("/.github/actions/gitcode-pr-metadata@", stage["uses"])
 
     def test_issue_workflow_model_and_api_stages(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/reply-gitcode-issue.yml").read_text(encoding="utf-8"))

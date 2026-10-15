@@ -25,16 +25,15 @@ Stage 不安装 CLI、不修改 runner 的全局登录状态。部署人员先�
 
 ## 在本仓库试运行
 
-1. 为专用 Linux runner 添加 `trae-cn` 标签，预装官方 CLI 2.0。
-2. 在 GitHub 仓库 Settings → Secrets and variables → Actions 中新增
-   `TRAE_CN_PAT` Secret；如使用自定义企业 API 域，新增 `TRAE_CN_HOST` 变量。
-3. 在 Actions 页面手动运行 **Test TRAE CN stage**。
-   默认读取 `.github/prompts/trae-cn-smoke.md`，以只读方式分析本仓库。
-4. 下载 `trae-cn-<run_id>-<attempt>` artifact。`response.md` 是最终答复；
-   `result.json` 记录状态、版本和错误说明。只有 `status=success` 才消费答复。
+1. 配置 `TRAE_CN_PAT` 与 `GITCODE_TOKEN` Secret；按需配置 `TRAE_CN_HOST` 变量。
+2. 手动运行 `reply-gitcode-issue.yml`，选择合适的 Issue，并将 `publish` 设为
+   `false`。该流程会按作者角色分流，非角色成员的符合条件 Issue 才执行模型分析。
+3. 查看运行日志及 `gitcode-issue-reply-<run_id>-<attempt>` artifact。
+   只有 `status=success` 时才消费模型答复；`publish=false` 不会发布回复或分配评论。
 
-本地适配层测试使用模拟 CLI；真实登录、模型权限、Linux 沙箱及中国版服务
-连接必须通过该手动 workflow 验证。Windows 当前不支持此 stage。
+该工作流在 GitHub-hosted Linux 上安装固定版 CLI。独立复用本 Action 的调用方
+仍需预装 CLI。适配层测试使用模拟 CLI；更换企业账号、模型或 CLI 时，需重新验证
+真实登录与执行。Windows 当前不支持此 stage。
 
 ## 在其他 workflow 中组合
 
@@ -136,5 +135,5 @@ artifact 的访问范围和保留时间需按实际仓库配置。
 
 未复制这些项目源码。接口以 2026-10-14 的官方文档及固定版本 CLI 实测为依据。
 Issue 工作流已完成 CLI 0.209.1 的登录、分析和评论回查；后续更换 CLI、模型或
-企业账号时仍应运行 smoke 验证。实测记录见
+企业账号时仍应重新验证登录与执行。实测记录见
 [设计记录](../../../docs/plans/2026-10-14-trae-cn-stage-design.md)。

@@ -83,9 +83,7 @@ temporary integration-test branch triggers have been removed.
   suite, and the unsupported tuner group is skipped on Ascend 950. Only
   explicitly shared build/test dependencies require the full 3510 suite. See the
   [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
-- Both `test-gitcode-pr.yml` and `test-gitcode-pr-cann-9-2-beta-2.yml` use the
-  CANN 9.2.0 beta.2 image and the same test stages. The latter remains available
-  as the version-named manual entrypoint.
+  PR testing uses the CANN 9.2.0 beta.2 image.
   DSL changes first build in dev mode and run the upstream IR pytest suite and
   `check-tla-lit` target, sharing that build. The dev stage temporarily installs
   Lit from the package index without a version pin; the image's LLVM Lit source
@@ -140,30 +138,6 @@ are copied into the shared layout when requested; originals remain available
 to existing consumers. Wheel builds continue selecting the exact dated archive
 and validating its gitlink and build contract.
 
-To migrate a previously completed cache manually, run as the CI runner account
-from an updated checkout of this repository on each build worker:
-
-Alternatively, dispatch `migrate-npuir-cache.yml` with version `20261013`
-(default) or `20260720`. It migrates on both the x86_64 and aarch64 publish
-workers using their existing cache location next to `RUNNER_TEMP`. A missing
-matching cache fails that worker's job; the migration workflow never compiles.
-
-```bash
-bash scripts/migrate-npuir-cache.sh /path/to/runner/_work/_npuir-pipeline
-```
-
-The default migrates commit `693abf31f3d88d13d30d9578fcf6513b90c0ee33`
-to version `20261013`, accepting both the old content-keyed cache and the legacy
-`20260930` cache. It validates the build, copies the complete tree, fixes submodule
-Git paths, preserves original build provenance, and updates `latest` under the
-same lock used by CI. The original cache remains intact. Missing or conflicting
-caches fail without starting a compilation. For the older version:
-
-```bash
-bash scripts/migrate-npuir-cache.sh /path/to/runner/_work/_npuir-pipeline \
-  20260720 a07821269ede7a5e683ac02c8a2d291608083741 20260720
-```
-
 Local users can select the default installation with:
 
 ```bash
@@ -210,8 +184,8 @@ or a repository prompt file. It returns a final answer file, JSONL events, stder
 and a status manifest for downstream PR/Issue workflows. It defaults to read-only;
 code repair can explicitly select workspace-write. A preinstalled Linux CLI and an
 enterprise PAT (`TRAE_CN_PAT`) are required; email/password credentials alone are
-not the documented CI authentication interface. `trae-cn-smoke.yml` provides a
-manual test on a dedicated runner labeled `trae-cn`, with seven-day result artifacts.
+not the documented CI authentication interface. The Issue workflow can verify
+analysis without posting comments by setting `publish=false`.
 See the [design and current verification limits](docs/plans/2026-10-14-trae-cn-stage-design.md).
 
 `reply-gitcode-issue.yml` combines that stage with GitCode Issue/context fetching

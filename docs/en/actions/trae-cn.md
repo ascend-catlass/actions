@@ -81,4 +81,3 @@ Required follows action.yml. Some optional fields become necessary for a particu
 - [.github/actions/trae-cn/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/trae-cn/action.yml)
 - [.github/actions/trae-cn/run.py](https://github.com/ascend-catlass/actions/blob/main/.github/actions/trae-cn/run.py)
 - [.github/workflows/reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml)
-- [.github/workflows/trae-cn-smoke.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/trae-cn-smoke.yml)
