@@ -1,10 +1,14 @@
 """Exercise the migrated reminder against a mock AtomGit API."""
 from pathlib import Path
+import os
+import subprocess
 import sys
+import tempfile
 import unittest
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from atomgit_ci_passed import MESSAGE, remind
+from atomgit_ci_passed import MESSAGE, PREVIOUS_MESSAGE, remind
 
 
 class API:
@@ -23,7 +27,7 @@ class API:
 
 
 class ReminderTests(unittest.TestCase):
-    def test_posts_original_message_after_checking_current_pr(self):
+    def test_posts_issue_and_review_reminder_after_checking_current_pr(self):
         api = API()
         self.assertEqual(remind(api, '123'), 'commented')
         self.assertEqual(api.calls[0][:2], ('GET', '/repos/cann/catlass/pulls/123'))
@@ -31,6 +35,27 @@ class ReminderTests(unittest.TestCase):
                                         {'body': MESSAGE}, {'encoding': 'json'}))
         self.assertIn('SIG', MESSAGE)
         self.assertIn('`rdvcompile`', MESSAGE)
+        self.assertIn('先提出对应的 Issue', MESSAGE)
+        self.assertIn('在 PR 描述中关联该 Issue', MESSAGE)
+
+    def test_previous_reminder_does_not_cause_a_duplicate_after_text_changes(self):
+        api = API(pages=[[{'body': PREVIOUS_MESSAGE}]])
+        self.assertEqual(remind(api, '123'), 'already_reminded')
+        self.assertFalse(any(call[0] == 'POST' for call in api.calls))
+
+    def test_action_script_imports_shared_helpers_from_the_workspace(self):
+        root = Path(__file__).resolve().parents[1]
+        action = yaml.safe_load((root / '.github/actions/atomgit-ci-passed/action.yml').read_text())
+        step = next(s for s in action['runs']['steps'] if s.get('id') == 'remind')
+        self.assertEqual(step['env']['PYTHONPATH'], '${{ github.workspace }}')
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([sys.executable, str(root / 'scripts/atomgit_ci_passed.py')],
+                                    cwd=directory, env={**os.environ, 'PYTHONPATH': str(root),
+                                    'PR_NUMBER': '0', 'ATOMGIT_TOKEN': 'fixture-only'},
+                                    capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Invalid PR number', result.stderr)
+        self.assertNotIn('ModuleNotFoundError', result.stderr)
 
     def test_skips_closed_or_no_longer_passed_pr(self):
         for pr, reason in [({'state': 'closed', 'labels': ['ci-pipeline-passed']}, 'pr_not_open'),

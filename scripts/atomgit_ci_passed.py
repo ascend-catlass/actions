@@ -4,12 +4,18 @@ import os
 from atomgit_api import AtomGitAPI, resolve_token
 
 
-MESSAGE = (
+PREVIOUS_MESSAGE = (
     '感谢您的贡献！您的 CI 流水线已通过，请及时 @ 相关领域的 committer 进行代码检视。'
     '若本次开发的特性规模较大，建议申报 SIG 议题进行讨论。\n\n'
     '如涉及 Ascend 950 相关特性，由于测试资源较为紧张，请联系 committer 在本 PR 下评论 '
     '`rdvcompile`，触发 Ascend 950 流水线。'
 )
+ISSUE_REMINDER = (
+    '参与代码贡献需要先提出对应的 Issue，说明问题背景、现有行为和预期结果，'
+    '并在 PR 描述中关联该 Issue。进入代码检视和合入流程前，请确认对应 Issue 已提出且关联正确；'
+    '如尚未完成，请先补充。'
+)
+MESSAGE = PREVIOUS_MESSAGE.replace('\n\n', f'\n\n{ISSUE_REMINDER}\n\n', 1)
 
 
 def remind(api, pr_number):
@@ -30,7 +36,7 @@ def remind(api, pr_number):
         comments = api.request('GET', f'{path}/comments?per_page=100&page={page}&comment_type=pr_comment')
         if not isinstance(comments, list):
             raise ValueError('Invalid AtomGit comments response')
-        if any(isinstance(comment, dict) and comment.get('body') == MESSAGE for comment in comments):
+        if any(isinstance(comment, dict) and comment.get('body') in {MESSAGE, PREVIOUS_MESSAGE} for comment in comments):
             return 'already_reminded'
         if len(comments) < 100:
             break

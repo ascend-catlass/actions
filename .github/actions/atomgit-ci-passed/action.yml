@@ -29,4 +29,5 @@ runs:
       env:
         PR_NUMBER: ${{ inputs.pr-number }}
         ATOMGIT_TOKEN: ${{ inputs.token }}
+        PYTHONPATH: ${{ github.workspace }}
       run: python "${GITHUB_ACTION_PATH}/../../../scripts/atomgit_ci_passed.py"
