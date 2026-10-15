@@ -130,8 +130,8 @@ class RoutingTests(unittest.TestCase):
         report = JOBS['report']
         self.assertEqual(report['runs-on'], 'ubuntu-latest')
         self.assertIn('always()', report['if'])
-        self.assertEqual(report['steps'][0]['with']['result'],
-                         "${{ needs.prepare.outputs.run_dsl != 'true' && needs.prepare.outputs.run_all != 'true' && 'success' || needs.merge-and-test.result }}")
+        self.assertEqual(next(s for s in report['steps'] if s.get('name') == 'Report the result to GitCode')['with']['result'],
+                         "${{ needs.prepare.result != 'success' && 'failure' || needs.prepare.outputs.run_dsl != 'true' && needs.prepare.outputs.run_all != 'true' && 'success' || needs.merge-and-test.result }}")
 
 
 if __name__ == '__main__':

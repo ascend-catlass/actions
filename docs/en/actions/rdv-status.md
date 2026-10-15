@@ -6,7 +6,7 @@
 
 ## What it does
 
-Reports test start and completion on a GitCode PR by maintaining RDV-RUNNING, RDV-SUCC and RDV-FAIL labels and posting comments with workflow links.
+Reports test start and completion on a GitCode PR by maintaining RDV-RUNNING, RDV-SUCC and RDV-FAIL labels and posting comments with workflow links. Failures may include a diagnosis in the same result comment.
 
 ## When to use it
 
@@ -47,6 +47,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 | `result` | No | — | Job result used by the finish phase |
 | `result-url` | Yes | — | CI result URL published in the status comment |
 | `comment-id` | No | — | Reserved input; the current finish script does not use it or edit this comment. |
+| `failure-analysis-file` | No | `""` | Optional UTF-8 Markdown file, appended only for finish result=failure; maximum 8 KiB. |
 
 Required follows action.yml. Some optional fields become necessary for a particular operation; see the process and notes.
 
@@ -60,6 +61,8 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 - The current finish implementation posts a new result comment rather than editing the start comment. comment-id remains an input but is not used by the script.
 - Only result=success counts as success in finish. Failure, cancellation, skipped or empty results produce RDV-FAIL. start returns the new comment ID.
+- After TestPR fails, a separate GitHub-hosted job uses TRAE CN / DeepSeek-V4.1-Flash to analyze this attempt's logs and supplies the diagnosis through this input. Unavailable analysis adds a note while preserving failure reporting and the original link.
+- Success and cancellation keep their original comments. Missing, empty or oversized files are ignored. This Action consumes the diagnosis and does not call a model itself.
 - It does not send the CI-passed code-review reminder; gitcode-ci-passed handles that flow.
 
 ## Implementation and callers

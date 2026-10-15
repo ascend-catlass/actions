@@ -6,7 +6,7 @@
 
 ## 做什么
 
-把测试开始与最终结果写回 GitCode PR：维护 RDV-RUNNING、RDV-SUCC、RDV-FAIL 标签，并发布带工作流链接的评论。
+把测试开始与最终结果写回 GitCode PR：维护 RDV-RUNNING、RDV-SUCC、RDV-FAIL 标签，并发布带工作流链接的评论。失败时可在同一条结果评论内附加分析文件。
 
 ## 什么时候用
 
@@ -47,6 +47,7 @@ PR 测试启动时调用 start；测试完成后由报告步骤调用 finish。
 | `result` | 否 | — | finish 使用的测试结果；只有 success 被判定为成功。 |
 | `result-url` | 是 | — | 评论中发布的 CI 结果链接。 |
 | `comment-id` | 否 | — | 保留字段；当前 finish 脚本不使用，也不会编辑此评论。 |
+| `failure-analysis-file` | 否 | `""` | 可选 UTF-8 Markdown 文件；仅 finish 且 result=failure 时追加，最多 8 KiB。 |
 
 “必填”按 action.yml 标记；某些可选字段在特定操作下仍必须提供，见执行过程与说明。
 
@@ -60,6 +61,8 @@ PR 测试启动时调用 start；测试完成后由报告步骤调用 finish。
 
 - 当前脚本的 finish 会新增结果评论，不会修改 start 的评论；comment-id 输入保留在接口中，但脚本未使用。
 - finish 的 result 只有 success 被当作成功；失败、取消、跳过或空值都归为 RDV-FAIL。start 输出新评论 ID。
+- TestPR 失败后，由独立 GitHub 托管 job 使用 TRAE CN / DeepSeek-V4.1-Flash 分析本次运行日志，再经此输入追加到 RDV Failed 评论。分析不可用时附加提示，原失败状态和链接仍会发布。
+- 成功、取消或未提供分析文件时保持原结果评论；不存在、空白或超过 8 KiB 的文件不追加。这个 Action 只接收分析结果，本身不调用模型。
 - 它不负责 CI 通过后的代码检视提醒；该提醒由 gitcode-ci-passed 处理。
 
 ## 实现与调用方
