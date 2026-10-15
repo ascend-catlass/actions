@@ -178,7 +178,7 @@ jobs:
             runner_arch: X64
           - target_arch: aarch64
             runner_arch: ARM64
-    runs-on: [self-hosted, publish, "${{ matrix.runner_arch }}"]
+    runs-on: [self-hosted, Linux, ascend-catlass-dsl-build, "${{ matrix.runner_arch }}"]
     timeout-minutes: 900
     env:
       NPUIR_TARGET_ARCH: ${{ matrix.target_arch }}

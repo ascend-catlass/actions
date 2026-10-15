@@ -1,6 +1,6 @@
 # Build and runner operations
 
-[中文工作流](../zh/workflows.md) · [English workflows](workflows.md)
+[���Ĺ�����](../zh/workflows.md) �� [English workflows](workflows.md)
 
 - `install-cann-weekly.yml` scans the official CANN `software/master/` mirror
   daily at 02:00 Asia/Shanghai (18:00 UTC), or on manual dispatch. One pinned
@@ -88,7 +88,18 @@ releases. The existing `gitcode-release` environment and `CATLASS_DEPLOY_KEY`
 configuration remain in use. PyPI publishing also requires a Trusted Publisher bound to the `pypi`
 environment and `release-dsl-wheel.yml`.
 
-NPUIR builds on each publish worker share complete source/build/install trees at
+The DSL build pool consists of machines 124 and 125. Assign the custom
+`ascend-catlass-dsl-build` label only to their host runners, keeping the default
+`self-hosted`, `Linux` and native `X64`/`ARM64` labels. Both
+`build-dsl-wheel.yml` and `build-ascendnpu-ir-20261013.yml` select this pool by
+label and architecture, so dependency preparation and wheel compilation use the
+same worker-local archives. Keep one eligible host per architecture; adding
+more requires shared archives or explicit worker affinity. Verify both runners
+are online and have Docker, host CANN and archive access before merging the
+routing change. Nightly and release builds inherit this selection. The
+historical NPUIR 20260720 workflow and AtomGit publishing retain `publish`.
+
+NPUIR builds on each worker share complete source/build/install trees at
 `/opt/AscendNPU-IR/<YYYYMMDD>/AscendNPU-IR`. The date is the workflow's
 `NPUIR_BASELINE_DATE` (currently `20260720` or `20261013`), not the run date.
 The archive action provisions the root with passwordless `sudo` when necessary;
