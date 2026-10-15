@@ -14,25 +14,6 @@ on:
         type: boolean
         default: true
 
-  workflow_call:
-    inputs:
-      issue_url:
-        description: AtomGit Issue URL
-        type: string
-        required: true
-        default: https://atomgit.com/cann/catlass/issues/739
-      publish:
-        description: Publish the short analysis reply (role members are skipped)
-        type: boolean
-        default: true
-    secrets:
-      ATOMGIT_TOKEN:
-        required: false
-      GITCODE_TOKEN:
-        required: false
-      TRAE_CN_PAT:
-        required: true
-
 permissions:
   contents: read
 

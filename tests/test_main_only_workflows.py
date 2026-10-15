@@ -23,7 +23,7 @@ class MainOnlyWorkflowTests(unittest.TestCase):
     def test_issue_has_no_automatic_test_branch_trigger(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/reply-atomgit-issue.yml").read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))
-        self.assertEqual(set(triggers), {"workflow_dispatch", "workflow_call"})
+        self.assertEqual(set(triggers), {"workflow_dispatch"})
 
 
 if __name__ == "__main__":
