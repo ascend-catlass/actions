@@ -44,6 +44,7 @@ hook 只做鉴权和原始事件筛选。PR 事件看标签，不查询 CI：没
 | 社区协作 | [TRAE CN](.github/actions/trae-cn/README.md)、[Issue 上下文与回复](.github/actions/gitcode-issue/README.md)、[CI 通过提醒](.github/actions/gitcode-ci-passed/README.md)、[社区角色](.github/actions/community-repo-roles/README.md) |
 | PR 测试 | [PR 元数据](.github/actions/gitcode-pr-metadata/README.md)、[创建容器](.github/actions/create-ascend-container/README.md)、[测试准备](.github/actions/prepare-ci-tests/README.md)、[运行测试](.github/actions/run-ci-tests/README.md)、[RDV 状态](.github/actions/rdv-status/README.md) |
 | 构建与分发 | [NPUIR 本机归档](.github/actions/npuir-local-archive/README.md)、[GitCode Release](.github/actions/gitcode-release/README.md) |
+| 分析与运行环境 | [CI 失败分析](.github/actions/analyze-ci-failure/README.md)、[安装 TRAE CN](.github/actions/setup-trae-cn/README.md) |
 | 通用接口 | [GitCode API](.github/actions/gitcode-api/README.md) |
 
 每个 Action 都有中英文用途说明、输入输出和调用示例。四条业务流水线复用这些组件，不把每条流程都重复实现成独立工具。

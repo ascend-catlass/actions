@@ -1,0 +1,7 @@
+name: Set up official TRAE CN CLI
+description: Install the pinned and checksum-verified official China enterprise CLI on Linux x64
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/install.sh"

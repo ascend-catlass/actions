@@ -84,8 +84,7 @@ jobs:
             --issue-file "$ISSUE_FILE" --roles-file "$ROLES_FILE" --repository "$REPOSITORY"
       - name: Install pinned official China enterprise CLI
         if: ${{ steps.eligibility.outputs.analyze == 'true' }}
-        shell: bash
-        run: bash scripts/install_trae_cn.sh
+        uses: ascend-catlass/actions/.github/actions/setup-trae-cn@main
       - name: Checkout Issue repository and prepare prompt
         if: ${{ steps.eligibility.outputs.analyze == 'true' }}
         uses: ./.github/actions/gitcode-issue

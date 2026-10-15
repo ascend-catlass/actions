@@ -36,7 +36,7 @@ jobs:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: python3 -m scripts.community_tasks prepare --mode fix --number "$TASK_NUMBER"
       - name: Install pinned official China enterprise CLI
-        run: bash scripts/install_trae_cn.sh
+        uses: ascend-catlass/actions/.github/actions/setup-trae-cn@main
       - name: Analyze with TRAE CN
         id: trae
         uses: ./.github/actions/trae-cn
