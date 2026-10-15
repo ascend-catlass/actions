@@ -31,6 +31,7 @@ class ReminderTests(unittest.TestCase):
         api = API()
         self.assertEqual(remind(api, '123'), 'commented')
         self.assertEqual(api.calls[0][:2], ('GET', '/repos/cann/catlass/pulls/123'))
+        self.assertEqual(api.calls[1][1], '/repos/cann/catlass/pulls/123/comments?per_page=100&page=1')
         self.assertEqual(api.calls[-1], ('POST', '/repos/cann/catlass/pulls/123/comments',
                                         {'body': MESSAGE}, {'encoding': 'json'}))
         self.assertIn('SIG', MESSAGE)
@@ -71,7 +72,7 @@ class ReminderTests(unittest.TestCase):
     def test_redelivery_scans_all_pages_and_does_not_post(self):
         api = API(pages=[[{'body': 'other'}] * 100, [{'body': MESSAGE}]])
         self.assertEqual(remind(api, '123'), 'already_reminded')
-        self.assertTrue(api.calls[-1][1].endswith('page=2&comment_type=pr_comment'))
+        self.assertTrue(api.calls[-1][1].endswith('page=2'))
         self.assertFalse(any(call[0] == 'POST' for call in api.calls))
 
     def test_exact_page_boundary_fetches_next_page(self):
