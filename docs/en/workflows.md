@@ -72,6 +72,6 @@ Publishing tokens are not passed into model execution. Submit feature changes th
 
 ## Shared Action dependency
 
-All eleven general stages come from `yuantao313/actions` at reviewed commit `fbfd9b229556d974d5aee35dafdf9dffe976facd`. Project workflows check out the same revision into `shared_actions` when CATLASS Python policies need its transport helpers. The directory is ignored locally; shared implementations and their unit tests stay upstream.
+General stages come from `yuantao313/actions` at reviewed commit `fbfd9b229556d974d5aee35dafdf9dffe976facd`; RDV status publishing uses fix `38c9c6b54de142c3120e000f1e4cdff84970bf47`. Project workflows check out the same revision into `shared_actions` when CATLASS Python policies need its transport helpers. The directory is ignored locally; shared implementations and their unit tests stay upstream.
 
 Credentials prefer `ATOMGIT_TOKEN`; if it is unset or empty, the existing `GITCODE_TOKEN` is used. Existing installations do not need to rename their secret. The release environment keeps its original identifier `gitcode-release` and its configured permissions. Workflow entry files now use `atomgit` names. The historical NPUIR 20260720 build keeps its diagnostic behavior; only its upstream domain and platform wording change.

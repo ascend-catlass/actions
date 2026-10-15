@@ -21,7 +21,7 @@ class PublicActionConsumers(unittest.TestCase):
                         continue
                     name, ref = use.removeprefix('yuantao313/actions/').split('@')
                     names.add(name)
-                    self.assertEqual(ref, SHA, path)
+                    self.assertEqual(ref, '38c9c6b54de142c3120e000f1e4cdff84970bf47' if name == 'atomgit-pr-status' else SHA, path)
                     metadata = yaml.safe_load((ROOT / 'shared_actions' / name / 'action.yml').read_text(encoding='utf-8'))
                     inputs = metadata.get('inputs', {})
                     supplied = step.get('with', {})
