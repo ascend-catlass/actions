@@ -122,9 +122,8 @@ test('TestPR wires the generic action and artifact, without embedding implementa
 });
 
 const bashAvailable = spawnSync('bash', ['--version']).status === 0;
-const jqAvailable = spawnSync('jq', ['--version']).status === 0;
 test('RDV Bash assembles literal failure analysis with a safe size limit',
-  {skip: !bashAvailable || !jqAvailable}, () => {
+  {skip: !bashAvailable}, () => {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'rdv-comment-'));
     try {
       for (const [result, attachment] of [['failure', '原因：编译失败\n`$(touch injected)`'],
@@ -142,7 +141,7 @@ test('RDV Bash assembles literal failure analysis with a safe size limit',
         const bodyFile = fs.readFileSync(output, 'utf8').trim().split('=')[1];
         const expected = (result === 'success' ? '✅ RDV Succeeded' : '❌ RDV Failed') + ': https://github.com/run/123'
           + (result === 'failure' && attachment && attachment.length <= 8192 ? '\n\n' + attachment : '');
-        assert.equal(JSON.parse(fs.readFileSync(bodyFile, 'utf8')).body, expected);
+        assert.equal(fs.readFileSync(bodyFile, 'utf8'), expected);
         assert.ok(!fs.existsSync(path.join(root, 'injected')));
       }
     } finally {

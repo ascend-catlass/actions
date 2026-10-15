@@ -20,7 +20,7 @@ PR 测试启动时调用 start；测试完成后由报告步骤调用 finish。
 
 ## 使用前准备
 
-- Linux runner，Bash、curl、jq；Token 需要读取和修改 PR 标签及发表评论。
+- Linux runner，Bash、Python 3；Token 需要读取和修改 PR 标签及发表评论。
 - 目前 API 目标固定为 cann/catlass；需提供工作流结果地址。
 
 ## 调用示例
@@ -70,3 +70,5 @@ PR 测试启动时调用 start；测试完成后由报告步骤调用 finish。
 - [.github/actions/rdv-status/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/rdv-status/action.yml)
 - [.github/actions/rdv-status/rdv-status.sh](https://github.com/ascend-catlass/actions/blob/main/.github/actions/rdv-status/rdv-status.sh)
 - [.github/workflows/test-atomgit-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-atomgit-pr.yml)
+
+公共 PR 状态 Action 直接发送最终正文，并在新评论暂时不可读时进行有限次数回查；回查不会重复创建评论。

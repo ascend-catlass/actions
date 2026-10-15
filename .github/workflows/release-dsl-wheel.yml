@@ -100,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: yuantao313/actions
-          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          ref: fbfd9b229556d974d5aee35dafdf9dffe976facd
           path: shared_actions
           persist-credentials: false
 
@@ -185,7 +185,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: yuantao313/actions
-          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          ref: fbfd9b229556d974d5aee35dafdf9dffe976facd
           path: shared_actions
           persist-credentials: false
 

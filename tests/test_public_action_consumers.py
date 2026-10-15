@@ -5,7 +5,7 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-SHA = '4042e6e501fab8a2cee4e87fca0248b2347e05df'
+SHA = 'fbfd9b229556d974d5aee35dafdf9dffe976facd'
 
 
 class PublicActionConsumers(unittest.TestCase):
@@ -54,3 +54,10 @@ class PublicActionConsumers(unittest.TestCase):
         tests = config['jobs']['merge-and-test']['steps']
         non_dsl = next(s for s in tests if s.get('name') == 'Run non-DSL test stage')
         self.assertEqual(non_dsl['with']['base-sha'], '${{ steps.merge.outputs.base-sha }}')
+
+    def test_rdv_publishes_the_final_body_in_one_public_operation(self):
+        config = yaml.safe_load((ROOT / '.github/actions/rdv-status/action.yml').read_text(encoding='utf-8'))
+        stages = [s for s in config['runs']['steps'] if 'uses' in s]
+        self.assertEqual(len(stages), 1)
+        self.assertIn('/atomgit-pr-status@', stages[0]['uses'])
+        self.assertEqual(stages[0]['with']['body-file'], '${{ steps.comment.outputs.body-file }}')

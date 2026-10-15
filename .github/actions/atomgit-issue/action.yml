@@ -44,7 +44,7 @@ runs:
       run: '[[ "$OPERATION" == prepare || "$OPERATION" == publish ]] || exit 1'
     - id: context
       if: ${{ inputs.operation == 'prepare' }}
-      uses: yuantao313/actions/atomgit-issue-context@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      uses: yuantao313/actions/atomgit-issue-context@fbfd9b229556d974d5aee35dafdf9dffe976facd
       with:
         token: ${{ inputs.token }}
         issue-url: ${{ inputs.issue-url }}
@@ -65,7 +65,7 @@ runs:
         python3 -m scripts.issue_reply_policy --context-file "$CONTEXT_FILE" --body-file "$BODY_FILE" "${role_args[@]}"
     - id: publish
       if: ${{ inputs.operation == 'publish' }}
-      uses: yuantao313/actions/atomgit-issue-comment@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      uses: yuantao313/actions/atomgit-issue-comment@fbfd9b229556d974d5aee35dafdf9dffe976facd
       with:
         token: ${{ inputs.token }}
         context-file: ${{ inputs.result-directory }}/context.json

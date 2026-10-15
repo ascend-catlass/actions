@@ -12,17 +12,17 @@
 | [analyze-ci-failure](actions/analyze-ci-failure.md) | 分析任意 GitHub CI 失败日志，返回可供评论使用的说明 |
 | [community-repo-roles](actions/community-repo-roles.md) | 查询社区维护者与 Committer |
 | [create-ascend-container](actions/create-ascend-container.md) | 创建昇腾测试容器 |
-| [atomgit-api](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/atomgit-api) | 调用 AtomGit API |
+| [atomgit-api](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-api) | 调用 AtomGit API |
 | [atomgit-ci-passed](actions/atomgit-ci-passed.md) | CI 通过后提醒代码检视 |
 | [atomgit-issue](actions/atomgit-issue.md) | 准备、回复或分配 AtomGit Issue |
-| [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/atomgit-pr-metadata) | 读取并校验 PR 版本信息 |
+| [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-pr-metadata) | 读取并校验 PR 版本信息 |
 | [atomgit-release](actions/atomgit-release.md) | 发布 AtomGit Release 安装包 |
 | [npuir-local-archive](actions/npuir-local-archive.md) | 复用本机 AscendNPU-IR 构建归档 |
 | [prepare-ci-tests](actions/prepare-ci-tests.md) | 准备测试依赖并选择 NPU |
 | [rdv-status](actions/rdv-status.md) | 把 RDV 测试状态写回 PR |
 | [run-ci-tests](actions/run-ci-tests.md) | 运行 CATLASS 测试阶段 |
-| [setup-trae-cn](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/setup-traecn) | 安装固定版本的官方 TRAE CN CLI |
-| [trae-cn](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/traecn) | 运行 TRAE CN 分析任务 |
+| [setup-trae-cn](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/setup-traecn) | 安装固定版本的官方 TRAE CN CLI |
+| [trae-cn](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/traecn) | 运行 TRAE CN 分析任务 |
 
 ## 四条社区流水线
 

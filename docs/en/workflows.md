@@ -11,7 +11,7 @@
 | `fix-atomgit-issue.yml` · Community 3 | Manual only | Verified small patch, fork PR and `compile` comment |
 | `review-atomgit-pr.yml` · Community 4 | Manual only | Evidence-based inline questions on changed code |
 
-Select the entry in GitHub Actions, click **Run workflow**, and choose `main`. The three model tasks reuse [trae-cn](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/traecn), pinned official China enterprise CLI 0.209.1 and DeepSeek-V4.1-Flash.
+Select the entry in GitHub Actions, click **Run workflow**, and choose `main`. The three model tasks reuse [trae-cn](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/traecn), pinned official China enterprise CLI 0.209.1 and DeepSeek-V4.1-Flash.
 
 ## 1. Brief Issue analysis
 
@@ -54,7 +54,7 @@ See [build and runner operations](operations.md) and individual [Action guides](
 
 ## TestPR failure diagnosis
 
-After RDV has started, a failed preparation or test job starts a separate GitHub-hosted diagnostic job. It calls the generic [`analyze-ci-failure`](actions/analyze-ci-failure.md) Action with the run ID and attempt. That Action composes official `actions/github-script` for logs, [`setup-trae-cn`](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/setup-traecn) for installation and `trae-cn` for DeepSeek-V4.1-Flash analysis. A small standalone script extracts and redacts bounded evidence and formats the comment attachment. Issue analysis, fixes and PR review also share the installation Action. No PR source is checked out or executed for diagnosis.
+After RDV has started, a failed preparation or test job starts a separate GitHub-hosted diagnostic job. It calls the generic [`analyze-ci-failure`](actions/analyze-ci-failure.md) Action with the run ID and attempt. That Action composes official `actions/github-script` for logs, [`setup-trae-cn`](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/setup-traecn) for installation and `trae-cn` for DeepSeek-V4.1-Flash analysis. A small standalone script extracts and redacts bounded evidence and formats the comment attachment. Issue analysis, fixes and PR review also share the installation Action. No PR source is checked out or executed for diagnosis.
 
 The report job appends cause, log evidence and a next step below the existing RDV Failed run link. Missing logs, invalid model output, timeout or missing artifacts produce an unavailable-analysis note instead; RDV-FAIL is still reported. Success and cancellation comments are unchanged. The optional job has a 12-minute limit and the model a 5-minute budget. The comment attachment is retained for seven days. Only the collector gets Actions read permission; the model receives no publishing token.
 
@@ -72,6 +72,6 @@ Publishing tokens are not passed into model execution. Submit feature changes th
 
 ## Shared Action dependency
 
-All eleven general stages come from `yuantao313/actions` at reviewed commit `4042e6e501fab8a2cee4e87fca0248b2347e05df`. Project workflows check out the same revision into `shared_actions` when CATLASS Python policies need its transport helpers. The directory is ignored locally; shared implementations and their unit tests stay upstream.
+All eleven general stages come from `yuantao313/actions` at reviewed commit `fbfd9b229556d974d5aee35dafdf9dffe976facd`. Project workflows check out the same revision into `shared_actions` when CATLASS Python policies need its transport helpers. The directory is ignored locally; shared implementations and their unit tests stay upstream.
 
 Credentials prefer `ATOMGIT_TOKEN`; if it is unset or empty, the existing `GITCODE_TOKEN` is used. Existing installations do not need to rename their secret. The release environment keeps its original identifier `gitcode-release` and its configured permissions. Workflow entry files now use `atomgit` names. The historical NPUIR 20260720 build keeps its diagnostic behavior; only its upstream domain and platform wording change.

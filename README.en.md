@@ -37,11 +37,11 @@ Schedules may queue. See [runner and build operations](docs/en/operations.md) fo
 
 | Category | Actions |
 | --- | --- |
-| Community | [trae-cn](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/traecn), [atomgit-issue](.github/actions/atomgit-issue/README.md), [atomgit-ci-passed](.github/actions/atomgit-ci-passed/README.md), [community-repo-roles](.github/actions/community-repo-roles/README.md) |
-| PR testing | [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/atomgit-pr-metadata), [create-ascend-container](.github/actions/create-ascend-container/README.md), [prepare-ci-tests](.github/actions/prepare-ci-tests/README.md), [run-ci-tests](.github/actions/run-ci-tests/README.md), [rdv-status](.github/actions/rdv-status/README.md) |
+| Community | [trae-cn](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/traecn), [atomgit-issue](.github/actions/atomgit-issue/README.md), [atomgit-ci-passed](.github/actions/atomgit-ci-passed/README.md), [community-repo-roles](.github/actions/community-repo-roles/README.md) |
+| PR testing | [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-pr-metadata), [create-ascend-container](.github/actions/create-ascend-container/README.md), [prepare-ci-tests](.github/actions/prepare-ci-tests/README.md), [run-ci-tests](.github/actions/run-ci-tests/README.md), [rdv-status](.github/actions/rdv-status/README.md) |
 | Build / delivery | [npuir-local-archive](.github/actions/npuir-local-archive/README.md), [atomgit-release](.github/actions/atomgit-release/README.md) |
-| Analysis / runtime | [analyze-ci-failure](.github/actions/analyze-ci-failure/README.md), [setup-trae-cn](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/setup-traecn) |
-| Shared API | [atomgit-api](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/atomgit-api) |
+| Analysis / runtime | [analyze-ci-failure](.github/actions/analyze-ci-failure/README.md), [setup-trae-cn](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/setup-traecn) |
+| Shared API | [atomgit-api](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-api) |
 
 Each Action has bilingual usage, input/output and example documentation.
 
@@ -52,7 +52,7 @@ Community workflows prefer `ATOMGIT_TOKEN` and fall back to the existing `GITCOD
 ```text
 python -m pip install -r requirements-docs.txt
 git clone https://github.com/yuantao313/actions.git shared_actions
-git -C shared_actions checkout 4042e6e501fab8a2cee4e87fca0248b2347e05df
+git -C shared_actions checkout fbfd9b229556d974d5aee35dafdf9dffe976facd
 python -m unittest discover -s tests -p "test_*.py"
 python scripts/check_docs.py
 python -m mkdocs build --strict
