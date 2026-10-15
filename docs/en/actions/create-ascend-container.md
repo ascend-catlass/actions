@@ -67,6 +67,7 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 - Host mode uses --privileged for NPU access. Driver mounts are read-only; CANN, Conda and other runtime dependencies come from the image.
 - The Action does not delete containers. The caller needs an always() cleanup step for a nonempty container-name. Container-runner mode returns an empty name and must leave the original runner alone.
+- The RDV workflow also removes the current run’s `.rdv-work/pr-run-id-attempt` source and build directory. Removing a container leaves its host bind mount intact; host runners need noninteractive `sudo` to remove files created as root. Cleanup validates the path and container name and preserves other runs and NPUIR caches.
 
 ## Implementation and callers
 
