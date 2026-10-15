@@ -15,7 +15,7 @@ Use it for CI-passed label reminders or a maintainer-triggered reminder.
 ## What happens
 
 1. Read the current PR state and labels from AtomGit.
-2. Scan every page of ordinary PR comments for the exact reminder.
+2. Scan every page of ordinary PR comments for the current or previous reminder.
 3. Post only when the PR is eligible and the reminder is absent; return the outcome.
 
 ## Before you run it
@@ -52,7 +52,7 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 ## Notes and common questions
 
-- The reminder covers code review, SIG discussion for larger features, and asking a committer to post rdvcompile for the Ascend 950 pipeline.
+- The reminder asks contributors to open an Issue describing the problem, link it in the PR, and confirm the association before review and merge. It also covers code review, SIG discussion for larger features, and asking a committer to post rdvcompile for the Ascend 950 pipeline.
 - reply-atomgit-ci-passed.yml serializes runs per PR. Other callers should also serialize per PR to avoid simultaneous checks followed by duplicate writes.
 
 ## Implementation and callers
