@@ -64,9 +64,10 @@
   workflow. Its `package_version` input accepts `dev` for an automatically
   derived nightly version or an exact stable version paired with its AtomGit
   `vMAJOR.MINOR.PATCH` tag.
-  All manual, nightly and release wheel builds use host CANN 9.2.0 beta.2
-  (`/usr/local/Ascend/cann-9.2.0-beta.2`) and the `20261013` NPUIR preparation
-  workflow/archive baseline. NPUIR source revisions still follow the selected
+  Manual, nightly and release wheel builds require no host CANN installation.
+  They use the `20261013` NPUIR preparation workflow/archive baseline.
+  The legacy `ASCEND_HOME_PATH` is defined as empty only to satisfy upstream
+  CMake; CANN-dependent bitcode compilation happens at runtime. NPUIR source revisions still follow the selected
   CATLASS commit's exact gitlink, including builds of older release tags.
 - `nightly-dsl-wheel.yml` runs the build workflow every day at 01:00
   Asia/Shanghai and publishes the validated wheels to the GitHub Release-backed
@@ -95,9 +96,10 @@ The DSL build pool consists of machines 124 and 125. Assign the custom
 label and architecture, so dependency preparation and wheel compilation use the
 same worker-local archives. Keep one eligible host per architecture; adding
 more requires shared archives or explicit worker affinity. Verify both runners
-are online and have Docker, host CANN and archive access before merging the
+are online and have Git, patch, Docker, Python >= 3.11 and archive access before merging the
 routing change. Nightly and release builds inherit this selection. The
 historical NPUIR 20260720 workflow and AtomGit publishing retain `publish`.
+Build workers use the latest Git release to fetch sources and submodules.
 
 NPUIR builds on each worker share complete source/build/install trees at
 `/opt/AscendNPU-IR/<YYYYMMDD>/AscendNPU-IR`. The date is the workflow's

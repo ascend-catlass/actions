@@ -46,7 +46,6 @@ on:
 run-name: Build ascend-catlass-dsl ${{ inputs.package_version || 'dev' }} from ${{ inputs.catlass_ref || 'master' }}
 
 env:
-  CANN_ROOT: /usr/local/Ascend/cann-9.2.0-beta.2
   NPUIR_ARCHIVE_ROOT: /opt/AscendNPU-IR
   NPUIR_BUILD_FINGERPRINT: clang-19.1.7+lld-19.1.7
   NPUIR_BUILD_CONTRACT: clang19-lld19-release-rtti-assert-triton-zstd-off-v1
@@ -190,17 +189,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate CANN
+      - name: Validate runner architecture
         shell: bash
         run: |
           set -euo pipefail
           actual_arch=$(uname -m)
           if [[ "${actual_arch}" != "${NPUIR_TARGET_ARCH}" ]]; then
             echo "::error::Runner architecture is ${actual_arch}, expected ${NPUIR_TARGET_ARCH}"
-            exit 1
-          fi
-          if [[ ! -f "${CANN_ROOT}/set_env.sh" ]]; then
-            echo "::error::CANN environment script not found: ${CANN_ROOT}/set_env.sh"
             exit 1
           fi
 
@@ -306,11 +301,12 @@ jobs:
           CIBW_BUILD_VERBOSITY: 1
           CIBW_CONTAINER_ENGINE: >-
             docker; create_args:
-            -v ${{ env.CANN_ROOT }}:${{ env.CANN_ROOT }}:ro
             -v ${{ steps.npuir.outputs.path }}:/opt/AscendNPU-IR:ro
+          # Upstream CMake checks only whether this legacy variable is defined.
+          # Wheel compilation does not consume CANN; bitcode is compiled at runtime.
           CIBW_ENVIRONMENT: >-
             CMAKE_BUILD_TYPE=Release
-            ASCEND_HOME_PATH=${{ env.CANN_ROOT }}
+            ASCEND_HOME_PATH=""
             CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR
             CATLASS_DSL_ASCENDNPU_IR_ROOT=/opt/AscendNPU-IR
             CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=/opt/AscendNPU-IR/build/install
@@ -343,7 +339,6 @@ jobs:
             /usr/bin/clang++ --version | head -1
             /usr/bin/ld.lld --version | head -1
 
-            test -f "${{ env.CANN_ROOT }}/set_env.sh"
             test -f /opt/AscendNPU-IR/build/install/lib/cmake/mlir/MLIRConfig.cmake
           PIP_INDEX_URL: https://repo.huaweicloud.com/repository/pypi/simple
           PIP_TRUSTED_HOST: repo.huaweicloud.com
