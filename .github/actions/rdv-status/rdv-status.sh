@@ -102,6 +102,13 @@ case "${RDV_PHASE}" in
         add_label "${result_label}"
 
         comment_body="${result_text}: ${RDV_RESULT_URL}"
+        if [[ "${RDV_RESULT}" == "failure" && -n "${RDV_FAILURE_ANALYSIS_FILE:-}" && -s "${RDV_FAILURE_ANALYSIS_FILE}" ]]; then
+            if [[ "$(wc -c < "${RDV_FAILURE_ANALYSIS_FILE}")" -le 8192 ]]; then
+                comment_body+=$'\n\n'"$(cat -- "${RDV_FAILURE_ANALYSIS_FILE}")"
+            else
+                echo "Failure analysis exceeds 8 KiB; publishing the original RDV result" >&2
+            fi
+        fi
         comment_response="$(publish_comment "${comment_body}")"
         comment_id="$(jq -er '.id' <<<"${comment_response}")"
 

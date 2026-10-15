@@ -23,7 +23,7 @@ The dev gateway authenticates and filters native events only. A PR event without
 
 | Category | Workflow | Purpose / schedule (Asia/Shanghai) |
 | --- | --- | --- |
-| PR testing | [test-gitcode-pr](.github/workflows/test-gitcode-pr.yml) | Manual or allowlisted `compile` / `rdvcompile`; Ascend 950 validation and RDV status |
+| PR testing | [test-gitcode-pr](.github/workflows/test-gitcode-pr.yml) | Manual or allowlisted `compile` / `rdvcompile`; Ascend 950 validation and RDV status; TRAE CN / DeepSeek adds log analysis to failure comments |
 | Daily build | [nightly-dsl-wheel](.github/workflows/nightly-dsl-wheel.yml) | Daily 01:00; dual-architecture wheels and GitHub package index |
 | Stable release | [release-dsl-wheel](.github/workflows/release-dsl-wheel.yml) | Manual tag validation, wheel build, PyPI and GitCode publication |
 | Shared wheel build | [build-dsl-wheel](.github/workflows/build-dsl-wheel.yml) | Shared nightly/release build, also manual |
@@ -46,7 +46,7 @@ Each Action has bilingual usage, input/output and example documentation.
 
 ## Configuration and contribution
 
-Community workflows use `GITCODE_TOKEN`; model workflows also use `TRAE_CN_PAT` and optional `TRAE_CN_HOST`. See the [workflow guide](docs/en/workflows.md) for details. Submit feature branches as PRs instead of pushing main. PR checks run tests and build documentation without publishing comments. Merge actions first, then merge and deploy dev.
+Community workflows use `GITCODE_TOKEN`; model workflows (including TestPR failure diagnosis) also use `TRAE_CN_PAT` and optional `TRAE_CN_HOST`. See the [workflow guide](docs/en/workflows.md) for details. Submit feature branches as PRs instead of pushing main. PR checks run tests and build documentation without publishing comments. Merge actions first, then merge and deploy dev.
 
 ```text
 python -m pip install -r requirements-docs.txt

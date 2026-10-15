@@ -52,12 +52,18 @@ Publication uses GitCode's [inline comment endpoint](https://docs.gitcode.com/en
 
 See [build and runner operations](operations.md) and individual [Action guides](index.md). Schedules may queue. Production jobs execute from main; the documentation PR check only tests and builds the site.
 
+## TestPR failure diagnosis
+
+After RDV has started, a failed preparation or test job starts a separate GitHub-hosted diagnostic job. It reads failed-step logs from the current run attempt, redacts credential patterns and bounds excerpts, then calls TRAE CN with DeepSeek-V4.1-Flash. No PR source is checked out or executed for diagnosis.
+
+The report job appends cause, log evidence and a next step below the existing RDV Failed run link. Missing logs, invalid model output, timeout or missing artifacts produce an unavailable-analysis note instead; RDV-FAIL is still reported. Success and cancellation comments are unchanged. The optional job has a 12-minute limit and the model a 5-minute budget. The comment attachment is retained for seven days. Only the collector gets Actions read permission; the model receives no publishing token.
+
 ## Credentials and rollout
 
 | Configuration | Consumer |
 | --- | --- |
 | `GITCODE_TOKEN` | Action context, PR/Issue publication, fork pushes and GitCode releases |
-| `TRAE_CN_PAT` | Official TRAE CN enterprise login in the three model workflows |
+| `TRAE_CN_PAT` | Official TRAE CN enterprise login in model workflows, including TestPR failure diagnosis |
 | `TRAE_CN_HOST` | Optional enterprise API host variable |
 | `WEBHOOK_PASSWORD` | dev inbound authentication |
 | `GITHUB_ACTIONS_TOKEN` | dev dispatch to actions workflows |

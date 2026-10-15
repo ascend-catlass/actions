@@ -20,6 +20,9 @@ inputs:
   comment-id:
     description: Reserved input; current finish phase posts a new comment and does not use this ID
     required: false
+  failure-analysis-file:
+    description: Optional UTF-8 Markdown file appended only when finish result is failure (at most 8 KiB)
+    default: ''
 
 outputs:
   comment-id:
@@ -39,4 +42,5 @@ runs:
         RDV_RESULT: ${{ inputs.result }}
         RDV_RESULT_URL: ${{ inputs.result-url }}
         RDV_COMMENT_ID: ${{ inputs.comment-id }}
+        RDV_FAILURE_ANALYSIS_FILE: ${{ inputs.failure-analysis-file }}
       run: bash "${GITHUB_ACTION_PATH}/rdv-status.sh"

@@ -27,7 +27,7 @@ hook 只做鉴权和原始事件筛选。PR 事件看标签，不查询 CI：没
 
 | 分类 | 工作流 | 用途与时间（北京时间） |
 | --- | --- | --- |
-| PR 测试 | [test-gitcode-pr](.github/workflows/test-gitcode-pr.yml) | 手动或白名单账号评论 `compile` / `rdvcompile`，执行 Ascend 950 测试并回写 RDV 状态 |
+| PR 测试 | [test-gitcode-pr](.github/workflows/test-gitcode-pr.yml) | 手动或白名单账号评论 `compile` / `rdvcompile`，执行 Ascend 950 测试；失败时用 TRAE CN / DeepSeek 分析日志并附到 RDV 失败评论 |
 | 每日构建 | [nightly-dsl-wheel](.github/workflows/nightly-dsl-wheel.yml) | 每日 01:00，构建双架构 DSL wheel，发布到 GitHub 包索引 |
 | 稳定发布 | [release-dsl-wheel](.github/workflows/release-dsl-wheel.yml) | 手动校验版本 tag，构建并发布 PyPI、GitCode Release |
 | 公共构建 | [build-dsl-wheel](.github/workflows/build-dsl-wheel.yml) | 被 nightly/release 复用，也可手动构建 |
@@ -50,7 +50,7 @@ hook 只做鉴权和原始事件筛选。PR 事件看标签，不查询 CI：没
 
 ## 配置与维护
 
-- 社区流程需要 `GITCODE_TOKEN`；三个模型流程另需 `TRAE_CN_PAT`，可选变量 `TRAE_CN_HOST`。
+- 社区流程需要 `GITCODE_TOKEN`；模型流程（含 TestPR 失败分析）另需 `TRAE_CN_PAT`，可选变量 `TRAE_CN_HOST`。
 - 构建、发布与镜像所需配置见[工作流说明](docs/zh/workflows.md)和[运维说明](docs/en/operations.md)。
 - 功能修改通过分支 PR 审查后合入，**不直接推主分支**。PR 检查只运行测试和文档构建，不发表社区评论。
 - 先合入 actions 改动，再合入并部署 dev；不要让 hook 调用尚未发布的工作流。

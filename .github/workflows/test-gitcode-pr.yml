@@ -139,7 +139,7 @@ jobs:
           echo "Only documentation or image files changed; no tests are required."
 
   merge-and-test:
-    name: Test PR #${{ inputs.pr_number }}
+    name: "Test PR #${{ inputs.pr_number }}"
     needs: prepare
     if: ${{ github.ref == 'refs/heads/main' && (needs.prepare.outputs.run_dsl == 'true' || needs.prepare.outputs.run_all == 'true') }}
     runs-on: [self-hosted, ascend950]
@@ -293,21 +293,92 @@ jobs:
             docker rm --force "${CONTAINER_NAME}"
           fi
 
+  analyze-failure:
+    name: Analyze failed TestPR logs with DeepSeek
+    if: ${{ github.ref == 'refs/heads/main' && always() && needs.prepare.outputs.comment_id != '' && (needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure') }}
+    needs: [prepare, merge-and-test]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Collect this attempt's failed test logs
+        id: context
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: python3 -m scripts.rdv_failure_analysis prepare
+      - name: Install pinned TRAE CN CLI
+        id: install
+        if: ${{ steps.context.outcome == 'success' }}
+        continue-on-error: true
+        run: bash scripts/install_trae_cn.sh
+      - name: Explain the test failure with DeepSeek
+        id: analysis
+        if: ${{ steps.context.outcome == 'success' && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        uses: ./.github/actions/trae-cn
+        with:
+          trae-pat: ${{ secrets.TRAE_CN_PAT }}
+          host: ${{ vars.TRAE_CN_HOST }}
+          expected-version: 0.209.1
+          model: DeepSeek-V4.1-Flash
+          working-directory: '.'
+          prompt-file: _rdv-failure/prompt.md
+          output-schema-file: .github/prompts/rdv-failure-analysis.schema.json
+          sandbox: read-only
+          timeout-seconds: '300'
+      - name: Render diagnosis or unavailable-analysis note
+        if: ${{ always() }}
+        env:
+          ANALYSIS_RESPONSE: ${{ steps.analysis.outputs.status == 'success' && steps.analysis.outputs.response-file || '' }}
+        run: python3 -m scripts.rdv_failure_analysis render
+      - name: Save comment attachment
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdv-failure-analysis-${{ github.run_attempt }}
+          path: _rdv-failure/analysis.md
+          retention-days: 7
+
   report:
     name: Report PR result
-    if: ${{ github.ref == 'refs/heads/main' && (always() && needs.prepare.result == 'success') }}
+    if: ${{ github.ref == 'refs/heads/main' && (always() && needs.prepare.outputs.comment_id != '') }}
     needs:
       - prepare
       - merge-and-test
+      - analyze-failure
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download failure diagnosis
+        if: ${{ needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: rdv-failure-analysis-${{ github.run_attempt }}
+          path: _rdv-failure/
+      - name: Keep failure reporting available when analysis fails
+        if: ${{ always() && (needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure') }}
+        shell: bash
+        run: |
+          mkdir -p _rdv-failure
+          if [[ ! -s _rdv-failure/analysis.md ]]; then
+            printf '%s\n' '失败原因自动分析暂不可用，请查看上方流水线日志。' > _rdv-failure/analysis.md
+          fi
       - name: Report the result to GitCode
+        if: ${{ always() }}
         uses: ascend-catlass/actions/.github/actions/rdv-status@main
         with:
           phase: finish
           pr-number: ${{ inputs.pr_number }}
           token: ${{ secrets.GITCODE_TOKEN }}
-          result: ${{ needs.prepare.outputs.run_dsl != 'true' && needs.prepare.outputs.run_all != 'true' && 'success' || needs.merge-and-test.result }}
+          result: ${{ needs.prepare.result != 'success' && 'failure' || needs.prepare.outputs.run_dsl != 'true' && needs.prepare.outputs.run_all != 'true' && 'success' || needs.merge-and-test.result }}
           result-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           comment-id: ${{ needs.prepare.outputs.comment_id }}
+          failure-analysis-file: ${{ (needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure') && '_rdv-failure/analysis.md' || '' }}
