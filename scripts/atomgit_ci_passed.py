@@ -33,7 +33,7 @@ def remind(api, pr_number):
         return 'label_not_present'
     page = 1
     while True:
-        comments = api.request('GET', f'{path}/comments?per_page=100&page={page}&comment_type=pr_comment')
+        comments = api.request('GET', f'{path}/comments?per_page=100&page={page}')
         if not isinstance(comments, list):
             raise ValueError('Invalid AtomGit comments response')
         if any(isinstance(comment, dict) and comment.get('body') in {MESSAGE, PREVIOUS_MESSAGE} for comment in comments):

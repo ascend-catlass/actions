@@ -15,7 +15,7 @@ Use it for CI-passed label reminders or a maintainer-triggered reminder.
 ## What happens
 
 1. Read the current PR state and labels from AtomGit.
-2. Scan every page of ordinary PR comments for the current or previous reminder.
+2. Scan every page of PR comments for the current or previous reminder.
 3. Post only when the PR is eligible and the reminder is absent; return the outcome.
 
 ## Before you run it
