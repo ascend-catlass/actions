@@ -1,216 +1,68 @@
-# ascend-catlass/actions
+# CATLASS Actions
 
-Shared GitHub Actions automation for the `ascend-catlass` organization.
+[English](README.en.md) · [中文手册](docs/zh/index.md) · [工作流与使用方法](docs/zh/workflows.md)
 
-本仓库将 PR 测试、社区协作、环境准备和发布流程封装为可复用的自动化步骤。
-每个 Action 的用途、前置条件、调用示例和输入输出见
-[中文手册](docs/zh/index.md) · [English guide](docs/en/index.md)。
-工作流如何串联这些步骤见
-[中文工作流说明](docs/zh/workflows.md) · [English workflows](docs/en/workflows.md)。
+本仓库负责 CATLASS 的社区协作、PR 测试、每日构建和版本发布。社区协作分为下面四条流水线；公共 Action 是它们复用的步骤。
 
-Build or preview the bilingual MkDocs site:
+## 四条社区流水线
+
+| 流水线 | 触发方式 | 做什么 |
+| --- | --- | --- |
+| [1. Issue 简要分析](.github/workflows/reply-gitcode-issue.yml) | dev hook：公开 Issue 新建/重开，作者非 Committer/维护者；也可手动 | TRAE CN 阅读源码和讨论，发表一条简短分析；重复运行更新自己的回复 |
+| [2. PR CI 通过回复](.github/workflows/reply-gitcode-ci-passed.yml) | dev hook：开启 PR 新增 `ci-pipeline-passed` 标签；也可手动补跑 | 面向所有 PR 作者，查重后发送检视、SIG 和 Ascend 950 测试提醒 |
+| [3. 简单 Issue 快速修复](.github/workflows/fix-gitcode-issue.yml) | **仅手动**，填写 Issue 编号与验证命令 | TRAE CN 判断是否为简单问题、生成最小补丁；验证通过后推到个人 fork、创建 PR，并评论 `compile` |
+| [4. PR 行级检视](.github/workflows/review-gitcode-pr.yml) | **仅手动**，填写 PR 编号 | TRAE CN 检视变更，对有依据的疑问发布行级评论；没有问题就不评论 |
+
+简单分析与手动修复互相独立：修复无需先分析，也不限制作者角色，两条流程不会互相触发。
+
+在 GitHub **Actions** 页选择对应的 `Community 1–4` 工作流，点击 **Run workflow**，选择 `main`。修复命令应是与本 Issue 对应的实际测试，例如 `python3 -m pytest tests/path/to/test_case.py`；执行环境是 GitHub Linux runner，没有 NPU，所需依赖需由验证命令准备。复杂问题或验证失败时不会创建 PR。
+
+### dev hook 的边界
+
+hook 只做鉴权和原始事件筛选。PR 事件看标签，不查询 CI：没有通过标签就不调度 GitHub。Issue 事件按原生作者字段和简单社区角色名单过滤。分析、GitCode 查询、发布和查重在 Action 中完成；发布前复查状态，防止分析期间 PR/Issue 已变化。
+
+需要 GitCode webhook 订阅 Issue、Pull Request 和 Note 事件。标签更新必须携带通过标签；空标签事件直接忽略，不为其创建检查流水线。自动修复发布账号须位于 `compile` 白名单，且已有 `cann/catlass` 的个人 fork。详见[使用方法与运行结果](docs/zh/workflows.md)。
+
+## 测试、构建和发布
+
+| 分类 | 工作流 | 用途与时间（北京时间） |
+| --- | --- | --- |
+| PR 测试 | [test-gitcode-pr](.github/workflows/test-gitcode-pr.yml) | 手动或白名单账号评论 `compile` / `rdvcompile`，执行 Ascend 950 测试并回写 RDV 状态 |
+| 每日构建 | [nightly-dsl-wheel](.github/workflows/nightly-dsl-wheel.yml) | 每日 01:00，构建双架构 DSL wheel，发布到 GitHub 包索引 |
+| 稳定发布 | [release-dsl-wheel](.github/workflows/release-dsl-wheel.yml) | 手动校验版本 tag，构建并发布 PyPI、GitCode Release |
+| 公共构建 | [build-dsl-wheel](.github/workflows/build-dsl-wheel.yml) | 被 nightly/release 复用，也可手动构建 |
+| NPUIR 依赖 | [20261013](.github/workflows/build-ascendnpu-ir-20261013.yml) / [20260720 旧版](.github/workflows/build-ascendnpu-ir-20260720.yml) | 按源码与架构准备归档；**旧版保留用于定位问题** |
+| 环境维护 | [install-cann-weekly](.github/workflows/install-cann-weekly.yml) | 每日 02:00，安装同一 CANN weekly 构建到双架构主机 |
+| 镜像同步 | [sync-gitcode](.github/workflows/sync-gitcode.yml) | 每日 02:00，同步 GitCode master 与 tags 到 GitHub |
+
+构建环境、归档目录、镜像、依赖和发布权限见[运维说明](docs/en/operations.md)。定时任务可能排队。
+
+## 可复用 Actions 分类
+
+| 分类 | Actions |
+| --- | --- |
+| 社区协作 | [TRAE CN](.github/actions/trae-cn/README.md)、[Issue 上下文与回复](.github/actions/gitcode-issue/README.md)、[CI 通过提醒](.github/actions/gitcode-ci-passed/README.md)、[社区角色](.github/actions/community-repo-roles/README.md) |
+| PR 测试 | [PR 元数据](.github/actions/gitcode-pr-metadata/README.md)、[创建容器](.github/actions/create-ascend-container/README.md)、[测试准备](.github/actions/prepare-ci-tests/README.md)、[运行测试](.github/actions/run-ci-tests/README.md)、[RDV 状态](.github/actions/rdv-status/README.md) |
+| 构建与分发 | [NPUIR 本机归档](.github/actions/npuir-local-archive/README.md)、[GitCode Release](.github/actions/gitcode-release/README.md) |
+| 通用接口 | [GitCode API](.github/actions/gitcode-api/README.md) |
+
+每个 Action 都有中英文用途说明、输入输出和调用示例。四条业务流水线复用这些组件，不把每条流程都重复实现成独立工具。
+
+## 配置与维护
+
+- 社区流程需要 `GITCODE_TOKEN`；三个模型流程另需 `TRAE_CN_PAT`，可选变量 `TRAE_CN_HOST`。
+- 构建、发布与镜像所需配置见[工作流说明](docs/zh/workflows.md)和[运维说明](docs/en/operations.md)。
+- 功能修改通过分支 PR 审查后合入，**不直接推主分支**。PR 检查只运行测试和文档构建，不发表社区评论。
+- 先合入 actions 改动，再合入并部署 dev；不要让 hook 调用尚未发布的工作流。
+
+本地检查和预览文档：
 
 ```text
 python -m pip install -r requirements-docs.txt
+python -m unittest discover -s tests -p "test_*.py"
 python scripts/check_docs.py
 python -m mkdocs build --strict
 python -m mkdocs serve
 ```
 
-The built site is saved in `site/`; `docs-build.yml` also produces a downloadable
-site artifact. Documentation is not automatically published to GitHub Pages.
-
-The workflows in `.github/workflows/` run from this repository's `main` branch:
-
-Every job, including cleanup and reusable workflow jobs, requires
-`github.ref == 'refs/heads/main'`. A manual dispatch selecting another branch
-cannot execute workers or publish comments. The Issue workflow is manual-only;
-temporary integration-test branch triggers have been removed.
-
-- `install-cann-weekly.yml` scans the official CANN `software/master/` mirror
-  daily at 02:00 Asia/Shanghai (18:00 UTC), or on manual dispatch. One pinned
-  build and version are used by the two host workers selected with `self-hosted`, `Linux`,
-  `bz`, and `X64`/`ARM64`. The worker detects its actual CPU and NPU chip family
-  using `uname -m` and `lspci`: `d802` selects 910b, `d803` selects A3 and
-  `d806` selects 950. It installs Toolkit plus matching ops into `/opt/cann_weekly/YYYYMMDD`, where
-  the date comes from the mirror and package version. Root or passwordless
-  `sudo` is required, along with curl, bash and pciutils.
-  Driver, firmware and CANN's normal installation dependencies are prerequisites.
-  Completed installations are skipped; failed managed attempts
-  can be retried without overwriting a completed date. A single visible
-  `installed-version.txt` records a successful installation.
-  `/opt/cann_weekly/latest` points to the completed date directory and is
-  refreshed after installation or when an already-installed build is reused.
-  Existing host `/opt` symlinks are supported; installation arguments and the
-  `latest` link retain the `/opt/cann_weekly` path.
-  Conflicting builds on the same date and unknown PCI IDs fail explicitly. One worker's failure
-  does not cancel the other. Installation logs are kept as
-  workflow artifacts for 30 days. Historical installations and downloaded
-  packages are retained locally. See the
-  [design and operational limits](docs/plans/2026-10-13-cann-weekly-design.md).
-  Select a completed version by sourcing its actual environment script, e.g.
-  `/opt/cann_weekly/20261009/cann/set_env.sh` for the current package layout;
-  the installer also accepts `ascend-toolkit/set_env.sh` layouts.
-- `reply-gitcode-ci-passed.yml` is dispatched by the dev webhook gateway for
-  CATLASS CI-passed label events. Its reusable
-  [`gitcode-ci-passed` action](.github/actions/gitcode-ci-passed/README.md) checks
-  the current PR state and labels, scans all comment pages, and posts the review,
-  SIG and Ascend 950 reminder once. Runs for the same PR are serialized.
-  `GITCODE_TOKEN` is an Actions secret here; dev only needs its GitHub dispatch
-  credential. Publish this workflow on `main` before deploying the new gateway.
-- `sync-gitcode.yml` mirrors GitCode `master` and tags to
-  `ascend-catlass/catlass` every day or on manual dispatch.
-- `test-gitcode-pr.yml` manually validates a GitCode pull request on the
-  `ascend950` runner. It checks `/.dockerenv` before other job steps: container
-  runners use their current environment; host runners create a disposable
-  Ascend container and remove it after testing, including on failure or
-  cancellation. PR changes are classified on a GitHub-hosted runner before
-  scheduling Ascend 950 work. Documentation-only PRs finish successfully there
-  and skip the Ascend 950 job entirely. Environment preparation and DSL/non-DSL
-  tests run only on the Ascend 950 runner.
-  Each job uses the target branch it fetches; target updates do not abort the
-  run. The Ascend 950 job merges the PR into that target and fails on conflicts.
-  Selective non-DSL tests use the actual pre-merge target SHA.
-  Code changes under `python/tla_dsl/`, `tests/run_dsl_test.sh`, or
-  `tests/dsl_battery/` trigger DSL tests; other code changes trigger non-DSL
-  tests. PRs touching both groups run both suites. Other files under `tests/`
-  do not trigger DSL tests.
-  Non-DSL tests use the main CATLASS CI's reverse header dependency selector to
-  run affected examples and trigger the corresponding test groups on Ascend 950.
-  Example tests incrementally build their own targets; the action does not
-  prebuild examples. The optest wheel and runtime tests use Ascend 950.
-  Selection follows GitCode pre_smoke: unrelated paths do not force a full
-  suite, and the unsupported tuner group is skipped on Ascend 950. Only
-  explicitly shared build/test dependencies require the full 3510 suite. See the
-  [selection rules and limits](.github/actions/run-ci-tests/SOURCE.md).
-  PR testing uses the CANN 9.2.0 beta.2 image.
-  DSL changes first build in dev mode and run the upstream IR pytest suite and
-  `check-tla-lit` target, sharing that build. The dev stage temporarily installs
-  Lit from the package index without a version pin; the image's LLVM Lit source
-  installation will replace this later.
-  The existing Release wheel build and device battery run afterwards.
-  Test failures do not suppress the other
-  suites, and any failure still fails the job; a failed dev build skips its
-  dependent suites.
-- `build-dsl-wheel.yml` is the reusable, build-only x86_64/aarch64 wheel
-  workflow. Its `package_version` input accepts `dev` for an automatically
-  derived nightly version or an exact stable version paired with its GitCode
-  `vMAJOR.MINOR.PATCH` tag.
-  All manual, nightly and release wheel builds use host CANN 9.2.0 beta.2
-  (`/usr/local/Ascend/cann-9.2.0-beta.2`) and the `20261013` NPUIR preparation
-  workflow/archive baseline. NPUIR source revisions still follow the selected
-  CATLASS commit's exact gitlink, including builds of older release tags.
-- `nightly-dsl-wheel.yml` runs the build workflow every day at 01:00
-  Asia/Shanghai and publishes the validated wheels to the GitHub Release-backed
-  package index.
-- `release-dsl-wheel.yml` verifies that an exact GitCode tag exists before it
-  starts a build, then publishes the same validated wheels to PyPI and the
-  corresponding GitCode Release.
-
-Composite actions and their scripts live under `.github/actions/`.
-The
-[`community-repo-roles`](.github/actions/community-repo-roles/README.md) action
-reads an existing CANN community checkout to return a repository's maintainer
-and declared committer IDs, personnel details, SIGs, and scoped configurations.
-It requires no GitCode token.
-
-The workflows require the `GITCODE_TOKEN` and `CATLASS_DEPLOY_KEY` repository
-secrets. Stable releases use the existing `GITCODE_TOKEN`, which must have
-Release write access, and require a PyPI Trusted Publisher bound to the `pypi`
-environment and `release-dsl-wheel.yml`.
-
-NPUIR builds on each publish worker share complete source/build/install trees at
-`/opt/AscendNPU-IR/<YYYYMMDD>/AscendNPU-IR`. The date is the workflow's
-`NPUIR_BASELINE_DATE` (currently `20260720` or `20261013`), not the run date.
-The archive action provisions the root with passwordless `sudo` when necessary;
-the runner account must have write access to it. Published trees grant all local
-users read and directory traversal access, preserving executable bits.
-Each worker stores its native CPU architecture; dates cannot be reused for a
-different commit, architecture, or build contract.
-
-`/opt/AscendNPU-IR/latest` points to the completed
-`<YYYYMMDD>` directory, matching the dated directory layout. Publication and cache reuse create this link if
-missing and advance it only for a strictly newer date. A worker-local file lock
-serializes the date comparison and atomic symlink replacement. Failed builds
-remain under `.building-*` for inspection and never become `latest`.
-Validated archives from the previous runner-local `_npuir-pipeline` directory
-are copied into the shared layout when requested; originals remain available
-to existing consumers. Wheel builds continue selecting the exact dated archive
-and validating its gitlink and build contract.
-
-Local users can select the default installation with:
-
-```bash
-export CATLASS_DSL_PREBUILT_ASCENDNPU_IR=/opt/AscendNPU-IR/latest/AscendNPU-IR
-export CATLASS_DSL_ASCENDNPU_IR_ROOT=/opt/AscendNPU-IR/latest/AscendNPU-IR
-export CATLASS_DSL_ASCENDNPU_IR_INSTALL_DIR=/opt/AscendNPU-IR/latest/AscendNPU-IR/build/install
-export PATH=/opt/AscendNPU-IR/latest/AscendNPU-IR/build/install/bin:$PATH
-```
-
-Host PR runners require Docker and the local image
-`ascend-catlass-dsl:9.2.0-beta.2-950-ubuntu22.04-py3.12`. The reusable
-[`create-ascend-container`](.github/actions/create-ascend-container/README.md)
-action accepts the image repository, tag, container name, and source mapping
-as inputs. It mounts the merged worktree at `/workspace/catlass`, passes through
-the NPU using `--privileged`, and mounts the host DCMI, `npu-smi`, driver libraries,
-driver version, and installation information read-only. Runtime dependencies
-come from the image; the workflow does not mount over `/root` or install or
-activate CANN, Conda, or AscendNPU-IR inside the container.
-
-Torch and Torch NPU come from the image. `prepare-ci-tests` filters Lit, Torch
-and Torch NPU from the root `requirements.txt` and directly installs the remaining
-packages with `pip install -r`. This avoids direct installation requests for
-the filtered packages; pip still resolves transitive dependencies normally.
-The repository requirements file remains unchanged. The dev stage can still
-install Lit when the image lacks it.
-Preparation then runs the vendored
-[`detect_npu.sh`](.github/actions/prepare-ci-tests/detect_npu.sh) from
-MinghuasLab/flash-attention-npu inside the test environment. The upstream
-selector supports 910B and 950 tables and sorts eligible cards by process count,
-then card ID. Its default eligibility limits are free memory >1024 MB and
-process count <4. The selected card is passed as `DEVICE_ID` to both suites and
-`--device` to the DSL suite. No candidate fails preparation. Selection is a
-snapshot, not an NPU reservation. The upstream source and BSD license are
-recorded alongside the vendored script.
-
-Before container tests, the action registers the mounted checkout and submodule
-paths from `.gitmodules` as Git safe directories, including uninitialized
-submodules such as googletest. Existing nested submodules are handled recursively.
-Paths outside the checkout are rejected; repeated stages do not duplicate entries.
-
-The reusable [`trae-cn`](.github/actions/trae-cn/README.md) stage runs the official
-TRAE CN CLI 2.0 against a checked-out repository, accepting a literal prompt
-or a repository prompt file. It returns a final answer file, JSONL events, stderr,
-and a status manifest for downstream PR/Issue workflows. It defaults to read-only;
-code repair can explicitly select workspace-write. A preinstalled Linux CLI and an
-enterprise PAT (`TRAE_CN_PAT`) are required; email/password credentials alone are
-not the documented CI authentication interface. The Issue workflow can verify
-analysis without posting comments by setting `publish=false`.
-See the [design and current verification limits](docs/plans/2026-10-14-trae-cn-stage-design.md).
-
-`reply-gitcode-issue.yml` combines that stage with GitCode Issue/context fetching
-and a short public reply. It installs the pinned official China enterprise CLI
-on a disposable GitHub-hosted Linux runner, then reads the selected repository
-and publishes or updates one owned automation comment.
-Before downloading the CLI or checking out Issue source, it reads the author's
-login and queries both repository role lists from the CANN community checkout.
-Issues opened by declared committers or maintainers skip model analysis and receive
-only `/assign @author-login`, using the author's platform account ID. Repeated runs
-reuse an identical assignment comment from the automation account. Closed Issues
-receive no assignment. The `publish` switch controls both reply and assignment
-publication; account matching ignores case. Missing author identities or failed
-role queries stop the run. Preparation and publication recheck eligibility, and
-an author change during analysis blocks publication.
-Manual dispatch accepts
-an Issue URL and a `publish` switch; the default test target is CATLASS Issue #739.
-Issue/discussion changes block stale replies. The GitCode token is available only
-to context and publishing steps. Results and publication evidence are saved for
-seven days. Requires `TRAE_CN_PAT` and `GITCODE_TOKEN`; `TRAE_CN_HOST` is optional.
-
-GitCode API operations are exposed through reusable stages: `gitcode-api`,
-`gitcode-issue`, `gitcode-pr-metadata`, `gitcode-release`, and the existing
-`rdv-status`. The PR test and release workflows use those stages as well.
-See the [stage interfaces and composition example](.github/actions/gitcode-api/README.md).
-Issue replies explicitly use `DeepSeek-V4.1-Flash`, use natural discussion prose,
-and end with only `<sub>By DeepSeek-V4.1-Flash</sub>`. Source revisions, model selection,
-and workflow evidence are kept in artifacts instead of the public signature.
+完整测试包含 Bash/Linux 用例；GitHub PR 检查在 Linux 执行。文档构建产物是 `site/`，CI 提供下载，不自动发布 Pages。

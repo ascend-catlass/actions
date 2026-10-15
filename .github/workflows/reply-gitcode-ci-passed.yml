@@ -1,4 +1,4 @@
-name: Reply to a GitCode PR after CI passes
+name: "Community 2 · PR CI passed reminder"
 run-name: "PR #${{ inputs.pr_number }} CI review reminder"
 
 on:

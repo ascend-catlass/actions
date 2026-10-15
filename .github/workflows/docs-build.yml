@@ -10,18 +10,20 @@ on:
       - 'scripts/check_docs.py'
       - '.github/actions/**'
       - '.github/workflows/**'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: automation-docs
+  group: automation-docs-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -33,6 +35,8 @@ jobs:
           python-version: '3.12'
       - name: Install documentation dependencies
         run: python -m pip install -r requirements-docs.txt
+      - name: Run automation regression tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check Action documentation and build the site
         run: |
           python scripts/check_docs.py

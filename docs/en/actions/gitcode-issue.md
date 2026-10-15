@@ -67,8 +67,8 @@ Required follows action.yml. Some optional fields become necessary for a particu
 ## Notes and common questions
 
 - roles-file is optional at the interface. The existing Issue workflow supplies it and rechecks author eligibility during preparation and publication. assign requires role data.
-- A changed Issue or discussion blocks a stale reply. Role-member Issues skip analysis and receive /assign @author-login using the platform account. GitCode processes the command comment.
-- reply-gitcode-issue.yml defaults publish to true. Set it to false to analyze without posting replies or assignment comments. The workflow currently runs on manual dispatch.
+- A changed Issue or discussion blocks a stale reply. The brief analysis workflow skips role-member Issues without calling assign. The reusable assign operation remains available to other callers.
+- reply-gitcode-issue.yml defaults publish to true. Set it to false to analyze without posting replies. Eligible new/reopened Issue hooks and manual dispatch can start this workflow. Manual Issue fixing is independent.
 
 ## Implementation and callers
 

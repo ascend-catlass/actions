@@ -119,7 +119,7 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(JOBS['prepare']['runs-on'], 'ubuntu-latest')
         npu = JOBS['merge-and-test']
         self.assertEqual(npu['runs-on'], ['self-hosted', 'ascend950'])
-        self.assertEqual(npu['if'], "${{ needs.prepare.outputs.run_dsl == 'true' || needs.prepare.outputs.run_all == 'true' }}")
+        self.assertEqual(npu['if'], "${{ github.ref == 'refs/heads/main' && (needs.prepare.outputs.run_dsl == 'true' || needs.prepare.outputs.run_all == 'true') }}")
         for action in ['prepare-ci-tests', 'run-ci-tests']:
             self.assertFalse(any(action in step.get('uses', '') for step in JOBS['prepare']['steps']))
             self.assertTrue(any(action in step.get('uses', '') for step in npu['steps']))

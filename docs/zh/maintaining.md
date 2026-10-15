@@ -25,7 +25,7 @@ git diff --check
 
 第一项检查全部 Action 是否有双语页面、输入输出表格是否与接口一致、调用示例是否使用有效参数。第二项检查导航与链接，生成 `site/` 静态文件；构建目录不提交到 Git。
 
-`docs-build.yml` 在 `main` 文档相关变更后以及手动触发时执行同样的检查，并保存文档站文件为 `automation-docs-site` artifact，保留 7 天。下载并解压到 `site/` 目录后，用静态 HTTP 服务预览，例如 `python -m http.server --directory site 8000`。文件不会自动发布到 GitHub Pages。
+`docs-build.yml` 在 PR、`main` 文档相关变更后以及手动触发时执行同样的检查，并保存文档站文件为 `automation-docs-site` artifact，保留 7 天。下载并解压到 `site/` 目录后，用静态 HTTP 服务预览，例如 `python -m http.server --directory site 8000`。文件不会自动发布到 GitHub Pages。
 
 ## 新增或修改一个 Action
 

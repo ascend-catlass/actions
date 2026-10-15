@@ -1,75 +1,67 @@
-# How workflows connect the Actions
+# Workflow guide
 
 [中文](../zh/workflows.md) · [English](../en/workflows.md)
 
-An Action performs a reusable step. A workflow connects steps into a complete process. This guide covers the existing business workflows; CANN installation and mirroring call scripts directly rather than additional custom Actions.
+## Four community workflows
 
-## Workflow directory
-
-| Workflow | What it does | When it runs |
+| Entry | Trigger | Result |
 | --- | --- | --- |
-| [test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml) | Merge and test a GitCode PR, then report RDV status | Manual; the dev webhook also dispatches for allowed accounts posting `compile` or `rdvcompile` |
-| [reply-gitcode-ci-passed.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-ci-passed.yml) | Post a review reminder after CI passes | Manual; the dev webhook also dispatches on passed-label events |
-| [reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml) | Assign an Issue according to its author's roles, or analyze and reply | Manual; `publish` defaults to enabled |
-| [build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml) | Prepare NPUIR archives using the current date baseline | Manual or called by another workflow |
-| [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | Retain the earlier NPUIR baseline for debugging historical problems | Manual or called by another workflow |
-| [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | Build and save x86_64 and aarch64 DSL wheels | Manual or called by nightly/release workflows |
-| [nightly-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/nightly-dsl-wheel.yml) | Build a development version and publish to the GitHub Release-backed package index | Daily at 01:00 Asia/Shanghai, or manual |
-| [release-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/release-dsl-wheel.yml) | Validate a stable tag, build and publish to PyPI and GitCode Release | Manual |
-| [install-cann-weekly.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/install-cann-weekly.yml) | Install the same CANN weekly build on two CPU architectures | Daily at 02:00 Asia/Shanghai, or manual |
-| [sync-gitcode.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/sync-gitcode.yml) | Mirror GitCode `master` and tags to GitHub | Daily at 02:00 Asia/Shanghai, or manual |
+| `reply-gitcode-issue.yml` · Community 1 | New/reopened public Issue by a non-role author, or manual | Short source-based TRAE CN analysis |
+| `reply-gitcode-ci-passed.yml` · Community 2 | Passed label added to an open PR, or manual | Deduplicated reminder for PRs by every author |
+| `fix-gitcode-issue.yml` · Community 3 | Manual only | Verified small patch, fork PR and `compile` comment |
+| `review-gitcode-pr.yml` · Community 4 | Manual only | Evidence-based inline questions on changed code |
 
-Cron expressions use UTC; the table converts them to Asia/Shanghai. Scheduled jobs may start later because of queuing. Execution jobs in this repository require the `main` branch; selecting another branch does not execute them.
+Select the entry in GitHub Actions, click **Run workflow**, and choose `main`. The three model tasks reuse [trae-cn](actions/trae-cn.md), pinned official China enterprise CLI 0.209.1 and DeepSeek-V4.1-Flash.
 
-## PR testing
+## 1. Brief Issue analysis
 
-1. [gitcode-pr-metadata](actions/gitcode-pr-metadata.md) reads PR branches and the head commit.
-2. [rdv-status](actions/rdv-status.md) reports that testing has started.
-3. A GitHub-hosted runner fetches the target branch and PR and classifies changed paths. Documentation/image-only changes finish here without scheduling Ascend 950 work.
-4. Code changes go to the self-hosted `ascend950` runner for merging. A fetched PR head mismatch or merge conflict fails the run.
-5. [create-ascend-container](actions/create-ascend-container.md) prepares the environment; [prepare-ci-tests](actions/prepare-ci-tests.md) installs filtered requirements and selects a device.
-6. [run-ci-tests](actions/run-ci-tests.md) executes the required stages. DSL work uses a dev build, IR/Lit tests and device tests. Non-DSL work selects tests from changed paths and reverse header dependencies. Changes in both categories run both.
-7. A reporting job writes the RDV result. An `always()` step cleans up managed containers.
+The dev gateway filters the native public open/reopen event and its author's username against a small community role account list. The Action rechecks the latest community declarations, reads source and discussion, and publishes or updates one short owned reply. Committers and maintainers are skipped; this entry does not assign Issues. Manual fallback takes `issue_url`; `publish=false` generates analysis only. Changed discussion blocks stale replies.
 
-Shared preparation, reuse of the DSL dev build, change-based test selection and automatic PR result links remove repeated manual steps. See the [selection rules](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/SOURCE.md) for the actual test coverage.
+## 2. CI-passed reminder
 
-## CI-passed review reminders
+The gateway checks open PR state, the current event's `ci-pipeline-passed` label, and the previous label set. Missing, empty, running or unchanged labels do not start a GitHub workflow. It does not query CI. Configure GitCode label-update delivery correctly, or use manual `pr_number` recovery when an event has no labels. Every PR author is eligible.
 
-This flow is separate from RDV testing. A `ci-pipeline-passed` label event reaches dev, which dispatches the workflow. [gitcode-ci-passed](actions/gitcode-ci-passed.md) rechecks the current PR, scans all comment pages and posts a review reminder if eligible. Runs for the same PR are serialized.
+The Action's current-state query is a final publication guard. It scans all ordinary comment pages and posts the review/SIG/Ascend 950 reminder once. Runs for the same PR are serialized.
 
-dev needs only a GitHub dispatch credential for this operation. GitCode query and comment credentials stay in this repository's Actions secrets.
+## 3. Quick simple-Issue fix
 
-## Issue assignment and analysis
+Manual inputs: `issue_number` and `validation_command`. This manual task is independent of brief Issue analysis: it needs no prior run or reply, has no author-role restriction, and neither task triggers the other. The workflow pins upstream master and the Issue discussion. TRAE CN reads the source and returns a structured simple/not-simple decision plus a minimal unified patch. Complex or unclear problems end as `needs-human` without a PR.
 
-1. Read the author's platform account and query maintainers/committers with [community-repo-roles](actions/community-repo-roles.md).
-2. A declared role-member author skips model analysis. [gitcode-issue](actions/gitcode-issue.md) posts `/assign @author-login`; repeated runs reuse an identical assignment comment owned by the current account.
-3. For other eligible Issues, prepare source and discussion context and analyze read-only through [trae-cn](actions/trae-cn.md).
-4. Recheck the Issue, discussion and author eligibility before publishing. A stale answer is blocked; an eligible answer creates or updates the current account's automation comment and reads it back.
+A separate step checks paths, applies a patch of at most ten files and runs the maintainer-selected command without publishing credentials. Automation configuration, symlinks and submodules cannot be changed by a simple fix. Failed validation stops publication. The runner is disposable Linux without an NPU; include dependency setup and meaningful tests in the command. Device-dependent problems need human handling.
 
-The workflow selects `DeepSeek-V4.1-Flash` and signs model replies accordingly. `publish=false` disables both reply and assignment-comment publication. The entry point is currently manual; it does not subscribe to every new Issue.
+After validation and a fresh discussion check, the publisher pushes a `codex/issue-*` branch to its existing personal CATLASS fork and opens an upstream master PR. It reads the PR back and posts one exact `compile` comment. Retries reuse the owned PR and command. The GitCode account needs fork push/PR/comment permissions and must be on dev's compile allowlist.
 
-## Dependency archives and wheel distribution
+## 4. Inline PR review
 
-Each `publish` host keeps local dated NPUIR archives. [npuir-local-archive](actions/npuir-local-archive.md) verifies commit, architecture and build contract. A matching archive is reused; a missing one is compiled by the workflow. `latest` advances only to a newer date, while wheel builds still select the exact dependency required by the CATLASS gitlink.
+Manual input: `pr_number`. The workflow pins head and base, then provides source and diff to TRAE CN. At most ten findings are accepted, each on an added/modified line in that pinned diff. No findings means no comments. Head/base changes block publication. Owned matching findings are deduplicated by source revision and content.
 
-Wheel workflows build on x86_64 and aarch64 hosts. Nightly publishes development versions to the GitHub package index. Release checks an existing GitCode stable tag before publishing to PyPI and GitCode. GitCode distribution uses [gitcode-release](actions/gitcode-release.md), reusing identical assets. `artifact_run_id` can select validated assets from an earlier release run to avoid rebuilding.
+Publication uses GitCode's [inline comment endpoint](https://docs.gitcode.com/en/docs/apis/post-api-v-5-repos-owner-repo-pulls-number-comments/), followed by body, author, path and head read-back. It does not approve or merge PRs. Model and publication evidence is retained for seven days.
 
-## Environment installation and mirroring
+## Tests, builds and releases
 
-CANN weekly first pins one official build and then installs Toolkit and chip-matched ops on X64 and ARM64 `bz` hosts. Installations live under `/opt/cann_weekly/YYYYMMDD`. Completed dates are skipped and `latest` points to a completed installation. Driver and firmware updates are outside this workflow; logs are retained for 30 days.
-
-Mirroring fetches GitCode `cann/catlass` `master` and tags, then force-updates the corresponding branch and tags in GitHub `ascend-catlass/catlass`, including pruning tags that no longer exist. Treat the destination as a mirror.
-
-## Credentials used by the workflows
-
-| Credential or setting | Used for |
+| Workflow | Purpose / schedule (Asia/Shanghai) |
 | --- | --- |
-| `GITCODE_TOKEN` | PR metadata, comments and labels; Issue reads/publication; GitCode Releases. Grant permissions for the chosen operations |
-| `GITHUB_ACTIONS_TOKEN` | dev webhook dispatch, stored in dev Cloudflare bindings |
-| `WEBHOOK_PASSWORD` | dev webhook authentication, stored in Cloudflare bindings |
-| `TRAE_CN_PAT` | Enterprise TRAE CLI login |
-| `TRAE_CN_HOST` | Optional enterprise API host variable |
-| `CATLASS_DEPLOY_KEY` | Writing the GitHub mirror |
-| PyPI Trusted Publisher | Stable PyPI publication, bound to the `pypi` environment and release workflow |
+| `test-gitcode-pr.yml` | Manual or allowlisted compile/rdvcompile; selective Ascend 950 tests and RDV status |
+| `nightly-dsl-wheel.yml` | Daily 01:00: dual-architecture development wheels and GitHub package index |
+| `release-dsl-wheel.yml` | Manual stable-tag validation, wheel build, PyPI and GitCode release |
+| `build-dsl-wheel.yml` | Shared build, called by nightly/release or manually |
+| `build-ascendnpu-ir-20261013.yml` | Current NPUIR preparation/archive baseline |
+| `build-ascendnpu-ir-20260720.yml` | Legacy NPUIR preparation retained for diagnosis |
+| `install-cann-weekly.yml` | Daily 02:00: install the same official build on both CPU architectures |
+| `sync-gitcode.yml` | Daily 02:00: mirror GitCode master and tags to GitHub |
 
-Pass tokens as secrets to the steps that need them. Do not put them in source, prompts or literal example values.
+See [build and runner operations](operations.md) and individual [Action guides](index.md). Schedules may queue. Production jobs execute from main; the documentation PR check only tests and builds the site.
+
+## Credentials and rollout
+
+| Configuration | Consumer |
+| --- | --- |
+| `GITCODE_TOKEN` | Action context, PR/Issue publication, fork pushes and GitCode releases |
+| `TRAE_CN_PAT` | Official TRAE CN enterprise login in the three model workflows |
+| `TRAE_CN_HOST` | Optional enterprise API host variable |
+| `WEBHOOK_PASSWORD` | dev inbound authentication |
+| `GITHUB_ACTIONS_TOKEN` | dev dispatch to actions workflows |
+| `CATLASS_DEPLOY_KEY` | GitHub mirror writes |
+| PyPI Trusted Publisher | Stable release publishing in the pypi environment |
+
+Publishing tokens are not passed into model execution. dev does not need a GitCode token. Subscribe the GitCode webhook to Issue, Pull Request and Note events, and keep the small gateway role list synchronized with community declarations. Submit features through PRs; merge actions first, then merge and deploy dev.

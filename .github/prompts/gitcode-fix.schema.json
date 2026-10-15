@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "required": [
+    "simple",
+    "summary",
+    "patch"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "simple": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "patch": {
+      "type": "string",
+      "maxLength": 100000
+    }
+  }
+}

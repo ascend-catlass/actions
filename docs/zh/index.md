@@ -22,15 +22,16 @@
 | [run-ci-tests](actions/run-ci-tests.md) | 运行 CATLASS 测试阶段 |
 | [trae-cn](actions/trae-cn.md) | 运行 TRAE CN 分析任务 |
 
-## 这些步骤怎样组合
+## 四条社区流水线
 
-1. PR 测试：读取 PR 版本 → 写入测试开始状态 → 准备环境与选卡 → 运行测试 → 写回结果。
-2. CI 通过提醒：dev webhook 触发 → 查询 PR 当前状态 → 检查已有评论 → 发送检视提醒。
-3. Issue 协作：查询作者及社区角色 → 分配给角色成员，或准备上下文 → 模型分析 → 发布答复。
-4. 版本构建：查询或构建 NPUIR 归档 → 构建双架构 wheel → 验证并分发。
+| 流程 | 触发 | 结果 |
+| --- | --- | --- |
+| Issue 简要分析 | 非 Committer/维护者的公开 Issue 新建/重开，或手动 | TRAE CN 简要分析与回复 |
+| PR CI 通过回复 | 开启 PR 新增通过标签，或手动 | 向全部 PR 作者发送一次检视提醒 |
+| 简单 Issue 修复 | 仅手动 | TRAE CN 补丁、验证、提 PR、评论 compile |
+| PR 行级检视 | 仅手动 | TRAE CN 针对变更行提出有依据的问题 |
 
-具体触发方式、定时任务和执行机器见[工作流说明](workflows.md)。
-
+另保留 PR 测试、每日构建、环境安装、版本发布和旧 NPUIR 问题定位入口。操作方法见[工作流说明](workflows.md)，详细构建配置见[运维说明](../en/operations.md)。
 
 ## 阅读调用示例
 

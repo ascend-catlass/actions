@@ -10,7 +10,9 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | --- | --- | --- |
 | [test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml) | 合并并测试 GitCode PR，再写回 RDV 状态 | 手动；dev webhook 收到白名单账号的 `compile` 或 `rdvcompile` 评论也会触发 |
 | [reply-gitcode-ci-passed.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-ci-passed.yml) | CI 通过后发送检视提醒 | 手动；dev webhook 收到通过标签事件也会触发 |
-| [reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml) | 按作者角色分配 Issue，或分析并回复 | 手动，`publish` 默认开启 |
+| [reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml) | 非角色成员 Issue 简要分析（TRAE CN） | 新建/重开 hook 或手动 |
+| [fix-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/fix-gitcode-issue.yml) | 简单 Issue 修复、提 PR、评论 compile（TRAE CN） | 仅手动 |
+| [review-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/review-gitcode-pr.yml) | 对变更行发布检视意见（TRAE CN） | 仅手动 |
 | [build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml) | 准备当前日期基线的 NPUIR 依赖归档 | 手动或被其他工作流调用 |
 | [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | 保留旧 NPUIR 日期基线，供历史问题定位 | 手动或被其他工作流调用 |
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | 构建 x86_64、aarch64 的 DSL wheel 并保存产物 | 手动或被 nightly/release 调用 |
@@ -19,7 +21,7 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | [install-cann-weekly.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/install-cann-weekly.yml) | 安装同一构建版本的 CANN weekly 到两种 CPU 架构主机 | 每日北京时间 02:00，或手动 |
 | [sync-gitcode.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/sync-gitcode.yml) | 把 GitCode `master` 与 tags 镜像同步到 GitHub | 每日北京时间 02:00，或手动 |
 
-定时表达式使用 UTC；表格已换算为北京时间。定时任务的实际启动可能排队。仓库的执行 job 均要求 `main` 分支，手动选择其他分支不会执行这些 job。
+定时表达式使用 UTC；表格已换算为北京时间。定时任务的实际启动可能排队。业务 job 均要求 `main` 分支，手动选择其他分支不会执行业务任务。PR 检查只测试和构建文档，不发布评论。
 
 ## PR 测试
 
@@ -33,20 +35,37 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 
 减少重复工作的方式是共用准备步骤、复用 DSL dev 构建、按变更选择测试，以及把日志链接自动写回 PR。测试选择范围见[源码说明](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/SOURCE.md)。
 
-## CI 通过后的提醒
+## 四条社区协作流水线
 
-这条流程独立于 RDV 测试。dev 收到 `ci-pipeline-passed` 标签事件后调用工作流；[gitcode-ci-passed](actions/gitcode-ci-passed.md) 再查询当前 PR，确认仍符合条件，分页查重后发送检视提醒。同一 PR 的运行串行执行。
+### 1. Issue 简要分析（自动，TRAE CN）
 
-dev 只需要 GitHub 调度凭据；GitCode 查询和评论凭据保存在 actions 仓的 Secret 中。
+dev 收到公开 Issue 新建/重开事件，按原生作者账号和社区角色名单筛选；非 Committer/维护者才调度 `reply-gitcode-issue.yml`。Action 从社区仓库再次读取最新角色声明，角色成员跳过分析，也不自动分配。其余 Issue 读取源码和讨论，TRAE CN 使用 DeepSeek-V4.1-Flash 给出简短分析；发布前检查讨论是否变化，更新或创建本账号的一条回复。
 
-## Issue 分配与分析
+手动补跑：选择 **Community 1**，填写 `issue_url`。`publish=false` 只生成分析，不发评论。结果保留七天。
 
-1. 读取作者平台账号，并用 [community-repo-roles](actions/community-repo-roles.md) 查询该仓库的维护者与 Committer。
-2. 若作者是声明的角色成员，跳过模型分析，通过 [gitcode-issue](actions/gitcode-issue.md) 发送 `/assign @author-login` 评论。重复运行复用相同的本账号分配评论。
-3. 其他符合条件的 Issue 先准备源码和讨论上下文，再通过 [trae-cn](actions/trae-cn.md) 只读分析。
-4. 发布前重新检查 Issue、讨论和作者资格。答复变旧时不发布；正常时新建或更新本账号的自动评论，并回查结果。
+### 2. PR CI 通过后回复（自动，所有 PR）
 
-工作流使用 `DeepSeek-V4.1-Flash`，模型答复末尾署名与模型保持一致。`publish=false` 会停止回复和分配评论的发布。当前是手动入口，没有订阅所有 Issue 自动触发。
+dev 只检查事件：PR 开启，当前标签含 `ci-pipeline-passed`，且 previous 不含该标签，才调度 `reply-gitcode-ci-passed.yml`。**不查询 CI，不因运行中或空标签启动 Action。** 未携带标签的投递直接忽略，需检查发送端配置或手动补跑。PR 作者角色不影响回复资格。
+
+Action 查询当前状态、分页查重并发送检视提醒；同一 PR 串行执行。这里的查询用于发布前防止状态变化。手动补跑：选择 **Community 2**，填写 `pr_number`。
+
+### 3. 简单 Issue 快速修复（仅手动，TRAE CN）
+
+选择 **Community 3**，填写 `issue_number` 与 `validation_command`。这是独立的维护者手动任务，与简要分析回复没有依赖或互相触发关系；无需先分析、不要求已有回复，也不限制 Issue 作者角色。
+
+1. 固定 CATLASS master 源码和 Issue 讨论快照。
+2. TRAE CN 只读分析根因，输出是否简单、修复说明与 unified patch。复杂或不明确的问题结束为 `needs-human`，不提 PR。
+3. 独立步骤校验并应用补丁，最多十个文件，不接受自动化配置、symlink 或子模块修改；执行维护者指定验证命令。验证步骤不接收发布凭据。
+4. 验证通过且讨论未变化，推送至发布账号已有的 CATLASS 个人 fork 的 `codex/issue-*` 分支，再向 `cann/catlass:master` 提 PR。
+5. 回查 PR 后发布一条准确的 `compile` 评论，触发既有测试；重试时复用已创建的 PR 和评论。
+
+运行环境是 GitHub Linux runner，无 NPU。验证命令需包含必要依赖准备，并应覆盖这个修复；例如 `python3 -m pytest tests/path/to/test_case.py`。需要设备才能确认的问题交由人工处理。发布账号的 GitCode Token 需有 fork 推送、创建 PR 和评论权限，且账号必须在 dev 的 `compile` 白名单。
+
+### 4. PR 行级检视（仅手动，TRAE CN）
+
+选择 **Community 4**，填写 `pr_number`。固定 PR head/base，读取 diff 和相关源码。模型只返回有代码依据的疑问，最多十条；发布程序要求每条对应当前 diff 的新增/修改行，不能把普通评论当作行级检视。PR 更新后拒绝发布，需重新运行；相同版本、相同问题重试不重复评论。无发现时正常结束，不发布评论，也不自动批准或合并。
+
+使用 GitCode [行级评论接口](https://docs.gitcode.com/docs/apis/post-api-v-5-repos-owner-repo-pulls-number-comments/)，发布后回查评论正文、作者、文件与 head。分析和发布证据保留七天。
 
 ## 依赖归档与 wheel 分发
 

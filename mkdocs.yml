@@ -54,6 +54,7 @@ nav:
 - English:
   - Overview: en/index.md
   - Workflows: en/workflows.md
+  - Build and runner operations: en/operations.md
   - Glossary: en/glossary.md
   - Actions:
     - community-repo-roles · Look up community maintainers and committers: en/actions/community-repo-roles.md
