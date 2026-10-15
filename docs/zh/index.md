@@ -9,6 +9,7 @@
 
 | Action | 做什么 |
 | --- | --- |
+| [analyze-ci-failure](actions/analyze-ci-failure.md) | 分析任意 GitHub CI 失败日志，返回可供评论使用的说明 |
 | [community-repo-roles](actions/community-repo-roles.md) | 查询社区维护者与 Committer |
 | [create-ascend-container](actions/create-ascend-container.md) | 创建昇腾测试容器 |
 | [gitcode-api](actions/gitcode-api.md) | 调用 GitCode API |
@@ -20,6 +21,7 @@
 | [prepare-ci-tests](actions/prepare-ci-tests.md) | 准备测试依赖并选择 NPU |
 | [rdv-status](actions/rdv-status.md) | 把 RDV 测试状态写回 PR |
 | [run-ci-tests](actions/run-ci-tests.md) | 运行 CATLASS 测试阶段 |
+| [setup-trae-cn](actions/setup-trae-cn.md) | 安装固定版本的官方 TRAE CN CLI |
 | [trae-cn](actions/trae-cn.md) | 运行 TRAE CN 分析任务 |
 
 ## 四条社区流水线
@@ -42,4 +44,4 @@
 
 ## 当前范围
 
-手册覆盖 12 个自定义 Action。CANN weekly 安装、仓库镜像同步和 wheel 的整套构建分发目前由工作流与脚本实现，它们也在工作流说明中介绍，不被另算为 Action。自动化不自动批准代码检视或合并 PR。
+手册覆盖 14 个自定义 Action。CANN weekly 安装、仓库镜像同步和 wheel 的整套构建分发目前由工作流与脚本实现，它们也在工作流说明中介绍，不被另算为 Action。自动化不自动批准代码检视或合并 PR。

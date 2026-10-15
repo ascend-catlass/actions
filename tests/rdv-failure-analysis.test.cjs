@@ -4,85 +4,117 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const {spawnSync} = require('node:child_process');
-
 const root = path.resolve(__dirname, '..');
-const workflow = fs.readFileSync(path.join(root, '.github/workflows/test-gitcode-pr.yml'), 'utf8').replace(/\r\n/g, '\n');
-const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-function inlineStep(id) {
-  const step = workflow.split(`        id: ${id}\n`)[1].split('\n      - name:')[0];
-  return step.split('          script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n');
-}
-async function execute(id, {github = {}, env = {}, files = {}} = {}) {
-  const writes = {};
-  const fakeFs = {
-    mkdirSync() {},
-    writeFileSync(file, value) { writes[file] = value; },
-    readFileSync(file) { if (!(file in files)) throw Error('Missing fixture'); return files[file]; },
-    statSync(file) { if (!(file in files)) throw Error('Missing fixture'); return {size: Buffer.byteLength(files[file])}; }
-  };
-  await new AsyncFunction('github', 'context', 'core', 'require', 'process', 'Buffer', inlineStep(id))(
-    github, {repo: {owner: 'ascend-catlass', repo: 'actions'}, runId: 100}, {warning(){}},
-    name => { assert.equal(name, 'node:fs'); return fakeFs; }, {env}, Buffer);
-  return writes;
+const {makePrompt, renderComment, main, fallback} = require('../.github/actions/analyze-ci-failure/comment.cjs');
+const read = name => fs.readFileSync(path.join(root, name), 'utf8').replace(/\r\n/g, '\n');
+
+function temporaryTest(work) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ci-failure-'));
+  try { return work(directory); }
+  finally {
+    assert.equal(path.dirname(path.resolve(directory)), path.resolve(os.tmpdir()));
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
 }
 
-test('github-script selects the current attempt and appends bounded, scrubbed log evidence', async () => {
-  let listed, downloaded;
-  const github = {
-    rest: {actions: {listJobsForWorkflowRunAttempt() {}, async downloadJobLogsForWorkflowRun(args) {
-      downloaded = args;
-      return {data: 'error: unknown type Tile\nAuthorization: Bearer private-value\n' + 'x'.repeat(100000) + '\nFAILED test_tile'};
-    }}},
-    async paginate(method, args) {
-      assert.equal(method, this.rest.actions.listJobsForWorkflowRunAttempt);
-      listed = args;
-      return [{id: 17, name: 'Test PR #1459', conclusion: 'failure', steps: [{name: 'Build DSL', conclusion: 'failure'}]},
-        {id: 18, name: 'Report PR result', conclusion: 'success'}];
-    }
-  };
-  const writes = await execute('context', {github, env: {PR_NUMBER: '1459', GITHUB_RUN_ATTEMPT: '2'},
-    files: {'.github/prompts/rdv-failure-analysis.md': 'Read-only diagnosis'}});
-  assert.equal(listed.run_id, 100);
-  assert.equal(listed.attempt_number, 2);
-  assert.equal(downloaded.job_id, 17);
-  const prompt = writes['_rdv-failure/prompt.md'];
+test('prompt accepts different CI jobs without PR-specific inputs and bounds/scrubs logs', () => {
+  const evidence = [{job: 'Publish release', steps: ['Build package'],
+    log: 'error: unknown type Tile\nAuthorization: Bearer private-value\n' + 'x'.repeat(100000) + '\nFAILED test_tile'}];
+  const prompt = makePrompt(evidence, 'Read-only diagnosis');
+  assert.match(prompt, /Publish release/);
   assert.match(prompt, /unknown type Tile/);
   assert.match(prompt, /FAILED test_tile/);
-  assert.match(prompt, /Build DSL/);
   assert.doesNotMatch(prompt, /private-value/);
-  assert.ok(Buffer.byteLength(prompt) < 100000);
+  assert.ok(Buffer.byteLength(prompt) < 30000);
+  assert.throws(() => makePrompt([], 'template'), /failed jobs/);
 });
 
-test('github-script refuses a mismatched PR job before downloading logs', async () => {
-  const github = {rest: {actions: {}}, async paginate() {
-    return [{id: 17, name: 'Test PR #123', conclusion: 'failure'}];
-  }};
-  await assert.rejects(execute('context', {github, env: {PR_NUMBER: '1459', GITHUB_RUN_ATTEMPT: '1'}}), /Expected one/);
+test('prompt preparation leaves only bounded model input in its isolated workspace', () => temporaryTest(directory => {
+  fs.writeFileSync(path.join(directory, 'evidence.json'), JSON.stringify([{job: 'Unit tests', steps: ['pytest'], log: 'FAILED case'}]));
+  main('prepare', {ANALYSIS_DIRECTORY: directory});
+  assert.equal(fs.existsSync(path.join(directory, 'evidence.json')), false);
+  assert.match(fs.readFileSync(path.join(directory, 'prompt.md'), 'utf8'), /FAILED case/);
+  assert.ok(fs.existsSync(path.join(directory, 'schema.json')));
+}));
+
+test('GitHub client wiring selects only failed jobs from the requested attempt', async () => {
+  const action = read('.github/actions/analyze-ci-failure/action.yml');
+  const script = action.split('        script: |\n')[1].split('    - name:')[0]
+    .split('\n').map(line => line.slice(10)).join('\n');
+  const files = new Map();
+  const calls = [];
+  const list = Symbol('list attempt jobs');
+  const download = async options => {
+    calls.push(options.job_id);
+    return {data: options.job_id === 2 ? 'error: compile' : Buffer.from('FAILED test')};
+  };
+  const github = {rest: {actions: {listJobsForWorkflowRunAttempt: list, downloadJobLogsForWorkflowRun: download}},
+    paginate: async (endpoint, options) => {
+      assert.equal(endpoint, list);
+      assert.deepEqual(options, {owner: 'owner', repo: 'repo', run_id: 123, attempt_number: 2, per_page: 100});
+      return [{id: 1, conclusion: 'success'}, {id: 2, name: 'Build', conclusion: 'failure',
+        steps: [{name: 'compile', conclusion: 'failure'}]}, {id: 3, name: 'Tests', conclusion: 'failure',
+        steps: [{name: 'test', conclusion: 'failure'}]}];
+    }};
+  const execute = new (Object.getPrototypeOf(async function() {}).constructor)('require', 'github', 'context', 'process', 'Buffer', script);
+  await execute(() => ({writeFileSync: (name, body) => files.set(name, body)}), github,
+    {repo: {owner: 'owner', repo: 'repo'}}, {env: {RUN_ID: '123', RUN_ATTEMPT: '2', ANALYSIS_DIRECTORY: '/analysis'}}, Buffer);
+  assert.deepEqual(calls, [2, 3]);
+  const evidence = JSON.parse(files.get('/analysis/evidence.json'));
+  assert.equal(evidence[1].log, 'FAILED test');
+  assert.deepEqual(evidence[0].steps, ['compile']);
 });
 
-test('renderer accepts a concise diagnosis and includes DeepSeek attribution', async () => {
-  const files = {answer: JSON.stringify({cause: '编译失败', evidence: 'unknown type Tile', next_step: '检查类型定义'})};
-  const writes = await execute('render_analysis', {env: {ANALYSIS_RESPONSE: 'answer'}, files});
-  assert.match(writes['_rdv-failure/analysis.md'], /unknown type Tile/);
-  assert.match(writes['_rdv-failure/analysis.md'], /DeepSeek-V4.1-Flash/);
+test('comment formatter validates fields and model and preserves the specific failure', () => {
+  const body = renderComment({cause: '编译失败', evidence: 'unknown type Tile', next_step: '检查类型定义'}, 'DeepSeek-V4.1-Flash');
+  assert.match(body, /unknown type Tile/);
+  assert.match(body, /DeepSeek-V4.1-Flash/);
+  assert.throws(() => renderComment({cause: 'x'.repeat(2001), evidence: 'log', next_step: 'fix'}, 'model'));
+  assert.throws(() => renderComment({cause: 'reason', evidence: 'log', next_step: 'fix'}, 'model\n<bad>'));
 });
 
-test('renderer preserves reporting for missing, malformed, blank or oversized model answers', async () => {
+test('missing, malformed, blank and oversized responses produce a usable fallback file', () => {
   for (const value of [undefined, 'not json', '{}', 'x'.repeat(20001),
-    JSON.stringify({cause: ' ', evidence: 'log', next_step: 'fix'})]) {
-    const files = value === undefined ? {} : {answer: value};
-    const writes = await execute('render_analysis', {env: {ANALYSIS_RESPONSE: 'answer'}, files});
-    assert.match(writes['_rdv-failure/analysis.md'], /自动分析暂不可用/);
-  }
+    JSON.stringify({cause: ' ', evidence: 'log', next_step: 'fix'})]) temporaryTest(directory => {
+    const answer = path.join(directory, 'answer.json');
+    if (value !== undefined) fs.writeFileSync(answer, value);
+    const outputs = path.join(directory, 'outputs');
+    main('render', {ANALYSIS_DIRECTORY: directory, ANALYSIS_RESPONSE: answer,
+      ANALYSIS_MODEL: 'DeepSeek-V4.1-Flash', GITHUB_OUTPUT: outputs});
+    assert.equal(fs.readFileSync(path.join(directory, 'analysis.md'), 'utf8').trim(), fallback);
+    assert.match(fs.readFileSync(outputs, 'utf8'), /status=unavailable/);
+  });
 });
 
-test('workflow uses maintained Actions and keeps diagnosis separate from final reporting', () => {
+test('valid model output becomes an analyzed attachment', () => temporaryTest(directory => {
+  const answer = path.join(directory, 'answer.json');
+  fs.writeFileSync(answer, JSON.stringify({cause: '编译失败', evidence: 'unknown type Tile', next_step: '检查类型定义'}));
+  const outputs = path.join(directory, 'outputs');
+  main('render', {ANALYSIS_DIRECTORY: directory, ANALYSIS_RESPONSE: answer,
+    ANALYSIS_MODEL: 'DeepSeek-V4.1-Flash', GITHUB_OUTPUT: outputs});
+  assert.match(fs.readFileSync(path.join(directory, 'analysis.md'), 'utf8'), /unknown type Tile/);
+  assert.match(fs.readFileSync(outputs, 'utf8'), /status=analyzed/);
+}));
+
+test('TRAE installation is actually reused by all four model entry points', () => {
+  for (const name of ['reply-gitcode-issue', 'fix-gitcode-issue', 'review-gitcode-pr']) {
+    assert.match(read(`.github/workflows/${name}.yml`), /uses: ascend-catlass\/actions\/\.github\/actions\/setup-trae-cn@main/);
+    assert.doesNotMatch(read(`.github/workflows/${name}.yml`), /install_trae_cn\.sh|Install pinned[^]*?shell: bash\n        uses:/);
+  }
+  const action = read('.github/actions/analyze-ci-failure/action.yml');
+  assert.match(action, /actions\/setup-trae-cn@main/);
+  assert.match(action, /actions\/trae-cn@main/);
+  assert.match(action, /actions\/github-script@v9/);
+  assert.doesNotMatch(action, /PR_NUMBER|GITCODE_TOKEN|Test PR/);
+});
+
+test('TestPR wires the generic action and artifact, without embedding implementation', () => {
+  const workflow = read('.github/workflows/test-gitcode-pr.yml');
   const job = workflow.split('  analyze-failure:\n')[1].split('  report:\n')[0];
-  assert.match(job, /uses: actions\/github-script@v9/g);
-  assert.match(job, /model: DeepSeek-V4.1-Flash/);
-  assert.match(job, /sandbox: read-only/);
-  assert.doesNotMatch(job, /python|GITCODE_TOKEN/);
-  assert.ok(!fs.existsSync(path.join(root, 'scripts/rdv_failure_analysis.py')));
+  assert.match(job, /uses: ascend-catlass\/actions\/\.github\/actions\/analyze-ci-failure@main/);
+  assert.match(job, /uses: actions\/upload-artifact@v4/);
+  assert.doesNotMatch(job, /script:|node |python|require\(|GITCODE_TOKEN/);
+  assert.ok(job.split('\n').length < 35);
   const report = workflow.split('  report:\n')[1];
   assert.match(report, /always\(\)/);
   assert.match(report, /uses: actions\/download-artifact@v4/);

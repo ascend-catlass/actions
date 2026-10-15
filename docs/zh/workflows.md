@@ -31,7 +31,7 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 4. 代码变更交给 `ascend950` 自托管 runner 合并。获取到的 PR head 与查询结果不同或合并冲突时会失败。
 5. [create-ascend-container](actions/create-ascend-container.md) 准备环境；[prepare-ci-tests](actions/prepare-ci-tests.md) 安装过滤后的依赖并选卡。
 6. [run-ci-tests](actions/run-ci-tests.md) 执行所需阶段：DSL 依次进行 dev 构建、IR/Lit 测试和设备测试；非 DSL 按变更与反向头文件依赖选择测试。两类都修改则两类都运行。
-7. 已启动 RDV 后，准备阶段或测试 job 失败会启动独立的 GitHub 托管分析 job：用官方 `actions/github-script` 的 Octokit 客户端读取当前 run attempt 的失败阶段及 job 日志，不再自写 Python API 脚本；提取首批错误和日志尾部，经脱敏与长度限制后交给 TRAE CN / DeepSeek-V4.1-Flash，输出原因、依据和下一步建议。不检出或执行 PR 代码。
+7. 已启动 RDV 后，准备阶段或测试 job 失败会启动独立的 GitHub 托管分析 job：调用通用的 [`analyze-ci-failure`](actions/analyze-ci-failure.md)，传入当前运行编号与 attempt。Action 内复用官方 `actions/github-script` 获取日志、[`setup-trae-cn`](actions/setup-trae-cn.md) 安装 CLI、`trae-cn` 执行 DeepSeek-V4.1-Flash 分析；独立的小脚本负责日志摘取、脱敏和评论组装，输出原因、依据和下一步建议。安装 Action 也供 Issue 分析、修复和 PR 检视共用。不检出或执行 PR 代码。
 8. 报告 job 将分析追加在原 RDV Failed 评论的运行链接下；分析 job 超时、模型失败或日志不可用时附加“分析暂不可用”，仍正常发布 RDV-FAIL。成功与取消的评论保持原样。分析 job 最长 12 分钟，模型执行预算 5 分钟；评论附件保存七天。容器清理由 `always()` 步骤处理。
 
 减少重复工作的方式是共用准备步骤、复用 DSL dev 构建、按变更选择测试，以及把日志链接自动写回 PR。测试选择范围见[源码说明](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/SOURCE.md)。

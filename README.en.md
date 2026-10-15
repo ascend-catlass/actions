@@ -40,6 +40,7 @@ Schedules may queue. See [runner and build operations](docs/en/operations.md) fo
 | Community | [trae-cn](.github/actions/trae-cn/README.md), [gitcode-issue](.github/actions/gitcode-issue/README.md), [gitcode-ci-passed](.github/actions/gitcode-ci-passed/README.md), [community-repo-roles](.github/actions/community-repo-roles/README.md) |
 | PR testing | [gitcode-pr-metadata](.github/actions/gitcode-pr-metadata/README.md), [create-ascend-container](.github/actions/create-ascend-container/README.md), [prepare-ci-tests](.github/actions/prepare-ci-tests/README.md), [run-ci-tests](.github/actions/run-ci-tests/README.md), [rdv-status](.github/actions/rdv-status/README.md) |
 | Build / delivery | [npuir-local-archive](.github/actions/npuir-local-archive/README.md), [gitcode-release](.github/actions/gitcode-release/README.md) |
+| Analysis / runtime | [analyze-ci-failure](.github/actions/analyze-ci-failure/README.md), [setup-trae-cn](.github/actions/setup-trae-cn/README.md) |
 | Shared API | [gitcode-api](.github/actions/gitcode-api/README.md) |
 
 Each Action has bilingual usage, input/output and example documentation.

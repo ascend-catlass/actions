@@ -38,6 +38,8 @@ nav:
   - 工作流: zh/workflows.md
   - 术语: zh/glossary.md
   - Actions:
+    - analyze-ci-failure · 分析 CI 失败原因: zh/actions/analyze-ci-failure.md
+    - setup-trae-cn · 安装官方 TRAE CN CLI: zh/actions/setup-trae-cn.md
     - community-repo-roles · 查询社区维护者与 Committer: zh/actions/community-repo-roles.md
     - create-ascend-container · 创建昇腾测试容器: zh/actions/create-ascend-container.md
     - gitcode-api · 调用 GitCode API: zh/actions/gitcode-api.md
@@ -57,6 +59,8 @@ nav:
   - Build and runner operations: en/operations.md
   - Glossary: en/glossary.md
   - Actions:
+    - analyze-ci-failure · Analyze CI failure: en/actions/analyze-ci-failure.md
+    - setup-trae-cn · Install official TRAE CN CLI: en/actions/setup-trae-cn.md
     - community-repo-roles · Look up community maintainers and committers: en/actions/community-repo-roles.md
     - create-ascend-container · Create an Ascend test container: en/actions/create-ascend-container.md
     - gitcode-api · Call the GitCode API: en/actions/gitcode-api.md
