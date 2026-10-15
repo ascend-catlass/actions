@@ -47,7 +47,7 @@ Each Action has bilingual usage, input/output and example documentation.
 
 ## Configuration and contribution
 
-Community workflows use `ATOMGIT_TOKEN`; model workflows (including TestPR failure diagnosis) also use `TRAE_CN_PAT` and optional `TRAE_CN_HOST`. See the [workflow guide](docs/en/workflows.md) for details. Submit feature branches as PRs instead of pushing main. PR checks run tests and build documentation without publishing comments.
+Community workflows prefer `ATOMGIT_TOKEN` and fall back to the existing `GITCODE_TOKEN` when empty; no existing secret needs to be recreated. Model workflows (including TestPR failure diagnosis) also use `TRAE_CN_PAT` and optional `TRAE_CN_HOST`. See the [workflow guide](docs/en/workflows.md) for details. Submit feature branches as PRs instead of pushing main. PR checks run tests and build documentation without publishing comments.
 
 ```text
 python -m pip install -r requirements-docs.txt

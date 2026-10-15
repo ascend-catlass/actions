@@ -3,7 +3,7 @@
 [中文手册](../../../docs/zh/actions/atomgit-ci-passed.md) · [English guide](../../../docs/en/actions/atomgit-ci-passed.md)
 
 Called by `reply-atomgit-ci-passed.yml` for a manually supplied PR number.
-`ATOMGIT_TOKEN` stays in this repository's Actions secrets.
+The workflow prefers `ATOMGIT_TOKEN` and falls back to the existing `GITCODE_TOKEN` when empty. Credentials stay in Actions secrets.
 
 The action reads the current `cann/catlass` PR and requires an open state and
 the `ci-pipeline-passed` label. It scans all pages of ordinary PR comments and
@@ -15,7 +15,7 @@ Callers using this action in other workflows should also serialize by PR.
 - uses: ascend-catlass/actions/.github/actions/atomgit-ci-passed@main
   with:
     pr-number: '123'
-    token: ${{ secrets.ATOMGIT_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
 ```
 
 Output `result`: `commented`, `already_reminded`, `pr_not_open`, or

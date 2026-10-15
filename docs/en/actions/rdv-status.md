@@ -33,7 +33,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
   with:
     phase: 'start'
     pr-number: '123'
-    token: ${{ secrets.ATOMGIT_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
     result-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 ```
 

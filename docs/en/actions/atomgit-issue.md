@@ -37,7 +37,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
   uses: ascend-catlass/actions/.github/actions/atomgit-issue@main
   with:
     operation: 'prepare'
-    token: ${{ secrets.ATOMGIT_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
     issue-url: 'https://atomgit.com/cann/catlass/issues/739'
 ```
 

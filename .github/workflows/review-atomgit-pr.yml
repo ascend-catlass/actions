@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
       - name: Prepare pinned source and task context
         env:
-          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
         run: python3 -m scripts.community_tasks prepare --mode review --number "$TASK_NUMBER"
       - name: Prepare the model sandbox dependency
         shell: bash
@@ -64,7 +64,7 @@ jobs:
           timeout-seconds: '1200'
       - name: Validate and publish
         env:
-          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           TASK_RESPONSE: ${{ steps.trae.outputs.response-file }}
         run: python3 -m scripts.community_tasks publish --mode review --number "$TASK_NUMBER"
       - name: Save task evidence

@@ -6,7 +6,7 @@ import os
 import re
 
 from shared_actions._lib import operations
-from scripts.atomgit_api import AtomGitAPI
+from scripts.atomgit_api import AtomGitAPI, resolve_token
 from scripts.atomgit_issue_reply import MARKER, LEGACY_MARKER, check_author_roles
 
 
@@ -54,7 +54,7 @@ def main():
     args = parser.parse_args()
     metadata = json.loads(args.context_file.read_text(encoding='utf-8'))
     roles = json.loads(args.roles_file.read_text(encoding='utf-8')) if args.roles_file else None
-    result = check_publication(AtomGitAPI(os.environ['ATOMGIT_TOKEN']), metadata,
+    result = check_publication(AtomGitAPI(resolve_token()), metadata,
                                args.body_file.read_text(encoding='utf-8'), roles)
     args.context_file.write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
 

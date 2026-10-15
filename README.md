@@ -47,7 +47,7 @@ Action 在发布前复查 PR/Issue 状态并查重。自动修复发布账号需
 
 ## 配置与维护
 
-- 社区流程需要 `ATOMGIT_TOKEN`；模型流程（含 TestPR 失败分析）另需 `TRAE_CN_PAT`，可选变量 `TRAE_CN_HOST`。
+- 社区流程优先使用 `ATOMGIT_TOKEN`，为空时回退到原有 `GITCODE_TOKEN`，无需重建已有 Secret；模型流程（含 TestPR 失败分析）另需 `TRAE_CN_PAT`，可选变量 `TRAE_CN_HOST`。
 - 构建、发布与镜像所需配置见[工作流说明](docs/zh/workflows.md)和[运维说明](docs/en/operations.md)。
 - 功能修改通过分支 PR 审查后合入，**不直接推主分支**。PR 检查只运行测试和文档构建，不发表社区评论。
 

@@ -26,4 +26,4 @@ jobs:
       - uses: ascend-catlass/actions/.github/actions/atomgit-ci-passed@main
         with:
           pr-number: ${{ inputs.pr_number }}
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}

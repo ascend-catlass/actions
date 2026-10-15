@@ -40,7 +40,7 @@ jobs:
           persist-credentials: false
       - name: Prepare pinned source and task context
         env:
-          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
         run: python3 -m scripts.community_tasks prepare --mode fix --number "$TASK_NUMBER"
       - name: Prepare the model sandbox dependency
         shell: bash
@@ -146,7 +146,7 @@ jobs:
           path: _task-result/
       - name: Recheck and publish the validated proposal
         env:
-          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           TASK_NUMBER: ${{ inputs.issue_number }}
           TASK_RESPONSE: _task-result/answer.json
           VALIDATION_COMMAND: ${{ inputs.validation_command }}

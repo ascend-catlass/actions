@@ -25,7 +25,11 @@ on:
         value: ${{ jobs.resolve.outputs.package_version }}
     secrets:
       ATOMGIT_TOKEN:
-        required: true
+        description: Preferred AtomGit token; falls back to the legacy secret
+        required: false
+      GITCODE_TOKEN:
+        description: Legacy token accepted when ATOMGIT_TOKEN is empty
+        required: false
   workflow_dispatch:
     inputs:
       catlass_ref:
@@ -74,7 +78,7 @@ jobs:
         id: source
         shell: bash
         env:
-          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -204,7 +208,7 @@ jobs:
         id: source
         shell: bash
         env:
-          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           RESOLVED_SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
           RESOLVED_NPUIR_SHA: ${{ needs.resolve.outputs.npuir_sha }}
         run: |

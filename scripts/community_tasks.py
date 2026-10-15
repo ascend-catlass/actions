@@ -10,7 +10,7 @@ import re
 import subprocess
 import tempfile
 
-from scripts.atomgit_api import AtomGitAPI
+from scripts.atomgit_api import AtomGitAPI, resolve_token
 from scripts.atomgit_issue_reply import Client, fingerprint, snapshot
 
 ROOT = '/repos/cann/catlass'
@@ -68,7 +68,7 @@ def prepare(api, mode, n, worktree, result):
     identity = api.request('GET', '/user')
     metadata = {'mode': mode, 'number': n, 'user_id': identity['id']}
     if mode == 'fix':
-        client = Client(f'https://atomgit.com/cann/catlass/issues/{n}', os.environ['ATOMGIT_TOKEN'])
+        client = Client(f'https://atomgit.com/cann/catlass/issues/{n}', resolve_token())
         issue, comments = client.issue(), client.comments()
         if issue.get('state') not in {'open', 'opened'}:
             raise ValueError('Issue is closed')
@@ -264,7 +264,7 @@ def push_branch(worktree, login, branch):
         askpass.write_text('#!/bin/sh\ncase "$1" in *Username*) printf "%s" "$ATOMGIT_PUSH_LOGIN";; *) printf "%s" "$ATOMGIT_PUSH_TOKEN";; esac\n', encoding='utf-8')
         askpass.chmod(0o700)
         env = {k: v for k, v in os.environ.items() if k in {'PATH', 'HOME', 'LANG', 'TMPDIR'}}
-        env.update(GIT_ASKPASS=str(askpass), GIT_TERMINAL_PROMPT='0', ATOMGIT_PUSH_LOGIN=login, ATOMGIT_PUSH_TOKEN=os.environ['ATOMGIT_TOKEN'])
+        env.update(GIT_ASKPASS=str(askpass), GIT_TERMINAL_PROMPT='0', ATOMGIT_PUSH_LOGIN=login, ATOMGIT_PUSH_TOKEN=resolve_token())
         subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-c', 'credential.helper=', '-C', str(worktree),
                         'push', f'https://atomgit.com/{login}/catlass.git', f'HEAD:refs/heads/{branch}'], env=env, check=True, timeout=180)
 
@@ -282,7 +282,7 @@ def publish_fix(api, metadata, answer, worktree, validation_command, result):
         raise ValueError('Validation and model decision disagree')
     if validation.get('patch_sha') != hashlib.sha256(git(worktree, 'diff', '--cached', '--binary', binary=True)).hexdigest():
         raise ValueError('Staged patch changed after validation')
-    client = Client(f"https://atomgit.com/cann/catlass/issues/{metadata['number']}", os.environ['ATOMGIT_TOKEN'])
+    client = Client(f"https://atomgit.com/cann/catlass/issues/{metadata['number']}", resolve_token())
     identity = api.request('GET', '/user')
     if identity['id'] != metadata['user_id']:
         raise ValueError('Publishing identity changed')
@@ -345,7 +345,7 @@ def main():
             raise ValueError('Validation changed tracked source files')
         save(args.result / 'validation.json', {'result': 'validated', 'patch_sha': patch_sha, 'command': os.environ['VALIDATION_COMMAND']})
         return
-    api = AtomGitAPI(os.environ['ATOMGIT_TOKEN'])
+    api = AtomGitAPI(resolve_token())
     if args.phase == 'prepare':
         prepare(api, args.mode, args.number, args.worktree, args.result)
     else:

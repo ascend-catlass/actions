@@ -62,7 +62,7 @@ The report job appends cause, log evidence and a next step below the existing RD
 
 | Configuration | Consumer |
 | --- | --- |
-| `ATOMGIT_TOKEN` | Action context, PR/Issue publication, fork pushes and AtomGit releases |
+| `ATOMGIT_TOKEN` → `GITCODE_TOKEN` fallback | Action context, PR/Issue publication, fork pushes and AtomGit releases |
 | `TRAE_CN_PAT` | Official TRAE CN enterprise login in model workflows, including TestPR failure diagnosis |
 | `TRAE_CN_HOST` | Optional enterprise API host variable |
 | `CATLASS_DEPLOY_KEY` | GitHub mirror writes |
@@ -74,4 +74,4 @@ Publishing tokens are not passed into model execution. Submit feature changes th
 
 All eleven general stages come from `yuantao313/actions` at reviewed commit `4042e6e501fab8a2cee4e87fca0248b2347e05df`. Project workflows check out the same revision into `shared_actions` when CATLASS Python policies need its transport helpers. The directory is ignored locally; shared implementations and their unit tests stay upstream.
 
-Configure the repository secret `ATOMGIT_TOKEN` and the release environment `atomgit-release` before running migrated workflows. Workflow entry files now use `atomgit` names. The historical NPUIR 20260720 build keeps its diagnostic behavior; only its upstream domain and platform wording change.
+Credentials prefer `ATOMGIT_TOKEN`; if it is unset or empty, the existing `GITCODE_TOKEN` is used. Existing installations do not need to rename their secret. The release environment keeps its original identifier `gitcode-release` and its configured permissions. Workflow entry files now use `atomgit` names. The historical NPUIR 20260720 build keeps its diagnostic behavior; only its upstream domain and platform wording change.

@@ -38,7 +38,7 @@ jobs:
         with:
           repository: cann/catlass
           pr-number: ${{ inputs.pr_number }}
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
 
       - name: Mark the pull request as running
         id: rdv_start
@@ -46,7 +46,7 @@ jobs:
         with:
           phase: start
           pr-number: ${{ inputs.pr_number }}
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           result-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Classify pull request changes
@@ -315,7 +315,7 @@ jobs:
         with:
           phase: finish
           pr-number: ${{ inputs.pr_number }}
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           result: ${{ needs.prepare.result != 'success' && 'failure' || needs.prepare.outputs.run_dsl != 'true' && needs.prepare.outputs.run_all != 'true' && 'success' || needs.merge-and-test.result }}
           result-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           comment-id: ${{ needs.prepare.outputs.comment_id }}

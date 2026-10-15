@@ -82,9 +82,10 @@ reads an existing CANN community checkout to return a repository's maintainer
 and declared committer IDs, personnel details, SIGs, and scoped configurations.
 It requires no AtomGit token.
 
-The workflows require the `ATOMGIT_TOKEN` and `CATLASS_DEPLOY_KEY` repository
-secrets. Stable releases use the existing `ATOMGIT_TOKEN`, which must have
-Release write access, and require a PyPI Trusted Publisher bound to the `pypi`
+The workflows prefer `ATOMGIT_TOKEN` and fall back to the existing `GITCODE_TOKEN`
+when it is empty. The selected token must have Release write access for stable
+releases. The existing `gitcode-release` environment and `CATLASS_DEPLOY_KEY`
+configuration remain in use. PyPI publishing also requires a Trusted Publisher bound to the `pypi`
 environment and `release-dsl-wheel.yml`.
 
 NPUIR builds on each publish worker share complete source/build/install trees at

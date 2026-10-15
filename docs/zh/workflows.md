@@ -84,7 +84,7 @@ CANN weekly 流程先锁定同一官方构建，再分别在 X64 和 ARM64 `bz` 
 
 | 凭据或配置 | 使用流程 |
 | --- | --- |
-| `ATOMGIT_TOKEN` | PR 元数据、评论和标签；Issue 读取与发布；AtomGit Release。按使用范围授予权限 |
+| `ATOMGIT_TOKEN`，为空时回退 `GITCODE_TOKEN` | PR 元数据、评论和标签；Issue 读取与发布；AtomGit Release。按使用范围授予权限 |
 | `TRAE_CN_PAT` | TRAE CLI 企业登录，包含 TestPR 失败分析 |
 | `TRAE_CN_HOST` | 可选的企业服务地址变量 |
 | `CATLASS_DEPLOY_KEY` | 写入 GitHub 镜像仓库 |
@@ -96,4 +96,4 @@ Token 通过 Secret 传给需要它的步骤；不要放进源码、提示词或
 
 11 个通用步骤均引用 `yuantao313/actions` 的固定提交 `4042e6e501fab8a2cee4e87fca0248b2347e05df`。CATLASS Python 策略需要传输 helpers 时，工作流将同一版本检出到 `shared_actions`。本地忽略该目录；公共实现及其单元测试由上游维护。
 
-运行迁移后的工作流前配置仓库 Secret `ATOMGIT_TOKEN` 与发布环境 `atomgit-release`。工作流入口文件已统一为 `atomgit` 名称。历史 NPUIR 20260720 保留诊断行为，仅更新上游域名和平台称谓。
+凭据优先读取 `ATOMGIT_TOKEN`，未设置或为空时回退到原有 `GITCODE_TOKEN`，已有配置无需改名。发布环境保留原有标识 `gitcode-release` 及其权限配置。工作流入口文件已统一为 `atomgit` 名称。历史 NPUIR 20260720 保留诊断行为，仅更新上游域名和平台称谓。

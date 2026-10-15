@@ -31,7 +31,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 - id: action
   uses: ascend-catlass/actions/.github/actions/atomgit-release@main
   with:
-    token: ${{ secrets.ATOMGIT_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
     tag: ${{ inputs.catlass_tag }}
     version: ${{ needs.preflight.outputs.version }}
     bundle: 'release-bundle'

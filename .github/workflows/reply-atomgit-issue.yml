@@ -57,7 +57,7 @@ jobs:
         id: issue_author
         uses: yuantao313/actions/atomgit-api@4042e6e501fab8a2cee4e87fca0248b2347e05df
         with:
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           path: ${{ steps.issue_repository.outputs.path }}
       - name: Checkout community role declarations
         shell: bash
@@ -96,7 +96,7 @@ jobs:
         with:
           operation: prepare
           roles-file: ${{ steps.roles.outputs.result-file }}
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           issue-url: ${{ inputs.issue_url || 'https://atomgit.com/cann/catlass/issues/739' }}
       - name: Analyze Issue and source
         id: trae
@@ -118,7 +118,7 @@ jobs:
         with:
           operation: publish
           roles-file: ${{ steps.roles.outputs.result-file }}
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           issue-url: ${{ inputs.issue_url || 'https://atomgit.com/cann/catlass/issues/739' }}
           response-file: ${{ steps.trae.outputs.response-file }}
           model: DeepSeek-V4.1-Flash

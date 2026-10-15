@@ -21,7 +21,7 @@ Use it for CI-passed label reminders or a maintainer-triggered reminder.
 ## Before you run it
 
 - A GitHub-hosted Linux runner; the Action sets up Python 3.12.
-- ATOMGIT_TOKEN with PR read and comment write permissions. The implementation currently targets cann/catlass only.
+- ATOMGIT_TOKEN (falling back to the existing GITCODE_TOKEN) with PR read and comment write permissions. The implementation currently targets cann/catlass only.
 
 ## Example
 
@@ -32,7 +32,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
   uses: ascend-catlass/actions/.github/actions/atomgit-ci-passed@main
   with:
     pr-number: '123'
-    token: ${{ secrets.ATOMGIT_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
 ```
 
 ## Inputs

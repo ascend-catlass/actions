@@ -176,11 +176,12 @@ class CommunityTaskTests(unittest.TestCase):
             api.request.assert_not_called()
 
     def test_validation_has_no_publishing_credentials_and_failure_propagates(self):
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'ATOMGIT_TOKEN': 'secret', 'TRAE_CN_PAT': 'secret'}):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'ATOMGIT_TOKEN': 'secret', 'GITCODE_TOKEN': 'legacy-secret', 'TRAE_CN_PAT': 'secret'}):
             with patch.object(task.subprocess, 'run') as run:
                 task.validate_fix(Path(directory), 'test-command', Path(directory) / 'log')
                 env = run.call_args.kwargs['env']
                 self.assertNotIn('ATOMGIT_TOKEN', env)
+                self.assertNotIn('GITCODE_TOKEN', env)
                 self.assertNotIn('TRAE_CN_PAT', env)
                 self.assertTrue(run.call_args.kwargs['check'])
             with self.assertRaises(ValueError):

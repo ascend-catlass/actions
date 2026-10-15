@@ -1,7 +1,7 @@
 """Post the CATLASS CI-passed review reminder once per pull request."""
 import os
 
-from atomgit_api import AtomGitAPI
+from atomgit_api import AtomGitAPI, resolve_token
 
 
 MESSAGE = (
@@ -40,7 +40,7 @@ def remind(api, pr_number):
 
 
 def main():
-    result = remind(AtomGitAPI(os.environ.get('ATOMGIT_TOKEN', '')), os.environ.get('PR_NUMBER', ''))
+    result = remind(AtomGitAPI(resolve_token()), os.environ.get('PR_NUMBER', ''))
     with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
         stream.write(f'result={result}\n')
     print(f'CI review reminder: {result}')

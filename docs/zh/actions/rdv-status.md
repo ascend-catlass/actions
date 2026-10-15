@@ -33,7 +33,7 @@ PR 测试启动时调用 start；测试完成后由报告步骤调用 finish。
   with:
     phase: 'start'
     pr-number: '123'
-    token: ${{ secrets.ATOMGIT_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
     result-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 ```
 

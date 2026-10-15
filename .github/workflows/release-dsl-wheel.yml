@@ -37,7 +37,7 @@ jobs:
         shell: bash
         env:
           CATLASS_TAG: ${{ inputs.catlass_tag }}
-          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -170,7 +170,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' && (always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '')) }}
     runs-on: [self-hosted, publish, X64]
     environment:
-      name: atomgit-release
+      name: gitcode-release
       url: https://atomgit.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
     permissions:
       actions: read
@@ -200,7 +200,7 @@ jobs:
       - name: Attach wheels to the corresponding AtomGit tag release
         uses: ./.github/actions/atomgit-release
         with:
-          token: ${{ secrets.ATOMGIT_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           tag: ${{ needs.preflight.outputs.tag }}
           version: ${{ needs.preflight.outputs.version }}
           bundle: release-bundle

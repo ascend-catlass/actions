@@ -105,7 +105,7 @@ test('TRAE installation is actually reused by all four model entry points', () =
   assert.match(action, /actions\/setup-traecn@[0-9a-f]{40}/);
   assert.match(action, /actions\/traecn@[0-9a-f]{40}/);
   assert.match(action, /actions\/github-script@v9/);
-  assert.doesNotMatch(action, /PR_NUMBER|ATOMGIT_TOKEN|Test PR/);
+  assert.doesNotMatch(action, /PR_NUMBER|ATOMGIT_TOKEN|GITCODE_TOKEN|Test PR/);
 });
 
 test('TestPR wires the generic action and artifact, without embedding implementation', () => {
@@ -113,7 +113,7 @@ test('TestPR wires the generic action and artifact, without embedding implementa
   const job = workflow.split('  analyze-failure:\n')[1].split('  report:\n')[0];
   assert.match(job, /uses: ascend-catlass\/actions\/\.github\/actions\/analyze-ci-failure@main/);
   assert.match(job, /uses: actions\/upload-artifact@v4/);
-  assert.doesNotMatch(job, /script:|node |python|require\(|ATOMGIT_TOKEN/);
+  assert.doesNotMatch(job, /script:|node |python|require\(|ATOMGIT_TOKEN|GITCODE_TOKEN/);
   assert.ok(job.split('\n').length < 35);
   const report = workflow.split('  report:\n')[1];
   assert.match(report, /always\(\)/);

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from urllib.request import urlopen
 
-from scripts.atomgit_api import AtomGitAPI
+from scripts.atomgit_api import AtomGitAPI, resolve_token
 
 
 def digest(path):
@@ -56,7 +56,7 @@ def main():
     parser.add_argument('--bundle', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    pending = prepare(AtomGitAPI(os.environ['ATOMGIT_TOKEN']), args.repository, args.tag, args.bundle)
+    pending = prepare(AtomGitAPI(resolve_token()), args.repository, args.tag, args.bundle)
     args.output.write_text(json.dumps(pending), encoding='utf-8')
 
 

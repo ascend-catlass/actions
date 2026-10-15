@@ -21,7 +21,7 @@ CI 通过标签触发的自动提醒，或维护者手动补发提醒。
 ## 使用前准备
 
 - GitHub-hosted Linux runner；Action 配置 Python 3.12。
-- 可读取 PR 并写入评论的 ATOMGIT_TOKEN；当前只针对 cann/catlass。
+- 可读取 PR 并写入评论的 ATOMGIT_TOKEN（为空时回退到原有 GITCODE_TOKEN）；当前只针对 cann/catlass。
 
 ## 调用示例
 
@@ -32,7 +32,7 @@ CI 通过标签触发的自动提醒，或维护者手动补发提醒。
   uses: ascend-catlass/actions/.github/actions/atomgit-ci-passed@main
   with:
     pr-number: '123'
-    token: ${{ secrets.ATOMGIT_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
 ```
 
 ## 输入
