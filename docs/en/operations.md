@@ -145,4 +145,3 @@ Before container tests, the action registers the mounted checkout and submodule
 paths from `.gitmodules` as Git safe directories, including uninitialized
 submodules such as googletest. Existing nested submodules are handled recursively.
 Paths outside the checkout are rejected; repeated stages do not duplicate entries.
-
