@@ -141,29 +141,24 @@ jobs:
             git -C "${WORK_PATH}" checkout --detach FETCH_HEAD
           fi
 
-          # Some migrated repositories advertise no branch tips. Fetch the exact
-          # gitlink before recursive update, using AtomGit for legacy URLs.
-          for dependency in llvm-project torch-mlir; do
-            dependency_relative="third-party/${dependency}"
-            git -C "${WORK_PATH}" submodule init "${dependency_relative}"
-            dependency_sha=$(git -C "${WORK_PATH}" ls-tree HEAD "${dependency_relative}" | awk '{print $3}')
-            dependency_url=$(git -C "${WORK_PATH}" config --get "submodule.${dependency_relative}.url")
-            case "${dependency_url}" in
-              https://gitcode.com/*) dependency_url="https://atomgit.com/${dependency_url#https://gitcode.com/}" ;;
-            esac
-            dependency_path="${WORK_PATH}/${dependency_relative}"
-            dependency_git_dir="${WORK_PATH}/.git/modules/${dependency_relative}"
-            if [[ ! "${dependency_sha}" =~ ^[0-9a-f]{40}$ || -z "${dependency_url}" ]]; then
-              echo "::error::Invalid ${dependency} gitlink metadata"
-              exit 1
-            fi
-            git -C "${WORK_PATH}" config "submodule.${dependency_relative}.url" "${dependency_url}"
-            mkdir -p "${dependency_git_dir%/*}"
-            git init --quiet --separate-git-dir="${dependency_git_dir}" "${dependency_path}"
-            git -C "${dependency_path}" remote add origin "${dependency_url}"
-            git -C "${dependency_path}" fetch --quiet --depth 1 origin "${dependency_sha}"
-            git -C "${dependency_path}" checkout --quiet --detach FETCH_HEAD
-          done
+          # AtomGit advertises llvm-project as an empty repository on some
+          # workers. The previously successful x86 build recovered by fetching
+          # the gitlink commit directly; do that deterministically before the
+          # regular recursive submodule update.
+          git -C "${WORK_PATH}" submodule init third-party/llvm-project
+          llvm_sha=$(git -C "${WORK_PATH}" ls-tree HEAD third-party/llvm-project | awk '{print $3}')
+          llvm_url=$(git -C "${WORK_PATH}" config --get submodule.third-party/llvm-project.url)
+          llvm_path="${WORK_PATH}/third-party/llvm-project"
+          llvm_git_dir="${WORK_PATH}/.git/modules/third-party/llvm-project"
+          if [[ ! "${llvm_sha}" =~ ^[0-9a-f]{40}$ || -z "${llvm_url}" ]]; then
+            echo "::error::Invalid llvm-project gitlink metadata"
+            exit 1
+          fi
+          mkdir -p "${llvm_git_dir%/*}"
+          git init --quiet --separate-git-dir="${llvm_git_dir}" "${llvm_path}"
+          git -C "${llvm_path}" remote add origin "${llvm_url}"
+          git -C "${llvm_path}" fetch --quiet --depth 1 origin "${llvm_sha}"
+          git -C "${llvm_path}" checkout --quiet --detach FETCH_HEAD
 
           git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
 

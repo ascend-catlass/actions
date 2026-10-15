@@ -99,8 +99,7 @@ more requires shared archives or explicit worker affinity. Verify both runners
 are online and have Git, patch, Docker, Python >= 3.11 and archive access before merging the
 routing change. Nightly and release builds inherit this selection. The
 historical NPUIR 20260720 workflow and AtomGit publishing retain `publish`.
-The current NPUIR workflow fetches exact LLVM and torch-mlir gitlinks from
-AtomGit, including when historical submodule metadata still names GitCode.
+Build workers use the latest Git release to fetch sources and submodules.
 
 NPUIR builds on each worker share complete source/build/install trees at
 `/opt/AscendNPU-IR/<YYYYMMDD>/AscendNPU-IR`. The date is the workflow's
