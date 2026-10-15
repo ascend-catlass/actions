@@ -20,7 +20,6 @@ class BaselineTests(unittest.TestCase):
     def test_wheel_chain_uses_matching_archive_contract(self):
         wheel = workflow('build-dsl-wheel.yml')
         npuir = workflow('build-ascendnpu-ir-20261013.yml')
-        self.assertEqual(wheel['env']['CANN_ROOT'], '/usr/local/Ascend/cann-9.2.0-beta.2')
         self.assertEqual(wheel['jobs']['npuir']['uses'], './.github/workflows/build-ascendnpu-ir-20261013.yml')
         for key in ['NPUIR_BASELINE_DATE', 'NPUIR_LEGACY_POSTFIX', 'NPUIR_BUILD_CONTRACT', 'NPUIR_BUILD_FINGERPRINT']:
             self.assertEqual(wheel['env'][key], npuir['env'][key])
@@ -28,6 +27,17 @@ class BaselineTests(unittest.TestCase):
         for name in ['nightly-dsl-wheel.yml', 'release-dsl-wheel.yml']:
             self.assertTrue(any(j.get('uses') == './.github/workflows/build-dsl-wheel.yml'
                                 for j in workflow(name)['jobs'].values()))
+
+    def test_wheel_build_has_no_host_cann_dependency(self):
+        wheel = workflow('build-dsl-wheel.yml')
+        self.assertNotIn('CANN_ROOT', wheel['env'])
+        steps = wheel['jobs']['build']['steps']
+        build = next(s for s in steps if s['name'] == 'Build wheels')
+        env = build['env']
+        self.assertIn('ASCEND_HOME_PATH=""', env['CIBW_ENVIRONMENT'])
+        self.assertNotIn('Ascend/cann', env['CIBW_CONTAINER_ENGINE'])
+        self.assertNotIn('set_env.sh', env['CIBW_BEFORE_ALL'])
+        self.assertNotIn('Validate CANN', [s['name'] for s in steps])
 
     def test_wheel_and_dependency_jobs_use_same_dedicated_worker_pool(self):
         wheel = workflow('build-dsl-wheel.yml')['jobs']['build']
