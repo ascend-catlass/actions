@@ -48,6 +48,13 @@ class RoutingTests(unittest.TestCase):
                     f'run_dsl={str(dsl).lower()}', f'run_all={str(non_dsl).lower()}',
                 ])
 
+    def test_initial_status_failure_does_not_block_tests_or_failure_reporting(self):
+        start = next(step for step in JOBS['prepare']['steps'] if step.get('id') == 'rdv_start')
+        self.assertTrue(start['continue-on-error'])
+        for name in ('report', 'analyze-failure'):
+            self.assertIn("needs.prepare.outputs.head_sha != ''", JOBS[name]['if'])
+            self.assertNotIn("needs.prepare.outputs.comment_id != ''", JOBS[name]['if'])
+
     def test_runner_and_reporting_contract(self):
         self.assertEqual(JOBS['prepare']['runs-on'], 'ubuntu-latest')
         npu = JOBS['merge-and-test']

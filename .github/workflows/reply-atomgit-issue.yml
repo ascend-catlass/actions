@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: yuantao313/actions
-          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          ref: fbfd9b229556d974d5aee35dafdf9dffe976facd
           path: shared_actions
           persist-credentials: false
       - name: Install project policy dependencies
@@ -55,7 +55,7 @@ jobs:
           PY
       - name: Read Issue author
         id: issue_author
-        uses: yuantao313/actions/atomgit-api@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        uses: yuantao313/actions/atomgit-api@fbfd9b229556d974d5aee35dafdf9dffe976facd
         with:
           token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           path: ${{ steps.issue_repository.outputs.path }}
@@ -89,7 +89,7 @@ jobs:
       - name: Install pinned official China enterprise CLI
         id: cli
         if: ${{ steps.eligibility.outputs.analyze == 'true' }}
-        uses: yuantao313/actions/setup-traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        uses: yuantao313/actions/setup-traecn@fbfd9b229556d974d5aee35dafdf9dffe976facd
       - name: Checkout Issue repository and prepare prompt
         if: ${{ steps.eligibility.outputs.analyze == 'true' }}
         uses: ./.github/actions/atomgit-issue
@@ -101,7 +101,7 @@ jobs:
       - name: Analyze Issue and source
         id: trae
         if: ${{ steps.eligibility.outputs.analyze == 'true' }}
-        uses: yuantao313/actions/traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        uses: yuantao313/actions/traecn@fbfd9b229556d974d5aee35dafdf9dffe976facd
         with:
           pat: ${{ secrets.TRAE_CN_PAT }}
           cli-path: ${{ steps.cli.outputs.cli-path }}

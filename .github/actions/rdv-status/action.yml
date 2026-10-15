@@ -43,7 +43,7 @@ runs:
       run: bash "${GITHUB_ACTION_PATH}/rdv-status.sh"
     - name: Maintain the PR status through the public Action
       id: status
-      uses: yuantao313/actions/atomgit-pr-status@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      uses: yuantao313/actions/atomgit-pr-status@fbfd9b229556d974d5aee35dafdf9dffe976facd
       with:
         token: ${{ inputs.token }}
         repository: cann/catlass
@@ -51,26 +51,7 @@ runs:
         phase: ${{ inputs.phase }}
         result: ${{ inputs.result }}
         run-url: ${{ inputs.result-url }}
+        body-file: ${{ steps.comment.outputs.body-file }}
         running-label: RDV-RUNNING
         success-label: RDV-SUCC
         failure-label: RDV-FAIL
-    - name: Apply the CATLASS comment format
-      uses: yuantao313/actions/atomgit-api@4042e6e501fab8a2cee4e87fca0248b2347e05df
-      with:
-        token: ${{ inputs.token }}
-        method: PATCH
-        path: /repos/cann/catlass/pulls/comments/${{ steps.status.outputs.comment-id }}
-        body-file: ${{ steps.comment.outputs.body-file }}
-        body-encoding: json
-    - name: Read back the RDV comment
-      id: verified
-      uses: yuantao313/actions/atomgit-api@4042e6e501fab8a2cee4e87fca0248b2347e05df
-      with:
-        token: ${{ inputs.token }}
-        path: /repos/cann/catlass/pulls/comments/${{ steps.status.outputs.comment-id }}
-    - name: Verify the published RDV body
-      shell: bash
-      env:
-        EXPECTED: ${{ steps.comment.outputs.body-file }}
-        ACTUAL: ${{ steps.verified.outputs.response-file }}
-      run: jq -e --slurpfile expected "$EXPECTED" '.body == $expected[0].body' "$ACTUAL" > /dev/null

@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Read pull request metadata from AtomGit
         id: pr
-        uses: yuantao313/actions/atomgit-pr-metadata@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        uses: yuantao313/actions/atomgit-pr-metadata@fbfd9b229556d974d5aee35dafdf9dffe976facd
         with:
           repository: cann/catlass
           pr-number: ${{ inputs.pr_number }}
@@ -42,6 +42,7 @@ jobs:
 
       - name: Mark the pull request as running
         id: rdv_start
+        continue-on-error: true
         uses: ascend-catlass/actions/.github/actions/rdv-status@main
         with:
           phase: start
@@ -160,7 +161,7 @@ jobs:
 
       - name: Merge the pull request into its target branch
         id: merge
-        uses: yuantao313/actions/atomgit-checkout-pr@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        uses: yuantao313/actions/atomgit-checkout-pr@fbfd9b229556d974d5aee35dafdf9dffe976facd
         with:
           repository: cann/catlass
           pr-number: ${{ inputs.pr_number }}
@@ -258,7 +259,7 @@ jobs:
 
   analyze-failure:
     name: Analyze failed TestPR logs with DeepSeek
-    if: ${{ github.ref == 'refs/heads/main' && always() && needs.prepare.outputs.comment_id != '' && (needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure') }}
+    if: ${{ github.ref == 'refs/heads/main' && always() && needs.prepare.outputs.head_sha != '' && (needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure') }}
     needs: [prepare, merge-and-test]
     runs-on: ubuntu-22.04
     timeout-minutes: 12
@@ -286,7 +287,7 @@ jobs:
 
   report:
     name: Report PR result
-    if: ${{ github.ref == 'refs/heads/main' && (always() && needs.prepare.outputs.comment_id != '') }}
+    if: ${{ github.ref == 'refs/heads/main' && (always() && needs.prepare.outputs.head_sha != '') }}
     needs:
       - prepare
       - merge-and-test

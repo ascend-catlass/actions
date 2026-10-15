@@ -84,12 +84,12 @@ runs:
       id: install
       if: ${{ steps.prompt.outcome == 'success' }}
       continue-on-error: true
-      uses: yuantao313/actions/setup-traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      uses: yuantao313/actions/setup-traecn@fbfd9b229556d974d5aee35dafdf9dffe976facd
     - name: Analyze logs with TRAE CN
       id: model
       if: ${{ steps.prompt.outcome == 'success' && steps.install.outcome == 'success' }}
       continue-on-error: true
-      uses: yuantao313/actions/traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      uses: yuantao313/actions/traecn@fbfd9b229556d974d5aee35dafdf9dffe976facd
       with:
         pat: ${{ inputs.trae-pat }}
         cli-path: ${{ steps.install.outputs.cli-path }}

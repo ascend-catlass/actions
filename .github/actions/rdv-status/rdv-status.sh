@@ -20,5 +20,5 @@ case "${RDV_PHASE}" in
     *) echo 'phase must be start or finish' >&2; exit 1 ;;
 esac
 directory=$(mktemp -d "${RUNNER_TEMP:?}/rdv-comment.XXXXXX")
-jq -cn --arg body "$comment_body" '{body: $body}' > "$directory/comment.json"
-echo "body-file=$directory/comment.json" >> "$GITHUB_OUTPUT"
+printf '%s' "$comment_body" > "$directory/comment.md"
+echo "body-file=$directory/comment.md" >> "$GITHUB_OUTPUT"

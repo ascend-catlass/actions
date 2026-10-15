@@ -6,7 +6,7 @@
 
 ## What it does
 
-Reports test start and completion on a AtomGit PR by maintaining RDV-RUNNING, RDV-SUCC and RDV-FAIL labels and posting comments with workflow links. Failures may include a diagnosis in the same result comment.
+Reports test start and completion on an AtomGit PR by maintaining RDV-RUNNING, RDV-SUCC and RDV-FAIL labels and posting comments with workflow links. Failures may include a diagnosis in the same result comment.
 
 ## When to use it
 
@@ -20,7 +20,7 @@ Call start when PR testing begins and finish from the reporting step after testi
 
 ## Before you run it
 
-- A Linux runner with Bash, curl and jq. The token needs PR label read/write and comment write permissions.
+- A Linux runner with Bash and Python 3. The token needs PR label read/write and comment write permissions.
 - The API target is currently fixed to cann/catlass. Provide a workflow result URL.
 
 ## Example
@@ -70,3 +70,5 @@ Required follows action.yml. Some optional fields become necessary for a particu
 - [.github/actions/rdv-status/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/rdv-status/action.yml)
 - [.github/actions/rdv-status/rdv-status.sh](https://github.com/ascend-catlass/actions/blob/main/.github/actions/rdv-status/rdv-status.sh)
 - [.github/workflows/test-atomgit-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-atomgit-pr.yml)
+
+The public PR status Action publishes the final body directly and verifies the new comment with bounded read-after-write retries. Read failures do not repeat comment creation.
