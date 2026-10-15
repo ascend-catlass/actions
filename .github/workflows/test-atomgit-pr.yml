@@ -10,20 +10,6 @@ on:
         required: true
         type: string
 
-  workflow_call:
-    inputs:
-      pr_number:
-        description: Pull request number in cann/catlass on AtomGit
-        required: true
-        type: string
-    secrets:
-      ATOMGIT_TOKEN:
-        required: false
-      GITCODE_TOKEN:
-        required: false
-      TRAE_CN_PAT:
-        required: false
-
 permissions:
   contents: read
 
