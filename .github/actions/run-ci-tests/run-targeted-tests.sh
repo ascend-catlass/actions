@@ -25,6 +25,22 @@ run_test() {
     if "$@"; then return 0; else failed=1; return 0; fi
 }
 
+run_selected_examples() {
+    local status
+    local command=(python3 -m pytest -v tests/test_example.py -k "$1")
+    printf '>>> '; printf '%q ' "${command[@]}"; echo
+    if [[ "${CI_DRY_RUN:-0}" == 1 ]]; then return 0; fi
+    if "${command[@]}"; then return 0; else status=$?; fi
+    if [[ "${status}" == 5 ]]; then
+        # Some numbered examples have no registered pytest cases (e.g. 61).
+        # Only a narrowed example selection may be empty; keep other failures.
+        echo "[SKIP] No registered example tests matched: $1 (pytest exit 5). Affected examples: ${cases[*]}"
+    else
+        echo "[FAIL] Selected example tests exited with status ${status}" >&2
+        failed=1
+    fi
+}
+
 if [[ -z "${RDV_BASE_SHA:-}" || -z "${RDV_HEAD_SHA:-}" ]] ||
    ! git -c safe.directory="${PWD}" diff --no-renames --name-only -z \
        "${RDV_BASE_SHA}...${RDV_HEAD_SHA}" > "${diff_file}"; then
@@ -122,7 +138,7 @@ elif [[ ${#cases[@]} -gt 0 ]]; then
         prefix="${case_name%%_*}_"
         filter+="${filter:+ or }${prefix}"
     done < <(printf '%s\n' "${cases[@]}" | sort -u)
-    run_test python3 -m pytest -v tests/test_example.py -k "${filter}"
+    run_selected_examples "${filter}"
 fi
 if [[ ${#cases[@]} -gt 0 ]]; then
     # Preserve upstream behavior: affected examples trigger the operator build.
