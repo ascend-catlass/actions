@@ -61,4 +61,4 @@
 - [.github/actions/prepare-ci-tests/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/prepare-ci-tests/action.yml)
 - [.github/actions/prepare-ci-tests/detect_npu.sh](https://github.com/ascend-catlass/actions/blob/main/.github/actions/prepare-ci-tests/detect_npu.sh)
 - [.github/actions/prepare-ci-tests/SOURCE.md](https://github.com/ascend-catlass/actions/blob/main/.github/actions/prepare-ci-tests/SOURCE.md)
-- [.github/workflows/test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml)
+- [.github/workflows/test-atomgit-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-atomgit-pr.yml)

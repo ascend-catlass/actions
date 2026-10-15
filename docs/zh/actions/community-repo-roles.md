@@ -21,7 +21,7 @@
 ## 使用前准备
 
 - Linux runner、Git、Python；Action 会配置 Python 3.12 并安装 PyYAML。
-- 提前下载 community 仓库，并把路径传入 community-path；不需要 GitCode Token。
+- 提前下载 community 仓库，并把路径传入 community-path；不需要 AtomGit Token。
 
 ## 调用示例
 
@@ -41,7 +41,7 @@
 
 | 参数 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `repository` | 是 | — | 项目名称 owner/repo，也接受 GitCode 或 AtomGit 的 HTTPS 项目地址。 |
+| `repository` | 是 | — | 项目名称 owner/repo，也接受 AtomGit 的 HTTPS 项目地址。 |
 | `community-path` | 是 | — | 已经存在的 community 仓库目录。 |
 
 “必填”按 action.yml 标记；某些可选字段在特定操作下仍必须提供，见执行过程与说明。
@@ -65,4 +65,4 @@
 
 - [.github/actions/community-repo-roles/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/community-repo-roles/action.yml)
 - [scripts/community_repo_roles.py](https://github.com/ascend-catlass/actions/blob/main/scripts/community_repo_roles.py)
-- [.github/workflows/reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml)
+- [.github/workflows/reply-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-atomgit-issue.yml)

@@ -6,7 +6,7 @@
 
 ## What it does
 
-Reports test start and completion on a GitCode PR by maintaining RDV-RUNNING, RDV-SUCC and RDV-FAIL labels and posting comments with workflow links. Failures may include a diagnosis in the same result comment.
+Reports test start and completion on a AtomGit PR by maintaining RDV-RUNNING, RDV-SUCC and RDV-FAIL labels and posting comments with workflow links. Failures may include a diagnosis in the same result comment.
 
 ## When to use it
 
@@ -33,7 +33,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
   with:
     phase: 'start'
     pr-number: '123'
-    token: ${{ secrets.GITCODE_TOKEN }}
+    token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
     result-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 ```
 
@@ -43,7 +43,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 | --- | --- | --- | --- |
 | `phase` | Yes | — | Status transition to perform (start or finish) |
 | `pr-number` | Yes | — | Pull request number in cann/catlass |
-| `token` | Yes | — | GitCode personal access token |
+| `token` | Yes | — | AtomGit personal access token |
 | `result` | No | — | Job result used by the finish phase |
 | `result-url` | Yes | — | CI result URL published in the status comment |
 | `comment-id` | No | — | Reserved input; the current finish script does not use it or edit this comment. |
@@ -55,7 +55,7 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 | Output | Meaning |
 | --- | --- |
-| `comment-id` | GitCode comment ID created by the start phase |
+| `comment-id` | AtomGit comment ID created by the start phase |
 
 ## Notes and common questions
 
@@ -63,10 +63,10 @@ Required follows action.yml. Some optional fields become necessary for a particu
 - Only result=success counts as success in finish. Failure, cancellation, skipped or empty results produce RDV-FAIL. start returns the new comment ID.
 - After TestPR fails, a separate GitHub-hosted job uses TRAE CN / DeepSeek-V4.1-Flash to analyze this attempt's logs and supplies the diagnosis through this input. Unavailable analysis adds a note while preserving failure reporting and the original link.
 - Success and cancellation keep their original comments. Missing, empty or oversized files are ignored. This Action consumes the diagnosis and does not call a model itself.
-- It does not send the CI-passed code-review reminder; gitcode-ci-passed handles that flow.
+- It does not send the CI-passed code-review reminder; atomgit-ci-passed handles that flow.
 
 ## Implementation and callers
 
 - [.github/actions/rdv-status/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/rdv-status/action.yml)
 - [.github/actions/rdv-status/rdv-status.sh](https://github.com/ascend-catlass/actions/blob/main/.github/actions/rdv-status/rdv-status.sh)
-- [.github/workflows/test-gitcode-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-gitcode-pr.yml)
+- [.github/workflows/test-atomgit-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-atomgit-pr.yml)

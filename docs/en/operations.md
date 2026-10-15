@@ -26,9 +26,9 @@
   Select a completed version by sourcing its actual environment script, e.g.
   `/opt/cann_weekly/20261009/cann/set_env.sh` for the current package layout;
   the installer also accepts `ascend-toolkit/set_env.sh` layouts.
-- `sync-gitcode.yml` mirrors GitCode `master` and tags to
+- `sync-atomgit.yml` mirrors AtomGit `master` and tags to
   `ascend-catlass/catlass` every day or on manual dispatch.
-- `test-gitcode-pr.yml` manually validates a GitCode pull request on the
+- `test-atomgit-pr.yml` manually validates an AtomGit pull request on the
   `ascend950` runner. It checks `/.dockerenv` before other job steps: container
   runners use their current environment; host runners create a disposable
   Ascend container and remove it after testing, including on failure or
@@ -47,7 +47,7 @@
   run affected examples and trigger the corresponding test groups on Ascend 950.
   Example tests incrementally build their own targets; the action does not
   prebuild examples. The optest wheel and runtime tests use Ascend 950.
-  Selection follows GitCode pre_smoke: unrelated paths do not force a full
+  Selection follows AtomGit pre_smoke: unrelated paths do not force a full
   suite, and the unsupported tuner group is skipped on Ascend 950. Only
   explicitly shared build/test dependencies require the full 3510 suite. See the
   [selection rules and limits](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/SOURCE.md).
@@ -62,7 +62,7 @@
   dependent suites.
 - `build-dsl-wheel.yml` is the reusable, build-only x86_64/aarch64 wheel
   workflow. Its `package_version` input accepts `dev` for an automatically
-  derived nightly version or an exact stable version paired with its GitCode
+  derived nightly version or an exact stable version paired with its AtomGit
   `vMAJOR.MINOR.PATCH` tag.
   All manual, nightly and release wheel builds use host CANN 9.2.0 beta.2
   (`/usr/local/Ascend/cann-9.2.0-beta.2`) and the `20261013` NPUIR preparation
@@ -71,20 +71,21 @@
 - `nightly-dsl-wheel.yml` runs the build workflow every day at 01:00
   Asia/Shanghai and publishes the validated wheels to the GitHub Release-backed
   package index.
-- `release-dsl-wheel.yml` verifies that an exact GitCode tag exists before it
+- `release-dsl-wheel.yml` verifies that an exact AtomGit tag exists before it
   starts a build, then publishes the same validated wheels to PyPI and the
-  corresponding GitCode Release.
+  corresponding AtomGit Release.
 
 Composite actions and their scripts live under `.github/actions/`.
 The
 [`community-repo-roles`](https://github.com/ascend-catlass/actions/blob/main/.github/actions/community-repo-roles/README.md) action
 reads an existing CANN community checkout to return a repository's maintainer
 and declared committer IDs, personnel details, SIGs, and scoped configurations.
-It requires no GitCode token.
+It requires no AtomGit token.
 
-The workflows require the `GITCODE_TOKEN` and `CATLASS_DEPLOY_KEY` repository
-secrets. Stable releases use the existing `GITCODE_TOKEN`, which must have
-Release write access, and require a PyPI Trusted Publisher bound to the `pypi`
+The workflows prefer `ATOMGIT_TOKEN` and fall back to the existing `GITCODE_TOKEN`
+when it is empty. The selected token must have Release write access for stable
+releases. The existing `gitcode-release` environment and `CATLASS_DEPLOY_KEY`
+configuration remain in use. PyPI publishing also requires a Trusted Publisher bound to the `pypi`
 environment and `release-dsl-wheel.yml`.
 
 NPUIR builds on each publish worker share complete source/build/install trees at

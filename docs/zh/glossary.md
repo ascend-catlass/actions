@@ -10,7 +10,7 @@
 | Runner | 真正执行自动化的机器；可以是 GitHub 提供的机器，也可以是自托管昇腾主机 |
 | PR | Pull Request，贡献者提交的待合并代码变更 |
 | Issue | 项目的问题报告或需求讨论 |
-| CI | 自动构建和测试；在本仓库中，PR 测试会把结果写回 GitCode |
+| CI | 自动构建和测试；在本仓库中，PR 测试会把结果写回 AtomGit |
 | RDV | 本仓库 PR 测试流程使用的名称，对应 `RDV-RUNNING`、`RDV-SUCC`、`RDV-FAIL` 标签 |
 | Committer / Maintainer | 社区声明中的项目角色；本仓库可从 community 配置读取对应平台账号 |
 | SIG | 社区中负责某个技术领域的 Special Interest Group |

@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       catlass_ref:
-        description: GitCode CATLASS branch or tag to build
+        description: AtomGit CATLASS branch or tag to build
         required: false
         default: master
         type: string
@@ -24,12 +24,16 @@ on:
         description: Resolved PEP 440 package version
         value: ${{ jobs.resolve.outputs.package_version }}
     secrets:
+      ATOMGIT_TOKEN:
+        description: Preferred AtomGit token; falls back to the legacy secret
+        required: false
       GITCODE_TOKEN:
-        required: true
+        description: Legacy token accepted when ATOMGIT_TOKEN is empty
+        required: false
   workflow_dispatch:
     inputs:
       catlass_ref:
-        description: GitCode CATLASS branch or tag to build
+        description: AtomGit CATLASS branch or tag to build
         required: true
         default: master
         type: string
@@ -74,19 +78,19 @@ jobs:
         id: source
         shell: bash
         env:
-          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
         run: |
           set -euo pipefail
 
           source_dir="${RUNNER_TEMP}/catlass-resolve-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          askpass="${RUNNER_TEMP}/gitcode-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
+          askpass="${RUNNER_TEMP}/atomgit-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
           trap 'rm -rf -- "${source_dir}"; rm -f -- "${askpass}"' EXIT
           # shellcheck disable=SC2016
           printf '%s\n' \
             '#!/usr/bin/env bash' \
             'case "$1" in' \
             '  *Username*) printf "%s\\n" "x-oauth-basic" ;;' \
-            '  *Password*) printf "%s\\n" "${GITCODE_TOKEN}" ;;' \
+            '  *Password*) printf "%s\\n" "${ATOMGIT_TOKEN}" ;;' \
             'esac' > "${askpass}"
           chmod 700 "${askpass}"
 
@@ -94,10 +98,10 @@ jobs:
             dev)
               GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
                 git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
-                  https://gitcode.com/cann/catlass.git "${source_dir}"
+                  https://atomgit.com/cann/catlass.git "${source_dir}"
               latest_release_tag=$(
                 GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                  git ls-remote --tags --refs https://gitcode.com/cann/catlass.git 'v*' |
+                  git ls-remote --tags --refs https://atomgit.com/cann/catlass.git 'v*' |
                   awk '{sub("^refs/tags/", "", $2); print $2}' |
                   sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' |
                   sort -V |
@@ -119,14 +123,14 @@ jobs:
               fi
               expected_tag="v${REQUESTED_VERSION}"
               if [[ "${CATLASS_REF}" != "${expected_tag}" ]]; then
-                echo "::error::Stable version ${REQUESTED_VERSION} must build the matching GitCode tag ${expected_tag}, got: ${CATLASS_REF}"
+                echo "::error::Stable version ${REQUESTED_VERSION} must build the matching AtomGit tag ${expected_tag}, got: ${CATLASS_REF}"
                 exit 1
               fi
               GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
                 git ls-remote --exit-code --refs \
-                  https://gitcode.com/cann/catlass.git "refs/tags/${expected_tag}" >/dev/null
+                  https://atomgit.com/cann/catlass.git "refs/tags/${expected_tag}" >/dev/null
               git init --quiet "${source_dir}"
-              git -C "${source_dir}" remote add origin https://gitcode.com/cann/catlass.git
+              git -C "${source_dir}" remote add origin https://atomgit.com/cann/catlass.git
               GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
                 git -C "${source_dir}" fetch --quiet --depth 1 origin \
                   "refs/tags/${expected_tag}:refs/tags/${expected_tag}"
@@ -200,11 +204,11 @@ jobs:
             exit 1
           fi
 
-      - name: Check out CATLASS from GitCode
+      - name: Check out CATLASS from AtomGit
         id: source
         shell: bash
         env:
-          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           RESOLVED_SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
           RESOLVED_NPUIR_SHA: ${{ needs.resolve.outputs.npuir_sha }}
         run: |
@@ -216,7 +220,7 @@ jobs:
           fi
           mkdir -p "${SOURCE_DIR%/*}"
 
-          askpass="${RUNNER_TEMP}/gitcode-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
+          askpass="${RUNNER_TEMP}/atomgit-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
           trap 'rm -f -- "${askpass}"' EXIT
           # The generated helper expands these variables when Git invokes it.
           # shellcheck disable=SC2016
@@ -224,12 +228,12 @@ jobs:
             '#!/usr/bin/env bash' \
             'case "$1" in' \
             '  *Username*) printf "%s\\n" "x-oauth-basic" ;;' \
-            '  *Password*) printf "%s\\n" "${GITCODE_TOKEN}" ;;' \
+            '  *Password*) printf "%s\\n" "${ATOMGIT_TOKEN}" ;;' \
             'esac' > "${askpass}"
           chmod 700 "${askpass}"
 
           git init --quiet "${SOURCE_DIR}"
-          git -C "${SOURCE_DIR}" remote add origin https://gitcode.com/cann/catlass.git
+          git -C "${SOURCE_DIR}" remote add origin https://atomgit.com/cann/catlass.git
           GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
             git -C "${SOURCE_DIR}" fetch --quiet --depth 1 origin "${RESOLVED_SOURCE_SHA}"
           git -C "${SOURCE_DIR}" checkout --quiet --detach FETCH_HEAD

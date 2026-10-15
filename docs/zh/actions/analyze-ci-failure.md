@@ -12,7 +12,7 @@
 
 ## 使用前准备
 
-Linux x64 GitHub 托管 runner，Git、Node 与 Bash。job 权限设为 `contents: read`、`actions: read`，提供 TRAE CN 企业 PAT；不需要 GitCode 或其他发布凭据。Action 自行准备目录，无需检出业务仓库源码。
+Linux x64 GitHub 托管 runner，Git、Node 与 Bash。job 权限设为 `contents: read`、`actions: read`，提供 TRAE CN 企业 PAT；不需要 AtomGit 或其他发布凭据。Action 自行准备目录，无需检出业务仓库源码。
 
 ## 调用示例
 

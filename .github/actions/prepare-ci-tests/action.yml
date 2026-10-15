@@ -15,27 +15,52 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Safely install repository Python requirements
+    - name: Select execution environment
+      id: runtime
+      shell: bash
+      env:
+        RDV_CONTAINER: ${{ inputs.container }}
+      run: |
+        if [[ -f /.dockerenv || -z "$RDV_CONTAINER" ]]; then
+          echo 'direct=true' >> "$GITHUB_OUTPUT"
+        else
+          echo 'direct=false' >> "$GITHUB_OUTPUT"
+        fi
+    - name: Trust source checkout in the current environment
+      if: ${{ steps.runtime.outputs.direct == 'true' }}
+      uses: yuantao313/actions/trust-checkout@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      with:
+        worktree: ${{ inputs.worktree }}
+    - name: Install project requirements in the current environment
+      if: ${{ steps.runtime.outputs.direct == 'true' }}
+      uses: yuantao313/actions/install-python-requirements@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      with:
+        requirements-file: ${{ inputs.worktree }}/requirements.txt
+        exclude-packages: torch,torch-npu,lit
+    - name: Check out shared helpers for the managed container
+      if: ${{ steps.runtime.outputs.direct != 'true' }}
+      uses: actions/checkout@v4
+      with:
+        repository: yuantao313/actions
+        ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+        path: shared_actions
+        persist-credentials: false
+        sparse-checkout: |
+          trust-checkout
+          install-python-requirements
+    - name: Prepare project requirements in the managed container
+      if: ${{ steps.runtime.outputs.direct != 'true' }}
       shell: bash
       env:
         RDV_WORKTREE: ${{ inputs.worktree }}
         RDV_CONTAINER: ${{ inputs.container }}
       run: |
         set -euo pipefail
-        if [[ ! -f /.dockerenv && -n "${RDV_CONTAINER}" ]]; then
-          docker exec -i "${RDV_CONTAINER}" bash -s -- "${RDV_WORKTREE}" <<'BASH'
-          set -euo pipefail
-          filtered=$(mktemp)
-          trap 'rm -f -- "${filtered}"' EXIT
-          awk 'tolower($0) !~ /^[[:space:]]*(torch([_-]npu)?|lit)([^[:alnum:]_-]|$)/' "$1/requirements.txt" > "${filtered}"
-          python -m pip install -r "${filtered}"
-        BASH
-        else
-          filtered=$(mktemp)
-          trap 'rm -f -- "${filtered}"' EXIT
-          awk 'tolower($0) !~ /^[[:space:]]*(torch([_-]npu)?|lit)([^[:alnum:]_-]|$)/' "${RDV_WORKTREE}/requirements.txt" > "${filtered}"
-          python -m pip install -r "${filtered}"
-        fi
+        docker cp "${GITHUB_WORKSPACE}/shared_actions/trust-checkout/trust-checkout.sh" "${RDV_CONTAINER}:/tmp/shared-trust-checkout.sh"
+        docker cp "${GITHUB_WORKSPACE}/shared_actions/install-python-requirements/install.py" "${RDV_CONTAINER}:/tmp/shared-install-requirements.py"
+        docker exec -i "${RDV_CONTAINER}" bash /tmp/shared-trust-checkout.sh "$RDV_WORKTREE"
+        docker exec -i --env "REQUIREMENTS_FILE=${RDV_WORKTREE}/requirements.txt" \
+          --env EXCLUDE_PACKAGES=torch,torch-npu,lit "$RDV_CONTAINER" python3 /tmp/shared-install-requirements.py
     - name: Select NPU with fewest processes
       id: device
       shell: bash

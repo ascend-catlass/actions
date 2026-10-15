@@ -1,0 +1,133 @@
+name: "Community 1 · Issue analysis (TRAE CN)"
+run-name: TRAE CN reply to ${{ inputs.issue_url || 'https://atomgit.com/cann/catlass/issues/739' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_url:
+        description: AtomGit Issue URL
+        type: string
+        required: true
+        default: https://atomgit.com/cann/catlass/issues/739
+      publish:
+        description: Publish the short analysis reply (role members are skipped)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trae-cn-issue-${{ inputs.issue_url || 'https://atomgit.com/cann/catlass/issues/739' }}
+  cancel-in-progress: false
+
+jobs:
+  reply:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      ISSUE_URL: ${{ inputs.issue_url || 'https://atomgit.com/cann/catlass/issues/739' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out shared Action helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          path: shared_actions
+          persist-credentials: false
+      - name: Install project policy dependencies
+        run: python3 -m pip install 'PyYAML==6.0.3'
+      - name: Resolve Issue repository
+        id: issue_repository
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from scripts.atomgit_issue_reply import parse_url
+          owner, repo, number = parse_url(os.environ['ISSUE_URL'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+              handle.write(f'repository={owner}/{repo}\n')
+              handle.write(f'path=/repos/{owner}/{repo}/issues/{number}\n')
+          PY
+      - name: Read Issue author
+        id: issue_author
+        uses: yuantao313/actions/atomgit-api@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        with:
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
+          path: ${{ steps.issue_repository.outputs.path }}
+      - name: Checkout community role declarations
+        shell: bash
+        run: git clone --depth 1 https://atomgit.com/cann/community.git _issue-community
+      - name: Query repository committers and maintainers
+        id: roles
+        uses: ./.github/actions/community-repo-roles
+        with:
+          repository: ${{ steps.issue_repository.outputs.repository }}
+          community-path: _issue-community
+      - name: Check whether the Issue author needs an automated reply
+        id: eligibility
+        shell: bash
+        env:
+          ISSUE_FILE: ${{ steps.issue_author.outputs.response-file }}
+          ROLES_FILE: ${{ steps.roles.outputs.result-file }}
+          REPOSITORY: ${{ steps.issue_repository.outputs.repository }}
+        run: |
+          python3 -m scripts.issue_reply_eligibility \
+            --issue-file "$ISSUE_FILE" --roles-file "$ROLES_FILE" --repository "$REPOSITORY"
+      - name: Prepare the model sandbox dependency
+        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
+        shell: bash
+        run: |
+          if ! command -v bwrap >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+      - name: Install pinned official China enterprise CLI
+        id: cli
+        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
+        uses: yuantao313/actions/setup-traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      - name: Checkout Issue repository and prepare prompt
+        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
+        uses: ./.github/actions/atomgit-issue
+        with:
+          operation: prepare
+          roles-file: ${{ steps.roles.outputs.result-file }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
+          issue-url: ${{ inputs.issue_url || 'https://atomgit.com/cann/catlass/issues/739' }}
+      - name: Analyze Issue and source
+        id: trae
+        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
+        uses: yuantao313/actions/traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        with:
+          pat: ${{ secrets.TRAE_CN_PAT }}
+          cli-path: ${{ steps.cli.outputs.cli-path }}
+          host: ${{ vars.TRAE_CN_HOST }}
+          expected-version: 0.209.1
+          model: DeepSeek-V4.1-Flash
+          working-directory: _issue-source
+          prompt-file: .action-context/prompt.md
+          sandbox: read-only
+          timeout-seconds: '900'
+      - name: Publish and read back the short reply
+        if: ${{ steps.eligibility.outputs.analyze == 'true' && steps.trae.outputs.status == 'success' && (inputs.publish) }}
+        uses: ./.github/actions/atomgit-issue
+        with:
+          operation: publish
+          roles-file: ${{ steps.roles.outputs.result-file }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
+          issue-url: ${{ inputs.issue_url || 'https://atomgit.com/cann/catlass/issues/739' }}
+          response-file: ${{ steps.trae.outputs.response-file }}
+          model: DeepSeek-V4.1-Flash
+      - name: Save analysis and publication evidence
+        if: ${{ always() && (steps.trae.outputs.result-directory != '') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: atomgit-issue-reply-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            _issue-result/
+            ${{ steps.trae.outputs.result-directory }}
+          retention-days: 7

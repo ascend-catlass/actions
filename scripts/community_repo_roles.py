@@ -14,9 +14,9 @@ def normalize_repository(value):
     value = value.strip()
     if "://" in value:
         url = urlsplit(value)
-        if (url.scheme != "https" or url.hostname not in {"gitcode.com", "atomgit.com"}
+        if (url.scheme != "https" or url.hostname != "atomgit.com"
                 or url.username or url.password or url.port or url.query or url.fragment):
-            raise ValueError("repository URL must be an HTTPS GitCode or AtomGit repository URL")
+            raise ValueError("repository URL must be an HTTPS AtomGit repository URL")
         value = url.path.strip("/")
     if value.endswith(".git"):
         value = value[:-4]
@@ -45,10 +45,10 @@ def merge_people(*groups):
     people = {}
     for group in groups:
         for person in records(group, "people"):
-            identity = person.get("gitcode_id")
+            identity = person.get("atomgit_id", person.get("gitcode_id"))
             if not isinstance(identity, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", identity):
-                raise ValueError("every person must have a valid gitcode_id")
-            target = people.setdefault(identity.casefold(), {"gitcode_id": identity})
+                raise ValueError("every person must have a valid atomgit_id")
+            target = people.setdefault(identity.casefold(), {"atomgit_id": identity})
             for field in ("name", "email"):
                 if person.get(field):
                     if not isinstance(person[field], str):
@@ -101,8 +101,8 @@ def lookup_roles(community_path, repository):
         "sigs": matches,
         "maintainers": maintainers,
         "committers": committers,
-        "maintainer_ids": [p["gitcode_id"] for p in maintainers],
-        "committer_ids": [p["gitcode_id"] for p in committers],
+        "maintainer_ids": [p["atomgit_id"] for p in maintainers],
+        "committer_ids": [p["atomgit_id"] for p in committers],
         "scoped_configs": scoped,
         "shared_config": shared,
         "source_files": ["CANN/org-info.yaml", *sources]

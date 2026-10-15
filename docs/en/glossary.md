@@ -10,7 +10,7 @@
 | Runner | The machine executing automation: GitHub-hosted or a self-hosted Ascend machine |
 | PR | Pull Request: a proposed code change waiting to be merged |
 | Issue | A problem report or discussion about a project need |
-| CI | Automated builds and tests; this repository reports PR test results back to GitCode |
+| CI | Automated builds and tests; this repository reports PR test results back to AtomGit |
 | RDV | The name used for this repository's PR test flow, with `RDV-RUNNING`, `RDV-SUCC` and `RDV-FAIL` labels |
 | Committer / Maintainer | Roles declared in community configuration; the role Action reads the corresponding platform accounts |
 | SIG | Special Interest Group responsible for a technical area |

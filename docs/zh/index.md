@@ -2,7 +2,7 @@
 
 [中文](../zh/index.md) · [English](../en/index.md)
 
-本仓库把 PR 测试、构建环境、社区协作和版本分发中的重复步骤封装成可复用 Action。工作流负责何时启动、在哪台机器运行和怎样串联步骤；Action 负责完成一个具体任务。
+本仓库维护 CATLASS 的测试、构建、社区策略与发布步骤，通用能力直接引用 [yuantao313/actions](https://github.com/yuantao313/actions)。工作流负责何时启动、在哪台机器运行和怎样串联步骤；Action 负责完成一个具体任务。
 
 
 ## 找到你需要的 Action
@@ -12,17 +12,17 @@
 | [analyze-ci-failure](actions/analyze-ci-failure.md) | 分析任意 GitHub CI 失败日志，返回可供评论使用的说明 |
 | [community-repo-roles](actions/community-repo-roles.md) | 查询社区维护者与 Committer |
 | [create-ascend-container](actions/create-ascend-container.md) | 创建昇腾测试容器 |
-| [gitcode-api](actions/gitcode-api.md) | 调用 GitCode API |
-| [gitcode-ci-passed](actions/gitcode-ci-passed.md) | CI 通过后提醒代码检视 |
-| [gitcode-issue](actions/gitcode-issue.md) | 准备、回复或分配 GitCode Issue |
-| [gitcode-pr-metadata](actions/gitcode-pr-metadata.md) | 读取并校验 PR 版本信息 |
-| [gitcode-release](actions/gitcode-release.md) | 发布 GitCode Release 安装包 |
+| [atomgit-api](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/atomgit-api) | 调用 AtomGit API |
+| [atomgit-ci-passed](actions/atomgit-ci-passed.md) | CI 通过后提醒代码检视 |
+| [atomgit-issue](actions/atomgit-issue.md) | 准备、回复或分配 AtomGit Issue |
+| [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/atomgit-pr-metadata) | 读取并校验 PR 版本信息 |
+| [atomgit-release](actions/atomgit-release.md) | 发布 AtomGit Release 安装包 |
 | [npuir-local-archive](actions/npuir-local-archive.md) | 复用本机 AscendNPU-IR 构建归档 |
 | [prepare-ci-tests](actions/prepare-ci-tests.md) | 准备测试依赖并选择 NPU |
 | [rdv-status](actions/rdv-status.md) | 把 RDV 测试状态写回 PR |
 | [run-ci-tests](actions/run-ci-tests.md) | 运行 CATLASS 测试阶段 |
-| [setup-trae-cn](actions/setup-trae-cn.md) | 安装固定版本的官方 TRAE CN CLI |
-| [trae-cn](actions/trae-cn.md) | 运行 TRAE CN 分析任务 |
+| [setup-trae-cn](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/setup-traecn) | 安装固定版本的官方 TRAE CN CLI |
+| [trae-cn](https://github.com/yuantao313/actions/tree/4042e6e501fab8a2cee4e87fca0248b2347e05df/traecn) | 运行 TRAE CN 分析任务 |
 
 ## 四条社区流水线
 
@@ -44,4 +44,4 @@
 
 ## 当前范围
 
-手册覆盖 14 个自定义 Action。CANN weekly 安装、仓库镜像同步和 wheel 的整套构建分发目前由工作流与脚本实现，它们也在工作流说明中介绍，不被另算为 Action。自动化不自动批准代码检视或合并 PR。
+手册覆盖 10 个 CATLASS 专用 Action；通用组件由 [yuantao313/actions](https://github.com/yuantao313/actions) 维护。CANN weekly 安装、仓库镜像同步和 wheel 的整套构建分发目前由工作流与脚本实现，它们也在工作流说明中介绍，不被另算为 Action。自动化不自动批准代码检视或合并 PR。

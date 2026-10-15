@@ -12,7 +12,7 @@ Official actions/github-script handles authentication, pagination and log downlo
 
 ## Prerequisites
 
-Linux x64 hosted runner with Git, Node and Bash; job permissions `contents: read` and `actions: read`; a TRAE CN enterprise PAT. No GitCode or publishing credentials are needed. The Action creates its own workspace and needs no business-source checkout.
+Linux x64 hosted runner with Git, Node and Bash; job permissions `contents: read` and `actions: read`; a TRAE CN enterprise PAT. No AtomGit or publishing credentials are needed. The Action creates its own workspace and needs no business-source checkout.
 
 ## Example
 

@@ -61,11 +61,6 @@ if [[ ! -f /.dockerenv ]]; then
 fi
 
 cd "${RDV_WORKTREE}"
-# The host-owned checkout is mounted into a container running as another user.
-# Trust the checkout and declared submodules before any build initializes them.
-if [[ -f /.dockerenv ]]; then
-    bash "${RDV_ACTION_PATH:-$(dirname "${BASH_SOURCE[0]}")}/trust-checkout.sh" "${PWD}"
-fi
 case "${CATLASS_TEST_SUITE}" in
     dsl-dev | dsl-ir | dsl-lit)
         timeout --signal=KILL "${TEST_HARD_TIMEOUT}" \

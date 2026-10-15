@@ -7,4 +7,4 @@ Goal: Append a concise TRAE CN / DeepSeek-V4.1-Flash diagnosis to the existing R
 3. Preserve RDV reporting in a separate always-running report job. Analysis timeout, unavailable logs, invalid output or missing artifacts produce the normal failure comment with an unavailable-analysis note.
 4. Add an optional failure-analysis-file input to rdv-status; append it only for failure, retaining the original link, label transitions and success/cancellation behavior.
 5. Test prompt redaction and bounds, raw-evidence removal, structured output validation, fallback and the actual Bash comment payload. Check shared component wiring and document both new Actions in Chinese and English.
-6. Review changes, submit a feature PR, wait for CI, merge through the PR and verify the main workflow is published. No dev deployment is needed.
+6. Review changes, submit a feature PR, wait for CI, merge through the PR and verify the main workflow is published.

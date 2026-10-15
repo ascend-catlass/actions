@@ -132,7 +132,7 @@ jobs:
           mkdir -p "${WORK_PATH%/*}"
 
           git clone --quiet --depth 1 --branch "${NPUIR_BRANCH}" \
-            https://gitcode.com/Ascend/AscendNPU-IR.git "${WORK_PATH}"
+            https://atomgit.com/Ascend/AscendNPU-IR.git "${WORK_PATH}"
 
           if git -C "${WORK_PATH}" rev-parse --verify --quiet "${NPUIR_REF}^{commit}" >/dev/null; then
             git -C "${WORK_PATH}" checkout --detach "${NPUIR_REF}"
@@ -141,7 +141,7 @@ jobs:
             git -C "${WORK_PATH}" checkout --detach FETCH_HEAD
           fi
 
-          # GitCode advertises llvm-project as an empty repository on some
+          # AtomGit advertises llvm-project as an empty repository on some
           # workers. The previously successful x86 build recovered by fetching
           # the gitlink commit directly; do that deterministically before the
           # regular recursive submodule update.

@@ -21,7 +21,7 @@ class MainOnlyWorkflowTests(unittest.TestCase):
                     self.assertNotIn("||", condition.split("&&", 1)[0])
 
     def test_issue_has_no_automatic_test_branch_trigger(self):
-        workflow = yaml.safe_load((ROOT / ".github/workflows/reply-gitcode-issue.yml").read_text(encoding="utf-8"))
+        workflow = yaml.safe_load((ROOT / ".github/workflows/reply-atomgit-issue.yml").read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))
         self.assertEqual(set(triggers), {"workflow_dispatch"})
 
