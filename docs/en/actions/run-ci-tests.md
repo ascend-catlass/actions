@@ -59,6 +59,7 @@ No Action output fields are defined. Check the step status, logs or the external
 ## Notes and common questions
 
 - suite=all enters selective non-DSL testing; it does not always run every test. Shared build dependencies trigger the full 3510 suite; unsupported 910B-only groups do not run on 950.
+- A narrowed example selection with no registered pytest cases (exit 5) logs an explicit skip and continues corresponding optest tests. This reports missing coverage without adding tests. Other pytest errors, optest failures and empty unfiltered example groups still fail the stage.
 - The parent PR workflow decides whether documentation/image changes skip NPU work and how DSL/non-DSL changes are routed.
 - No Action output fields are defined. Direct host execution activates the legacy CANN/Conda setup; containers use the image environment.
 

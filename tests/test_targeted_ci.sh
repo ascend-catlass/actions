@@ -8,6 +8,7 @@ git init -q
 # Every reset below is confined to this newly created disposable fixture repo.
 [[ "$(cd "$(git rev-parse --show-toplevel)" && pwd -P)" == "$(pwd -P)" ]]
 [[ "$(pwd -P)" == "$(cd "${fixture}" && pwd -P)" ]]
+git config core.autocrlf false
 git config user.name ci-test
 git config user.email ci-test@example.invalid
 mkdir -p examples/55_case include/catlass tests/tools tests/optest/tests python/catlass_cppgen tools/tuner
@@ -168,15 +169,18 @@ SH
 cat > mock-bin/python3 <<'SH'
 #!/usr/bin/env bash
 set -eu
-[[ "$*" == '-m pytest -v tests/test_example.py -k 62_ or 74_' ]]
+[[ "$*" == '-m pytest -v tests/test_example.py -k 62_ or 74_' || "$*" == '-m pytest -v tests/test_example.py' ]]
 [[ ! -d output/bin ]]
 [[ "${DEVICE_ID}" == 3 ]]
+exit "${PYTEST_EXIT:-0}"
 SH
 cat > tests/run_optest.sh <<'SH'
 set -eu
 [[ "${CATLASS_ARCH_LIST}" == 3510 ]]
 [[ "${DEVICE_ID}" == 3 ]]
 [[ "$*" == '62_case 74_case' ]]
+echo 'Operator tests still ran'
+exit "${OPTEST_EXIT:-0}"
 SH
 chmod +x mock-bin/python3
 git add -- .
@@ -188,4 +192,38 @@ git add -- .
 git commit -qm execution-change
 RDV_HEAD_SHA="$(git rev-parse HEAD)"
 PATH="${fixture}/mock-bin:${PATH}" DEVICE_ID=3 CI_DRY_RUN=0 bash "${planner}"
+# Empty narrowed selections skip visibly while independent tests still run.
+export PATH="${fixture}/mock-bin:${PATH}" DEVICE_ID=3 CI_DRY_RUN=0
+output="$(PYTEST_EXIT=5 bash "${planner}")"
+require '[SKIP] No registered example tests matched: 62_ or 74_'
+require 'Operator tests still ran'
+for status in 1 2 3 4; do
+    if output="$(PYTEST_EXIT="${status}" bash "${planner}" 2>&1)"; then
+        echo "Pytest failure ${status} was hidden" >&2; exit 1
+    fi
+    require "[FAIL] Selected example tests exited with status ${status}"
+    require 'Operator tests still ran'
+done
+if PYTEST_EXIT=5 OPTEST_EXIT=1 bash "${planner}"; then
+    echo 'Operator failure after empty example selection was hidden' >&2; exit 1
+fi
+
+# PR #1429: unregistered example 61 with no corresponding optest coverage.
+git reset -q --hard "${RDV_BASE_SHA}"
+mkdir -p examples/61_ascend950_svd_quant_matmul
+touch examples/61_ascend950_svd_quant_matmul/gen_data.py
+git add -- examples/61_ascend950_svd_quant_matmul
+git commit -qm unregistered-example
+RDV_HEAD_SHA="$(git rev-parse HEAD)"
+sed -i 's/62_ or 74_/61_/' mock-bin/python3
+output="$(PYTEST_EXIT=5 bash "${planner}")"
+require '[SKIP] No registered example tests matched: 61_'
+require 'No optest tests for affected examples; skip operator wheel build'
+
+# Empty unfiltered groups remain errors.
+change tests/test_example.py
+if PYTEST_EXIT=5 bash "${planner}"; then
+    echo 'Empty full example group was hidden' >&2; exit 1
+fi
+
 echo 'Selective routing scenarios and the build/runtime contract passed'

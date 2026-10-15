@@ -20,6 +20,11 @@ GitCode files are not modified.
   cases. Numeric prefixes include handwritten variants with different names.
   Example pytest owns compilation; there is no redundant all-example prebuild.
   Removed example directories have no remaining example case to execute.
+  If narrowed pytest selection exits with code 5 (no tests collected), log an
+  explicit skip with the filter and affected examples, then continue optest.
+  This covers examples without registered cases, such as PR #1429's example 61;
+  it does not add test coverage. Other pytest failures and empty unfiltered
+  example groups still fail the stage.
 - Numbered optest test or kernel changes select that numeric prefix. Shared
   optest changes run the complete optest group, even in a PR also changing a
   numbered example. They do not run unrelated example, unittest or cppgen groups.
