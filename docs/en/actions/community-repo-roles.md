@@ -21,7 +21,7 @@ Use it when routing an Issue or checking whether its author is already a declare
 ## Before you run it
 
 - A Linux runner with Git; the Action sets up Python 3.12 and installs PyYAML.
-- Clone the community repository first and pass community-path. No GitCode token is needed.
+- Clone the community repository first and pass community-path. No AtomGit token is needed.
 
 ## Example
 
@@ -41,7 +41,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `repository` | Yes | — | owner/repo or HTTPS GitCode/AtomGit repository URL |
+| `repository` | Yes | — | owner/repo or HTTPS AtomGit/AtomGit repository URL |
 | `community-path` | Yes | — | Path to an existing community checkout (relative to workspace or absolute) |
 
 Required follows action.yml. Some optional fields become necessary for a particular operation; see the process and notes.
@@ -50,8 +50,8 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 | Output | Meaning |
 | --- | --- |
-| `maintainers` | JSON array of maintainer GitCode IDs |
-| `committers` | JSON array of explicitly declared SIG and repository committer GitCode IDs |
+| `maintainers` | JSON array of maintainer AtomGit IDs |
+| `committers` | JSON array of explicitly declared SIG and repository committer AtomGit IDs |
 | `sigs` | JSON array of SIG names managing the repository |
 | `result` | JSON object with people details, scoped configurations and source files |
 | `result-file` | Absolute path to the JSON result file |
@@ -65,4 +65,4 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 - [.github/actions/community-repo-roles/action.yml](https://github.com/ascend-catlass/actions/blob/main/.github/actions/community-repo-roles/action.yml)
 - [scripts/community_repo_roles.py](https://github.com/ascend-catlass/actions/blob/main/scripts/community_repo_roles.py)
-- [.github/workflows/reply-gitcode-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-gitcode-issue.yml)
+- [.github/workflows/reply-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-atomgit-issue.yml)

@@ -1,8 +1,10 @@
+> 当前实现已迁移到 [yuantao313/actions/traecn](https://github.com/yuantao313/actions/tree/main/traecn)，以下记录保留设计背景。
+
 # TRAE CN基础 stage 设计
 
 ## 目标与选择
 
-在 `.github/actions/trae-cn` 增加可组合 composite action：仓库中的提示词或
+在 上游 `traecn` 增加可组合 composite action：仓库中的提示词或
 直接输入 → 官方中国版 CLI 2.0 → 答复文件、事件日志和状态。
 目标是支撑未来 PR review、Issue triage、修复等 workflow，首版提供手动验证入口。
 用户确认已有企业版邮箱和密码；CLI 2.0 权限和 PAT 尚未确认，不能声称真实调用成功。
@@ -31,7 +33,7 @@ PAT 只交给登录进程，agent 环境按白名单继承网络和系统设置�
 上层按上下文获取 → 本 stage → schema/diff/测试验证 → 幂等发布划分职责。
 记录和重验目标 SHA、限制触发人、控制并发和 bot 递归。发布凭据与模型隔离。
 修复任务必须使用专用隔离工作区；外部内容属于数据，不能决定可信提示词和权限。
-GitHub 与 GitCode 的平台 API 放在上下文/发布 stage，基础执行能力可共用。
+GitHub 与 AtomGit 的平台 API 放在上下文/发布 stage，基础执行能力可共用。
 
 runner 的宿主机权限、项目 hooks/插件/MCP、网络访问都不由这一封装彻底隔离。
 需要可销毁且无其他主机凭据的 runner，不能把外部 PR 放到共享特权 NPU 主机。
@@ -43,7 +45,7 @@ runner 的宿主机权限、项目 hooks/插件/MCP、网络访问都不由这�
 失败/空答复、超时/取消、模型/schema 参数及日志脱敏。
 Linux 进程组测试只在 Linux 执行，手动 workflow 先在 GitHub-hosted Linux 跑
 适配层测试，再在 `trae-cn` runner 执行真实 smoke，上传结果 7 天。
-详细来源与配置说明见 `.github/actions/trae-cn/README.md`。
+详细来源与配置说明见 上游 `traecn/action.yml`。
 没有 PAT/runner 时，测试只能证明适配层逻辑，不证明企业授权、模型服务及 CLI
 沙箱与配置路径的真实行为。正式启用前需要固定实际版本并完成 smoke 验收。
 
@@ -60,11 +62,11 @@ exec，成功回复 CATLASS Issue #739 并 GET 回查。实际 CLI 要求 approv
 
 用户后续要求：显式使用 DeepSeek-V4.1-Flash，公开评论采用自然短段落，末行
 仅为 `<sub>By DeepSeek-V4.1-Flash</sub>`。版本与运行证据移入 artifact。
-GitCode Issue、通用 API、PR 元数据与 Release API 操作均封装为 composite
+AtomGit Issue、通用 API、PR 元数据与 Release API 操作均封装为 composite
 stage，既有 RDV 状态 stage 继续复用；原 PR/Release workflows 改为调用这些
 stage。最终实测 run 38508835564 全部步骤成功，39 项 Linux 测试通过，Issue
 #739 评论 193711771 已回查正文与署名，只有一条本账号自动回复。
 
-幂等重跑验收：修正 GitCode 成功 PATCH 返回空 body 的兼容性后，run
+幂等重跑验收：修正 AtomGit 成功 PATCH 返回空 body 的兼容性后，run
 38509543620 全部步骤成功，40 项 Linux 测试通过；更新既有评论后 GET 回查
 成功。API stage 对空成功响应返回空对象，业务 stage 仍独立验证变更结果。

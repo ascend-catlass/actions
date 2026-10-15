@@ -10,7 +10,7 @@ def workflow(name):
 
 class BaselineTests(unittest.TestCase):
     def test_pr_entrypoint_uses_expected_stages_and_image(self):
-        main = workflow('test-gitcode-pr.yml')
+        main = workflow('test-atomgit-pr.yml')
         steps = main['jobs']['merge-and-test']['steps']
         container = next(s for s in steps if s.get('id') == 'create_container')
         self.assertEqual(container['with']['image-tag'], '9.2.0-beta.2-950-ubuntu22.04-py3.12')

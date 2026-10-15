@@ -3,7 +3,7 @@
 [中文手册](../../../docs/zh/actions/community-repo-roles.md) · [English guide](../../../docs/en/actions/community-repo-roles.md)
 
 从已检出的 CANN community 仓库查询某个 repo 的 maintainer 和 committer。
-不需要 GitCode token，不调用人员 API；结果对应传入 checkout 的配置版本。
+不需要 AtomGit token，不调用人员 API；结果对应传入 checkout 的配置版本。
 运行环境需要 Bash，action 使用 Python 3.12 和 PyYAML 6.0.3。
 
 ## 调用
@@ -33,21 +33,21 @@
 ```
 
 已有 checkout 可直接复用。需要可重现结果时，调用方应检出固定 community
-commit。`repository` 接受 `owner/repo`、GitCode 或 AtomGit 的 HTTPS 仓库 URL，
+commit。`repository` 接受 `owner/repo`、AtomGit 的 HTTPS 仓库 URL，
 支持 `.git` 后缀；匹配时忽略仓库名大小写。
 
 ## 输出与规则
 
 | 输出 | 格式 | 含义 |
 | --- | --- | --- |
-| `maintainers` | JSON 字符串数组 | 所属 SIG 在 `CANN/org-info.yaml` 中的 maintainer GitCode ID |
+| `maintainers` | JSON 字符串数组 | 所属 SIG 在 `CANN/org-info.yaml` 中的 maintainer AtomGit ID |
 | `committers` | JSON 字符串数组 | `sig-info.yaml` 中 SIG 级与匹配 repo 组显式声明的 committer ID |
 | `sigs` | JSON 字符串数组 | 管理该 repo 的 SIG 名称 |
 | `result` | JSON 对象 | 人员详情、各作用范围配置及来源文件 |
 | `result-file` | 绝对路径 | 与 `result` 相同内容的 UTF-8 JSON 文件 |
 
-`result.maintainers` 和 `result.committers` 保留 `gitcode_id`、可选的 `name`、
-`email`。相同 GitCode ID 忽略大小写去重，并保留首次出现的拼写和非空资料。
+`result.maintainers` 和 `result.committers` 保留 `atomgit_id`、可选的 `name`、
+`email`。相同 AtomGit ID 忽略大小写去重，并保留首次出现的拼写和非空资料。
 仓库组可配置多个 repo；同一 repo 出现在多个 SIG/仓库组时，合并人员名单。
 
 根据 community 指导文档，maintainer 自动拥有 SIG 级 committer 权限；这里输出

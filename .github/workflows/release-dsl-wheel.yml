@@ -1,10 +1,10 @@
-name: Release ascend-catlass-dsl from GitCode tag
+name: Release ascend-catlass-dsl from AtomGit tag
 
 on:
   workflow_dispatch:
     inputs:
       catlass_tag:
-        description: Existing GitCode CATLASS vMAJOR.MINOR.PATCH tag to build and publish
+        description: Existing AtomGit CATLASS vMAJOR.MINOR.PATCH tag to build and publish
         required: true
         type: string
       artifact_run_id:
@@ -24,7 +24,7 @@ concurrency:
 jobs:
   preflight:
     if: ${{ github.ref == 'refs/heads/main' }}
-    name: Verify GitCode release tag
+    name: Verify AtomGit release tag
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -37,7 +37,7 @@ jobs:
         shell: bash
         env:
           CATLASS_TAG: ${{ inputs.catlass_tag }}
-          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -47,22 +47,22 @@ jobs:
           fi
 
           source_dir="${RUNNER_TEMP}/catlass-tag-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          askpass="${RUNNER_TEMP}/gitcode-tag-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
+          askpass="${RUNNER_TEMP}/atomgit-tag-askpass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.sh"
           trap 'rm -rf -- "${source_dir}"; rm -f -- "${askpass}"' EXIT
           # shellcheck disable=SC2016
           printf '%s\n' \
             '#!/usr/bin/env bash' \
             'case "$1" in' \
             '  *Username*) printf "%s\\n" "x-oauth-basic" ;;' \
-            '  *Password*) printf "%s\\n" "${GITCODE_TOKEN}" ;;' \
+            '  *Password*) printf "%s\\n" "${ATOMGIT_TOKEN}" ;;' \
             'esac' > "${askpass}"
           chmod 700 "${askpass}"
 
           GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
             git ls-remote --exit-code --refs \
-              https://gitcode.com/cann/catlass.git "refs/tags/${CATLASS_TAG}" >/dev/null
+              https://atomgit.com/cann/catlass.git "refs/tags/${CATLASS_TAG}" >/dev/null
           git init --quiet "${source_dir}"
-          git -C "${source_dir}" remote add origin https://gitcode.com/cann/catlass.git
+          git -C "${source_dir}" remote add origin https://atomgit.com/cann/catlass.git
           GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
             git -C "${source_dir}" fetch --quiet --depth 1 origin \
               "refs/tags/${CATLASS_TAG}:refs/tags/${CATLASS_TAG}"
@@ -73,7 +73,7 @@ jobs:
             echo "version=${version}"
             echo "source_sha=${source_sha}"
           } >> "${GITHUB_OUTPUT}"
-          echo "Verified GitCode tag ${CATLASS_TAG} at ${source_sha} before starting the build"
+          echo "Verified AtomGit tag ${CATLASS_TAG} at ${source_sha} before starting the build"
 
   build:
     name: Build release wheels
@@ -95,6 +95,13 @@ jobs:
       - name: Check out release tooling
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
+      - name: Check out shared Action helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          path: shared_actions
           persist-credentials: false
 
       - name: Download architecture wheel artifacts
@@ -157,14 +164,14 @@ jobs:
           print-hash: true
           skip-existing: true
 
-  publish-gitcode:
-    name: Publish wheels to GitCode Release
+  publish-atomgit:
+    name: Publish wheels to AtomGit Release
     needs: [preflight, prepare]
     if: ${{ github.ref == 'refs/heads/main' && (always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '')) }}
     runs-on: [self-hosted, publish, X64]
     environment:
-      name: gitcode-release
-      url: https://gitcode.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
+      name: atomgit-release
+      url: https://atomgit.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
     permissions:
       actions: read
       contents: read
@@ -173,6 +180,13 @@ jobs:
       - name: Check out release tooling
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
+      - name: Check out shared Action helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          path: shared_actions
           persist-credentials: false
 
       - name: Download validated release bundle
@@ -183,17 +197,17 @@ jobs:
           run-id: ${{ inputs.artifact_run_id || github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Attach wheels to the corresponding GitCode tag release
-        uses: ./.github/actions/gitcode-release
+      - name: Attach wheels to the corresponding AtomGit tag release
+        uses: ./.github/actions/atomgit-release
         with:
-          token: ${{ secrets.GITCODE_TOKEN }}
+          token: ${{ secrets.ATOMGIT_TOKEN }}
           tag: ${{ needs.preflight.outputs.tag }}
           version: ${{ needs.preflight.outputs.version }}
           bundle: release-bundle
 
   summary:
     name: Release summary
-    needs: [preflight, build, prepare, publish-pypi, publish-gitcode]
+    needs: [preflight, build, prepare, publish-pypi, publish-atomgit]
     if: ${{ github.ref == 'refs/heads/main' && (always()) }}
     runs-on: ubuntu-latest
 
@@ -206,21 +220,21 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           PREPARE_RESULT: ${{ needs.prepare.result }}
           PYPI_RESULT: ${{ needs.publish-pypi.result }}
-          GITCODE_RESULT: ${{ needs.publish-gitcode.result }}
+          ATOMGIT_RESULT: ${{ needs.publish-atomgit.result }}
         run: |
           {
             echo "## ascend-catlass-dsl ${VERSION}"
             echo
-            echo "- GitCode tag: ${TAG}"
+            echo "- AtomGit tag: ${TAG}"
             echo "- CATLASS commit: ${SOURCE_SHA}"
             echo "- Build: ${BUILD_RESULT}"
             echo "- Bundle validation: ${PREPARE_RESULT}"
             echo "- PyPI: ${PYPI_RESULT}"
-            echo "- GitCode Release: ${GITCODE_RESULT}"
+            echo "- AtomGit Release: ${ATOMGIT_RESULT}"
             if [[ "${PYPI_RESULT}" == success ]]; then
               echo "- PyPI URL: https://pypi.org/project/ascend-catlass-dsl/${VERSION}/"
             fi
-            if [[ "${GITCODE_RESULT}" == success ]]; then
-              echo "- GitCode Release: https://gitcode.com/cann/catlass/releases/${TAG}"
+            if [[ "${ATOMGIT_RESULT}" == success ]]; then
+              echo "- AtomGit Release: https://atomgit.com/cann/catlass/releases/${TAG}"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"

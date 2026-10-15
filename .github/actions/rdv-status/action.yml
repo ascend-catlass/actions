@@ -1,5 +1,5 @@
-name: Update GitCode RDV status
-description: Maintain RDV labels and publish the final CI result on a GitCode pull request
+name: Update AtomGit RDV status
+description: Maintain RDV labels and publish the final CI result on a AtomGit pull request
 
 inputs:
   phase:
@@ -9,7 +9,7 @@ inputs:
     description: Pull request number in cann/catlass
     required: true
   token:
-    description: GitCode personal access token
+    description: AtomGit personal access token
     required: true
   result:
     description: Job result used by the finish phase
@@ -26,21 +26,51 @@ inputs:
 
 outputs:
   comment-id:
-    description: GitCode comment ID created by the start phase
+    description: AtomGit comment ID created by the start phase
     value: ${{ steps.status.outputs.comment-id }}
 
 runs:
   using: composite
   steps:
-    - name: Update RDV status
-      id: status
+    - name: Assemble the CATLASS RDV comment
+      id: comment
       shell: bash
       env:
         RDV_PHASE: ${{ inputs.phase }}
-        PR_NUMBER: ${{ inputs.pr-number }}
-        GITCODE_TOKEN: ${{ inputs.token }}
         RDV_RESULT: ${{ inputs.result }}
         RDV_RESULT_URL: ${{ inputs.result-url }}
-        RDV_COMMENT_ID: ${{ inputs.comment-id }}
         RDV_FAILURE_ANALYSIS_FILE: ${{ inputs.failure-analysis-file }}
       run: bash "${GITHUB_ACTION_PATH}/rdv-status.sh"
+    - name: Maintain the PR status through the public Action
+      id: status
+      uses: yuantao313/actions/atomgit-pr-status@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      with:
+        token: ${{ inputs.token }}
+        repository: cann/catlass
+        pr-number: ${{ inputs.pr-number }}
+        phase: ${{ inputs.phase }}
+        result: ${{ inputs.result }}
+        run-url: ${{ inputs.result-url }}
+        running-label: RDV-RUNNING
+        success-label: RDV-SUCC
+        failure-label: RDV-FAIL
+    - name: Apply the CATLASS comment format
+      uses: yuantao313/actions/atomgit-api@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      with:
+        token: ${{ inputs.token }}
+        method: PATCH
+        path: /repos/cann/catlass/pulls/comments/${{ steps.status.outputs.comment-id }}
+        body-file: ${{ steps.comment.outputs.body-file }}
+        body-encoding: json
+    - name: Read back the RDV comment
+      id: verified
+      uses: yuantao313/actions/atomgit-api@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      with:
+        token: ${{ inputs.token }}
+        path: /repos/cann/catlass/pulls/comments/${{ steps.status.outputs.comment-id }}
+    - name: Verify the published RDV body
+      shell: bash
+      env:
+        EXPECTED: ${{ steps.comment.outputs.body-file }}
+        ACTUAL: ${{ steps.verified.outputs.response-file }}
+      run: jq -e --slurpfile expected "$EXPECTED" '.body == $expected[0].body' "$ACTUAL" > /dev/null

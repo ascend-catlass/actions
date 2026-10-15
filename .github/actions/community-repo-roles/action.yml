@@ -2,17 +2,17 @@ name: Read community repository roles
 description: Resolve declared maintainers and committers from a CANN community checkout
 inputs:
   repository:
-    description: owner/repo or HTTPS GitCode/AtomGit repository URL
+    description: owner/repo or HTTPS AtomGit/AtomGit repository URL
     required: true
   community-path:
     description: Path to an existing community checkout (relative to workspace or absolute)
     required: true
 outputs:
   maintainers:
-    description: JSON array of maintainer GitCode IDs
+    description: JSON array of maintainer AtomGit IDs
     value: ${{ steps.lookup.outputs.maintainers }}
   committers:
-    description: JSON array of explicitly declared SIG and repository committer GitCode IDs
+    description: JSON array of explicitly declared SIG and repository committer AtomGit IDs
     value: ${{ steps.lookup.outputs.committers }}
   sigs:
     description: JSON array of SIG names managing the repository

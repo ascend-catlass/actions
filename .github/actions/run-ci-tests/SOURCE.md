@@ -9,7 +9,7 @@ The adapter uses a verified PR base/head diff instead of OBS files, keeps the
 container and selected device, and sets `CATLASS_ARCH_LIST=3510` for optest.
 DSL routing remains in the workflow. It does not run the 910B-only Python
 extension, torch library or tuner groups; tuner changes explicitly skip testing.
-GitCode files are not modified.
+AtomGit files are not modified.
 
 ## Selection
 
@@ -33,7 +33,7 @@ GitCode files are not modified.
 - Root requirements, root/shared CMake files, third-party dependencies, the
   shared build script and full-suite scripts explicitly require the full 3510
   non-DSL suite. The changed path and reason are logged.
-- Other paths select no non-DSL test group, matching GitCode pre_smoke. They do
+- Other paths select no non-DSL test group, matching AtomGit pre_smoke. They do
   not automatically cause a full-suite fallback.
 
 The adapter checks for corresponding optest files before invoking the upstream

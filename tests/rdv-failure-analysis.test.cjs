@@ -97,23 +97,23 @@ test('valid model output becomes an analyzed attachment', () => temporaryTest(di
 }));
 
 test('TRAE installation is actually reused by all four model entry points', () => {
-  for (const name of ['reply-gitcode-issue', 'fix-gitcode-issue', 'review-gitcode-pr']) {
-    assert.match(read(`.github/workflows/${name}.yml`), /uses: ascend-catlass\/actions\/\.github\/actions\/setup-trae-cn@main/);
+  for (const name of ['reply-atomgit-issue', 'fix-atomgit-issue', 'review-atomgit-pr']) {
+    assert.match(read(`.github/workflows/${name}.yml`), /uses: yuantao313\/actions\/setup-traecn@[0-9a-f]{40}/);
     assert.doesNotMatch(read(`.github/workflows/${name}.yml`), /install_trae_cn\.sh|Install pinned[^]*?shell: bash\n        uses:/);
   }
   const action = read('.github/actions/analyze-ci-failure/action.yml');
-  assert.match(action, /actions\/setup-trae-cn@main/);
-  assert.match(action, /actions\/trae-cn@main/);
+  assert.match(action, /actions\/setup-traecn@[0-9a-f]{40}/);
+  assert.match(action, /actions\/traecn@[0-9a-f]{40}/);
   assert.match(action, /actions\/github-script@v9/);
-  assert.doesNotMatch(action, /PR_NUMBER|GITCODE_TOKEN|Test PR/);
+  assert.doesNotMatch(action, /PR_NUMBER|ATOMGIT_TOKEN|Test PR/);
 });
 
 test('TestPR wires the generic action and artifact, without embedding implementation', () => {
-  const workflow = read('.github/workflows/test-gitcode-pr.yml');
+  const workflow = read('.github/workflows/test-atomgit-pr.yml');
   const job = workflow.split('  analyze-failure:\n')[1].split('  report:\n')[0];
   assert.match(job, /uses: ascend-catlass\/actions\/\.github\/actions\/analyze-ci-failure@main/);
   assert.match(job, /uses: actions\/upload-artifact@v4/);
-  assert.doesNotMatch(job, /script:|node |python|require\(|GITCODE_TOKEN/);
+  assert.doesNotMatch(job, /script:|node |python|require\(|ATOMGIT_TOKEN/);
   assert.ok(job.split('\n').length < 35);
   const report = workflow.split('  report:\n')[1];
   assert.match(report, /always\(\)/);
@@ -123,42 +123,29 @@ test('TestPR wires the generic action and artifact, without embedding implementa
 
 const bashAvailable = spawnSync('bash', ['--version']).status === 0;
 const jqAvailable = spawnSync('jq', ['--version']).status === 0;
-test('actual RDV Bash posts literal analysis only on failure, with a safe size limit',
+test('RDV Bash assembles literal failure analysis with a safe size limit',
   {skip: !bashAvailable || !jqAvailable}, () => {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'rdv-comment-'));
     try {
-      const mock = path.join(temp, 'curl');
-      fs.writeFileSync(mock, `#!/usr/bin/env bash
-set -eu
-url=''; data=''
-while (( $# )); do
-  case "$1" in
-    --request|--header) shift 2;;
-    --data) data="$2"; shift 2;;
-    https://*) url="$1"; shift;;
-    *) shift;;
-  esac
-done
-if [[ "$url" == */comments ]]; then printf '%s' "$data" > "$COMMENT_CAPTURE"; printf '{"id":42}'; else printf '[]'; fi
-`);
       for (const [result, attachment] of [['failure', '原因：编译失败\n`$(touch injected)`'],
         ['success', 'do not append'], ['cancelled', 'do not append'], ['failure', 'x'.repeat(8193)], ['failure', null]]) {
         const file = path.join(temp, 'analysis.md');
         if (attachment === null) fs.rmSync(file, {force: true}); else fs.writeFileSync(file, attachment);
-        const capture = path.join(temp, 'comment.json');
-        const run = spawnSync('bash', ['-c', 'curl() { bash "$MOCK_CURL" "$@"; }; export -f curl; source "$STATUS_SCRIPT"'], {
+        const output = path.join(temp, 'outputs');
+        fs.writeFileSync(output, '');
+        const run = spawnSync('bash', [path.join(root, '.github/actions/rdv-status/rdv-status.sh')], {
           encoding: 'utf8', env: {...process.env, RDV_PHASE: 'finish', RDV_RESULT: result,
-            PR_NUMBER: '1459', GITCODE_TOKEN: 'test-only', RDV_RESULT_URL: 'https://github.com/run/123',
-            RDV_FAILURE_ANALYSIS_FILE: file, MOCK_CURL: mock, COMMENT_CAPTURE: capture,
-            STATUS_SCRIPT: path.join(root, '.github/actions/rdv-status/rdv-status.sh')}
+            RDV_RESULT_URL: 'https://github.com/run/123', RDV_FAILURE_ANALYSIS_FILE: file,
+            RUNNER_TEMP: temp, GITHUB_OUTPUT: output}
         });
         assert.equal(run.status, 0, run.stderr);
+        const bodyFile = fs.readFileSync(output, 'utf8').trim().split('=')[1];
         const expected = (result === 'success' ? '✅ RDV Succeeded' : '❌ RDV Failed') + ': https://github.com/run/123'
           + (result === 'failure' && attachment && attachment.length <= 8192 ? '\n\n' + attachment : '');
-        assert.equal(JSON.parse(fs.readFileSync(capture, 'utf8')).body, expected);
+        assert.equal(JSON.parse(fs.readFileSync(bodyFile, 'utf8')).body, expected);
+        assert.ok(!fs.existsSync(path.join(root, 'injected')));
       }
     } finally {
-      // Only remove the exact temporary directory created by this test.
       assert.equal(path.dirname(path.resolve(temp)), path.resolve(os.tmpdir()));
       fs.rmSync(temp, {recursive: true, force: true});
     }

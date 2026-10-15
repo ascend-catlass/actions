@@ -1,0 +1,32 @@
+name: Remind a AtomGit PR author after CI passes
+description: Verify CATLASS PR state and CI label, then post a deduplicated review reminder
+inputs:
+  pr-number:
+    description: Pull request number in cann/catlass
+    required: true
+  token:
+    description: AtomGit token with PR read and comment write permissions
+    required: true
+outputs:
+  result:
+    description: commented, already_reminded, pr_not_open or label_not_present
+    value: ${{ steps.remind.outputs.result }}
+runs:
+  using: composite
+  steps:
+    - name: Check out shared transport helpers
+      uses: actions/checkout@v4
+      with:
+        repository: yuantao313/actions
+        ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+        path: shared_actions
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - id: remind
+      shell: bash
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+        ATOMGIT_TOKEN: ${{ inputs.token }}
+      run: python "${GITHUB_ACTION_PATH}/../../../scripts/atomgit_ci_passed.py"

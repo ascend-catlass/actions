@@ -109,18 +109,18 @@ class CommunityTaskTests(unittest.TestCase):
     def test_manual_workflows_are_independent_and_validation_runner_has_no_secrets(self):
         import yaml
         root = Path(__file__).resolve().parents[1]
-        for name in ('fix-gitcode-issue', 'review-gitcode-pr'):
+        for name in ('fix-atomgit-issue', 'review-atomgit-pr'):
             workflow = yaml.safe_load((root / f'.github/workflows/{name}.yml').read_text(encoding='utf-8'))
             self.assertEqual(set(workflow.get('on', workflow.get(True))), {'workflow_dispatch'})
             self.assertNotIn('issue_reply', json.dumps(workflow))
-            self.assertNotIn('reply-gitcode-issue', json.dumps(workflow))
-        workflow = yaml.safe_load((root / '.github/workflows/fix-gitcode-issue.yml').read_text(encoding='utf-8'))
+            self.assertNotIn('reply-atomgit-issue', json.dumps(workflow))
+        workflow = yaml.safe_load((root / '.github/workflows/fix-atomgit-issue.yml').read_text(encoding='utf-8'))
         self.assertNotIn('secrets.', json.dumps(workflow['jobs']['validate']))
         self.assertEqual(workflow['jobs']['publish']['needs'], 'validate')
         self.assertNotIn('roles', json.dumps(workflow))
 
     def test_fix_publishes_to_fork_then_creates_pr_and_compile(self):
-        from scripts.gitcode_issue_reply import snapshot, fingerprint
+        from scripts.atomgit_issue_reply import snapshot, fingerprint
         issue = {'state': 'open', 'number': '739', 'title': 'Bug', 'body': 'Repro', 'user': {'login': 'committer'}}
         identity = {'id': 'bot', 'login': 'bot-account'}
         context = {'number': '739', 'source_sha': HEAD, 'user_id': 'bot',
@@ -155,7 +155,7 @@ class CommunityTaskTests(unittest.TestCase):
             client.comments.return_value = []
             publisher = unittest.mock.Mock()
             publisher.request.side_effect = request
-            with patch.dict(os.environ, {'GITCODE_TOKEN': 'test-only'}), \
+            with patch.dict(os.environ, {'ATOMGIT_TOKEN': 'test-only'}), \
                     patch.object(task, 'Client', return_value=client), \
                     patch.object(task, 'restore_fix'), patch.object(task, 'apply_fix', return_value=True), \
                     patch.object(task, 'git', return_value=b'patch'), patch.object(task, 'push_branch') as push:
@@ -176,11 +176,11 @@ class CommunityTaskTests(unittest.TestCase):
             api.request.assert_not_called()
 
     def test_validation_has_no_publishing_credentials_and_failure_propagates(self):
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'GITCODE_TOKEN': 'secret', 'TRAE_CN_PAT': 'secret'}):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'ATOMGIT_TOKEN': 'secret', 'TRAE_CN_PAT': 'secret'}):
             with patch.object(task.subprocess, 'run') as run:
                 task.validate_fix(Path(directory), 'test-command', Path(directory) / 'log')
                 env = run.call_args.kwargs['env']
-                self.assertNotIn('GITCODE_TOKEN', env)
+                self.assertNotIn('ATOMGIT_TOKEN', env)
                 self.assertNotIn('TRAE_CN_PAT', env)
                 self.assertTrue(run.call_args.kwargs['check'])
             with self.assertRaises(ValueError):

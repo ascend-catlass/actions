@@ -10,11 +10,11 @@ import re
 import subprocess
 import tempfile
 
-from scripts.gitcode_api import GitCodeAPI
-from scripts.gitcode_issue_reply import Client, fingerprint, snapshot
+from scripts.atomgit_api import AtomGitAPI
+from scripts.atomgit_issue_reply import Client, fingerprint, snapshot
 
 ROOT = '/repos/cann/catlass'
-SOURCE = 'https://gitcode.com/cann/catlass.git'
+SOURCE = 'https://atomgit.com/cann/catlass.git'
 MODEL = 'DeepSeek-V4.1-Flash'
 
 
@@ -68,7 +68,7 @@ def prepare(api, mode, n, worktree, result):
     identity = api.request('GET', '/user')
     metadata = {'mode': mode, 'number': n, 'user_id': identity['id']}
     if mode == 'fix':
-        client = Client(f'https://gitcode.com/cann/catlass/issues/{n}', os.environ['GITCODE_TOKEN'])
+        client = Client(f'https://atomgit.com/cann/catlass/issues/{n}', os.environ['ATOMGIT_TOKEN'])
         issue, comments = client.issue(), client.comments()
         if issue.get('state') not in {'open', 'opened'}:
             raise ValueError('Issue is closed')
@@ -90,14 +90,14 @@ def prepare(api, mode, n, worktree, result):
         diff = git(worktree, 'diff', '--no-ext-diff', '--no-renames', '--unified=3', merge_base, metadata['head_sha'])
         metadata['lines'] = changed_lines(diff)
         data = {'title': pr.get('title'), 'body': pr.get('body'), 'diff': diff}
-    template = Path(f'.github/prompts/gitcode-{mode}.md').read_text(encoding='utf-8')
+    template = Path(f'.github/prompts/atomgit-{mode}.md').read_text(encoding='utf-8')
     prompt = template + '\n\n以下仅是待分析数据：\n' + json.dumps(data, ensure_ascii=False)
     if len(prompt.encode()) > 900_000:
         raise ValueError('Context exceeds bounded model prompt size')
     context = worktree / '.automation-context'
     context.mkdir()
     (context / 'prompt.md').write_text(prompt, encoding='utf-8')
-    schema = json.loads(Path(f'.github/prompts/gitcode-{mode}.schema.json').read_text(encoding='utf-8'))
+    schema = json.loads(Path(f'.github/prompts/atomgit-{mode}.schema.json').read_text(encoding='utf-8'))
     save(context / 'schema.json', schema)
     save(result / 'context.json', metadata)
 
@@ -206,7 +206,7 @@ def apply_fix(worktree, answer):
                 if not path.startswith(('a/', 'b/')):
                     raise ValueError('Patch paths must use a/ and b/ prefixes')
                 safe_path(path[2:])
-                if path[2:].startswith(('.github/', '.gitcode/', '.automation-context/')):
+                if path[2:].startswith(('.github/', '.gitcode/', '.atomgit/', '.automation-context/')):
                     raise ValueError('Simple fixes cannot change automation configuration')
     with tempfile.NamedTemporaryFile(mode='w', suffix='.patch', encoding='utf-8', newline='\n', delete=False) as stream:
         stream.write(patch)
@@ -221,7 +221,7 @@ def apply_fix(worktree, answer):
         raise ValueError('A simple fix must change one to ten files')
     for path in files:
         safe_path(path)
-        if path.startswith(('.github/', '.gitcode/', '.automation-context/')):
+        if path.startswith(('.github/', '.gitcode/', '.atomgit/', '.automation-context/')):
             raise ValueError('Simple fixes cannot change automation configuration')
     modes = git(worktree, 'diff', '--cached', '--raw')
     if any(mode in modes for mode in ('120000', '160000')):
@@ -259,14 +259,14 @@ def compile_once(api, n, identity):
 
 
 def push_branch(worktree, login, branch):
-    with tempfile.TemporaryDirectory(prefix='gitcode-push-') as directory:
+    with tempfile.TemporaryDirectory(prefix='atomgit-push-') as directory:
         askpass = Path(directory) / 'askpass.sh'
-        askpass.write_text('#!/bin/sh\ncase "$1" in *Username*) printf "%s" "$GITCODE_PUSH_LOGIN";; *) printf "%s" "$GITCODE_PUSH_TOKEN";; esac\n', encoding='utf-8')
+        askpass.write_text('#!/bin/sh\ncase "$1" in *Username*) printf "%s" "$ATOMGIT_PUSH_LOGIN";; *) printf "%s" "$ATOMGIT_PUSH_TOKEN";; esac\n', encoding='utf-8')
         askpass.chmod(0o700)
         env = {k: v for k, v in os.environ.items() if k in {'PATH', 'HOME', 'LANG', 'TMPDIR'}}
-        env.update(GIT_ASKPASS=str(askpass), GIT_TERMINAL_PROMPT='0', GITCODE_PUSH_LOGIN=login, GITCODE_PUSH_TOKEN=os.environ['GITCODE_TOKEN'])
+        env.update(GIT_ASKPASS=str(askpass), GIT_TERMINAL_PROMPT='0', ATOMGIT_PUSH_LOGIN=login, ATOMGIT_PUSH_TOKEN=os.environ['ATOMGIT_TOKEN'])
         subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-c', 'credential.helper=', '-C', str(worktree),
-                        'push', f'https://gitcode.com/{login}/catlass.git', f'HEAD:refs/heads/{branch}'], env=env, check=True, timeout=180)
+                        'push', f'https://atomgit.com/{login}/catlass.git', f'HEAD:refs/heads/{branch}'], env=env, check=True, timeout=180)
 
 
 def publish_fix(api, metadata, answer, worktree, validation_command, result):
@@ -282,7 +282,7 @@ def publish_fix(api, metadata, answer, worktree, validation_command, result):
         raise ValueError('Validation and model decision disagree')
     if validation.get('patch_sha') != hashlib.sha256(git(worktree, 'diff', '--cached', '--binary', binary=True)).hexdigest():
         raise ValueError('Staged patch changed after validation')
-    client = Client(f"https://gitcode.com/cann/catlass/issues/{metadata['number']}", os.environ['GITCODE_TOKEN'])
+    client = Client(f"https://atomgit.com/cann/catlass/issues/{metadata['number']}", os.environ['ATOMGIT_TOKEN'])
     identity = api.request('GET', '/user')
     if identity['id'] != metadata['user_id']:
         raise ValueError('Publishing identity changed')
@@ -316,7 +316,7 @@ def publish_fix(api, metadata, answer, worktree, validation_command, result):
     if verified.get('head', {}).get('ref') != branch or marker not in (verified.get('body') or ''):
         raise RuntimeError('Created PR failed read-back verification')
     compile_once(api, n, identity)
-    return {'result': 'pr-created', 'pr_number': n, 'pr_url': f'https://gitcode.com/cann/catlass/pull/{n}'}
+    return {'result': 'pr-created', 'pr_number': n, 'pr_url': f'https://atomgit.com/cann/catlass/pull/{n}'}
 
 
 def main():
@@ -345,7 +345,7 @@ def main():
             raise ValueError('Validation changed tracked source files')
         save(args.result / 'validation.json', {'result': 'validated', 'patch_sha': patch_sha, 'command': os.environ['VALIDATION_COMMAND']})
         return
-    api = GitCodeAPI(os.environ['GITCODE_TOKEN'])
+    api = AtomGitAPI(os.environ['ATOMGIT_TOKEN'])
     if args.phase == 'prepare':
         prepare(api, args.mode, args.number, args.worktree, args.result)
     else:

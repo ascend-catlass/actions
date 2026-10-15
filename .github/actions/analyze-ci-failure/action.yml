@@ -71,18 +71,28 @@ runs:
       env:
         ANALYSIS_DIRECTORY: ${{ steps.workspace.outputs.directory }}
       run: node "${GITHUB_ACTION_PATH}/comment.cjs" prepare
+    - name: Prepare the model sandbox dependency
+      if: ${{ steps.prompt.outcome == 'success' }}
+      continue-on-error: true
+      shell: bash
+      run: |
+        if ! command -v bwrap >/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+        fi
     - name: Install TRAE CN
       id: install
       if: ${{ steps.prompt.outcome == 'success' }}
       continue-on-error: true
-      uses: ascend-catlass/actions/.github/actions/setup-trae-cn@main
+      uses: yuantao313/actions/setup-traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
     - name: Analyze logs with TRAE CN
       id: model
       if: ${{ steps.prompt.outcome == 'success' && steps.install.outcome == 'success' }}
       continue-on-error: true
-      uses: ascend-catlass/actions/.github/actions/trae-cn@main
+      uses: yuantao313/actions/traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
       with:
-        trae-pat: ${{ inputs.trae-pat }}
+        pat: ${{ inputs.trae-pat }}
+        cli-path: ${{ steps.install.outputs.cli-path }}
         host: ${{ inputs.host }}
         expected-version: 0.209.1
         model: ${{ inputs.model }}

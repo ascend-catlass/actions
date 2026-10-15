@@ -91,7 +91,7 @@ while IFS= read -r -d '' path; do
             echo "910B-only test group: ${path}; not part of the Ascend 950 suite"
             ;;
         *)
-            echo "No non-DSL test group selected for ${path} (same as GitCode pre_smoke)"
+            echo "No non-DSL test group selected for ${path} (same as AtomGit pre_smoke)"
             ;;
     esac
 done < "${diff_file}"
@@ -99,7 +99,7 @@ done < "${diff_file}"
 if [[ "${full}" != true && ${#example_paths[@]} -gt 0 ]]; then
     selector=tests/tools/get_test_example_case_list.py
     printf '%s\n' "${example_paths[@]}" > "${diff_file}"
-    # Follow GitCode: an empty result is valid; an actual scanner error fails CI.
+    # Follow AtomGit: an empty result is valid; an actual scanner error fails CI.
     selected="$(python3 "${selector}" --difflist "${diff_file}")" || exit 1
     while IFS= read -r case_name; do
         [[ -z "${case_name}" ]] && continue

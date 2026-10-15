@@ -1,0 +1,78 @@
+name: "Community 4 · Inline PR review (TRAE CN)"
+run-name: "TRAE CN review #${{ inputs.pr_number }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: CATLASS PR number
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-review-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    env:
+      TASK_NUMBER: ${{ inputs.pr_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out shared Action helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          path: shared_actions
+          persist-credentials: false
+      - name: Prepare pinned source and task context
+        env:
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+        run: python3 -m scripts.community_tasks prepare --mode review --number "$TASK_NUMBER"
+      - name: Prepare the model sandbox dependency
+        shell: bash
+        run: |
+          if ! command -v bwrap >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+      - name: Install pinned official China enterprise CLI
+        id: cli
+        uses: yuantao313/actions/setup-traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      - name: Analyze with TRAE CN
+        id: trae
+        uses: yuantao313/actions/traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        with:
+          pat: ${{ secrets.TRAE_CN_PAT }}
+          cli-path: ${{ steps.cli.outputs.cli-path }}
+          host: ${{ vars.TRAE_CN_HOST }}
+          expected-version: 0.209.1
+          model: DeepSeek-V4.1-Flash
+          working-directory: _task-source
+          prompt-file: .automation-context/prompt.md
+          output-schema-file: .automation-context/schema.json
+          sandbox: read-only
+          timeout-seconds: '1200'
+      - name: Validate and publish
+        env:
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          TASK_RESPONSE: ${{ steps.trae.outputs.response-file }}
+        run: python3 -m scripts.community_tasks publish --mode review --number "$TASK_NUMBER"
+      - name: Save task evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: community-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            _task-result/
+            ${{ steps.trae.outputs.result-directory }}
+          retention-days: 7

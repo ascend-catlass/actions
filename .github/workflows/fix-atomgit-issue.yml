@@ -1,0 +1,160 @@
+name: "Community 3 · Simple Issue fix (TRAE CN)"
+run-name: "TRAE CN fix #${{ inputs.issue_number }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: CATLASS Issue number
+        type: string
+        required: true
+      validation_command:
+        description: Maintainer-chosen verification command to run in the checkout (required before publishing)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-fix-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    env:
+      TASK_NUMBER: ${{ inputs.issue_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out shared Action helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          path: shared_actions
+          persist-credentials: false
+      - name: Prepare pinned source and task context
+        env:
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+        run: python3 -m scripts.community_tasks prepare --mode fix --number "$TASK_NUMBER"
+      - name: Prepare the model sandbox dependency
+        shell: bash
+        run: |
+          if ! command -v bwrap >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+      - name: Install pinned official China enterprise CLI
+        id: cli
+        uses: yuantao313/actions/setup-traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      - name: Analyze with TRAE CN
+        id: trae
+        uses: yuantao313/actions/traecn@4042e6e501fab8a2cee4e87fca0248b2347e05df
+        with:
+          pat: ${{ secrets.TRAE_CN_PAT }}
+          cli-path: ${{ steps.cli.outputs.cli-path }}
+          host: ${{ vars.TRAE_CN_HOST }}
+          expected-version: 0.209.1
+          model: DeepSeek-V4.1-Flash
+          working-directory: _task-source
+          prompt-file: .automation-context/prompt.md
+          output-schema-file: .automation-context/schema.json
+          sandbox: read-only
+          timeout-seconds: '1200'
+      - name: Preserve proposal
+        env:
+          TASK_RESPONSE: ${{ steps.trae.outputs.response-file }}
+        run: cp "$TASK_RESPONSE" _task-result/answer.json
+      - name: Upload proposal
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-fix-proposal
+          path: _task-result/
+          retention-days: 7
+      - name: Save model evidence
+        if: ${{ always() && steps.trae.outputs.result-directory != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-fix-model-evidence
+          path: ${{ steps.trae.outputs.result-directory }}
+          retention-days: 7
+
+  validate:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: fix
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out shared Action helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          path: shared_actions
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: issue-fix-proposal
+          path: _task-result/
+      - name: Validate on a fresh runner without model or publishing credentials
+        env:
+          TASK_NUMBER: ${{ inputs.issue_number }}
+          TASK_RESPONSE: _task-result/answer.json
+          VALIDATION_COMMAND: ${{ inputs.validation_command }}
+        run: python3 -m scripts.community_tasks validate --mode fix --number "$TASK_NUMBER"
+      - name: Save validation evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-fix-validation
+          path: |
+            _task-result/validation.json
+            _task-result/validation.log
+          retention-days: 7
+
+  publish:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: validate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out shared Action helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 4042e6e501fab8a2cee4e87fca0248b2347e05df
+          path: shared_actions
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: issue-fix-proposal
+          path: _task-result/
+      - uses: actions/download-artifact@v4
+        with:
+          name: issue-fix-validation
+          path: _task-result/
+      - name: Recheck and publish the validated proposal
+        env:
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN }}
+          TASK_NUMBER: ${{ inputs.issue_number }}
+          TASK_RESPONSE: _task-result/answer.json
+          VALIDATION_COMMAND: ${{ inputs.validation_command }}
+        run: python3 -m scripts.community_tasks publish --mode fix --number "$TASK_NUMBER"
+      - name: Save publication evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-fix-publication
+          path: _task-result/publication.json
+          retention-days: 7

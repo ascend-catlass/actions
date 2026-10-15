@@ -20,18 +20,18 @@ class CommunityRolesTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.write("CANN/org-info.yaml", {"sigs": [
             {"sig_name": "example", "maintainers": [
-                {"gitcode_id": "Owner", "name": "维护者", "email": "owner@example.com"}]}]})
+                {"atomgit_id": "Owner", "name": "维护者", "email": "owner@example.com"}]}]})
         self.write("CANN/sigs/example/sig-info.yaml", {
-            "name": "example", "committers": [{"gitcode_id": "sig_person"}],
+            "name": "example", "committers": [{"atomgit_id": "sig_person"}],
             "repositories": [
                 {"repo": ["cann/one", "cann/two"], "committers": [
-                    {"gitcode_id": "repo_person"}, {"gitcode_id": "sig_person", "name": "审批者"}],
-                 "entry_configs": [{"path": ["tools"], "committers": [{"gitcode_id": "local"}]}],
-                 "branch_configs": [{"branch": ["master"], "committers": [{"gitcode_id": "branch"}],
-                                     "branch_keeper": [{"gitcode_id": "keeper"}]}]},
-                {"repo": ["cann/other"], "committers": [{"gitcode_id": "other"}]}]})
+                    {"atomgit_id": "repo_person"}, {"atomgit_id": "sig_person", "name": "审批者"}],
+                 "entry_configs": [{"path": ["tools"], "committers": [{"atomgit_id": "local"}]}],
+                 "branch_configs": [{"branch": ["master"], "committers": [{"atomgit_id": "branch"}],
+                                     "branch_keeper": [{"atomgit_id": "keeper"}]}]},
+                {"repo": ["cann/other"], "committers": [{"atomgit_id": "other"}]}]})
         self.write("CANN/sigs/shared_config.yaml", {
-            "entry_configs": [{"path": [".gitcode"], "committers": [{"gitcode_id": "shared"}]}]})
+            "entry_configs": [{"path": [".gitcode"], "committers": [{"atomgit_id": "shared"}]}]})
 
     def write(self, path, value):
         target = self.root / path
@@ -39,7 +39,7 @@ class CommunityRolesTests(unittest.TestCase):
         target.write_text(yaml.safe_dump(value, allow_unicode=True), encoding="utf-8")
 
     def test_group_membership_deduplication_and_scoped_boundaries(self):
-        result = lookup_roles(self.root, "https://gitcode.com/CANN/two.git/")
+        result = lookup_roles(self.root, "https://atomgit.com/CANN/two.git/")
         self.assertEqual(result["repository"], "cann/two")
         self.assertEqual(result["maintainer_ids"], ["Owner"])
         self.assertEqual(result["committer_ids"], ["sig_person", "repo_person"])
@@ -49,10 +49,10 @@ class CommunityRolesTests(unittest.TestCase):
 
     def test_multiple_sigs_and_case_insensitive_person_deduplication(self):
         org = yaml.safe_load((self.root / "CANN/org-info.yaml").read_text(encoding="utf-8"))
-        org["sigs"].append({"sig_name": "second", "maintainers": [{"gitcode_id": "owner"}]})
+        org["sigs"].append({"sig_name": "second", "maintainers": [{"atomgit_id": "owner"}]})
         self.write("CANN/org-info.yaml", org)
         self.write("CANN/sigs/second/sig-info.yaml", {"name": "second", "repositories": [
-            {"repo": ["cann/two"], "committers": [{"gitcode_id": "second"}]}]})
+            {"repo": ["cann/two"], "committers": [{"atomgit_id": "second"}]}]})
         result = lookup_roles(self.root, "CANN/TWO")
         self.assertEqual(result["sigs"], ["example", "second"])
         self.assertEqual(result["maintainer_ids"], ["Owner"])
@@ -64,12 +64,18 @@ class CommunityRolesTests(unittest.TestCase):
 
     def test_invalid_repo_inputs(self):
         for value in ["one", "../one", "cann/../one", "https://example.com/cann/one",
-                      "https://gitcode.com/cann/one/issues/1", "https://gitcode.com/cann/one?q=1",
-                      "https://user@gitcode.com/cann/one", "cann/one\nattack"]:
+                      "https://atomgit.com/cann/one/issues/1", "https://atomgit.com/cann/one?q=1",
+                      "https://user@atomgit.com/cann/one", "cann/one\nattack"]:
             with self.subTest(value=value), self.assertRaises(ValueError):
                 normalize_repository(value)
         self.assertEqual(normalize_repository("https://atomgit.com/cann/one.git"), "cann/one")
-        self.assertEqual(normalize_repository("cann/.gitcode"), "cann/.gitcode")
+        self.assertEqual(normalize_repository("cann/.atomgit"), "cann/.atomgit")
+
+    def test_legacy_upstream_identity_field_is_read_as_atomgit_identity(self):
+        self.write("CANN/org-info.yaml", {"sigs": [{"sig_name": "example", "maintainers": [{"gitcode_id": "Owner"}]}]})
+        result = lookup_roles(self.root, "cann/one")
+        self.assertEqual(result["maintainer_ids"], ["Owner"])
+        self.assertEqual(result["maintainers"], [{"atomgit_id": "Owner"}])
 
     def test_empty_role_lists_are_valid(self):
         self.write("CANN/org-info.yaml", {"sigs": [{"sig_name": "example", "maintainers": []}]})

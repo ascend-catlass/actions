@@ -114,7 +114,7 @@ output="$(bash "${planner}")"
 require 'tests/test_example.py -k 99_'
 reject 'tests/run_optest.sh'
 
-# Empty selector results and unrelated angle includes are valid, as in GitCode.
+# Empty selector results and unrelated angle includes are valid, as in AtomGit.
 git reset -q --hard "${RDV_BASE_SHA}"
 printf '#include <catlass/shared.hpp>\n' > include/catlass/angle.hpp
 printf '\nchanged\n' >> include/catlass/shared.hpp

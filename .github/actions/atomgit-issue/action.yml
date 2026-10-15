@@ -1,0 +1,74 @@
+name: CATLASS Issue reply policy
+description: Compose shared Issue context and comment stages with CATLASS author and reply policies
+inputs:
+  operation:
+    description: prepare or publish
+    required: true
+  token:
+    description: AtomGit token from an Actions secret
+    required: true
+  issue-url:
+    description: AtomGit Issue URL
+    required: true
+  worktree:
+    description: Source checkout path
+    default: _issue-source
+  prompt-template:
+    description: Trusted CATLASS prompt template
+    default: .github/prompts/atomgit-issue-reply.md
+  result-directory:
+    description: Context and publication evidence directory
+    default: _issue-result
+  response-file:
+    description: Final model answer for publish
+    default: ''
+  model:
+    description: Model attribution
+    default: DeepSeek-V4.1-Flash
+  roles-file:
+    description: Community role declarations for publication eligibility
+    default: ''
+outputs:
+  comment-url:
+    description: Published comment URL
+    value: ${{ steps.publish.outputs.comment-url }}
+  result-directory:
+    description: Context and publication evidence directory
+    value: ${{ inputs.result-directory }}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+      run: '[[ "$OPERATION" == prepare || "$OPERATION" == publish ]] || exit 1'
+    - id: context
+      if: ${{ inputs.operation == 'prepare' }}
+      uses: yuantao313/actions/atomgit-issue-context@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      with:
+        token: ${{ inputs.token }}
+        issue-url: ${{ inputs.issue-url }}
+        worktree: ${{ inputs.worktree }}
+        prompt-template: ${{ inputs.prompt-template }}
+        result-directory: ${{ inputs.result-directory }}
+    - name: Recheck CATLASS publication policy
+      if: ${{ inputs.operation == 'publish' }}
+      shell: bash
+      env:
+        ATOMGIT_TOKEN: ${{ inputs.token }}
+        CONTEXT_FILE: ${{ inputs.result-directory }}/context.json
+        BODY_FILE: ${{ inputs.response-file }}
+        ROLES_FILE: ${{ inputs.roles-file }}
+      run: |
+        role_args=()
+        if [[ -n "$ROLES_FILE" ]]; then role_args=(--roles-file "$ROLES_FILE"); fi
+        python3 -m scripts.issue_reply_policy --context-file "$CONTEXT_FILE" --body-file "$BODY_FILE" "${role_args[@]}"
+    - id: publish
+      if: ${{ inputs.operation == 'publish' }}
+      uses: yuantao313/actions/atomgit-issue-comment@4042e6e501fab8a2cee4e87fca0248b2347e05df
+      with:
+        token: ${{ inputs.token }}
+        context-file: ${{ inputs.result-directory }}/context.json
+        body-file: ${{ inputs.response-file }}
+        model: ${{ inputs.model }}
+        result-file: ${{ inputs.result-directory }}/published.json
