@@ -18,7 +18,7 @@ runs:
       uses: actions/checkout@v4
       with:
         repository: yuantao313/actions
-        ref: fbfd9b229556d974d5aee35dafdf9dffe976facd
+        ref: 02defff4ec04b38b33adfaec06bcb1406f5a2150
         path: shared_actions
         persist-credentials: false
     - uses: actions/setup-python@v5

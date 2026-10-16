@@ -65,45 +65,64 @@ test('GitHub client wiring selects only failed jobs from the requested attempt',
   assert.deepEqual(evidence[0].steps, ['compile']);
 });
 
-test('comment formatter validates fields and model and preserves the specific failure', () => {
-  const body = renderComment({cause: '编译失败', evidence: 'unknown type Tile', next_step: '检查类型定义'}, 'DeepSeek-V4.1-Flash');
+test('comment formatter only validates diagnosis content', () => {
+  const body = renderComment({cause: '编译失败', evidence: 'unknown type Tile', next_step: '检查类型定义'});
   assert.match(body, /unknown type Tile/);
-  assert.match(body, /DeepSeek-V4.1-Flash/);
-  assert.throws(() => renderComment({cause: 'x'.repeat(2001), evidence: 'log', next_step: 'fix'}, 'model'));
-  assert.throws(() => renderComment({cause: 'reason', evidence: 'log', next_step: 'fix'}, 'model\n<bad>'));
+  assert.doesNotMatch(body, /By /);
+  assert.throws(() => renderComment({cause: 'x'.repeat(2001), evidence: 'log', next_step: 'fix'}));
 });
 
 test('missing, malformed, blank and oversized responses produce a usable fallback file', () => {
   for (const value of [undefined, 'not json', '{}', 'x'.repeat(20001),
     JSON.stringify({cause: ' ', evidence: 'log', next_step: 'fix'})]) temporaryTest(directory => {
-    const answer = path.join(directory, 'answer.json');
+    const answer = path.join(directory, 'response.md');
     if (value !== undefined) fs.writeFileSync(answer, value);
+    fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify({status: 'success', exit_code: 0, requested_model: 'different-model'}));
     const outputs = path.join(directory, 'outputs');
-    main('render', {ANALYSIS_DIRECTORY: directory, ANALYSIS_RESPONSE: answer,
-      ANALYSIS_MODEL: 'DeepSeek-V4.1-Flash', GITHUB_OUTPUT: outputs});
+    main('render', {ANALYSIS_DIRECTORY: directory, TRAE_RESULT: directory, GITHUB_OUTPUT: outputs});
     assert.equal(fs.readFileSync(path.join(directory, 'analysis.md'), 'utf8').trim(), fallback);
     assert.match(fs.readFileSync(outputs, 'utf8'), /status=unavailable/);
   });
 });
 
-test('valid model output becomes an analyzed attachment', () => temporaryTest(directory => {
-  const answer = path.join(directory, 'answer.json');
+test('attachment gets attribution from the execution record, without a model argument', () => temporaryTest(directory => {
+  const answer = path.join(directory, 'response.md');
   fs.writeFileSync(answer, JSON.stringify({cause: '编译失败', evidence: 'unknown type Tile', next_step: '检查类型定义'}));
   const outputs = path.join(directory, 'outputs');
-  main('render', {ANALYSIS_DIRECTORY: directory, ANALYSIS_RESPONSE: answer,
-    ANALYSIS_MODEL: 'DeepSeek-V4.1-Flash', GITHUB_OUTPUT: outputs});
-  assert.match(fs.readFileSync(path.join(directory, 'analysis.md'), 'utf8'), /unknown type Tile/);
-  assert.match(fs.readFileSync(outputs, 'utf8'), /status=analyzed/);
+  for (const model of ['provider/new-model', 'another-model', '']) {
+    fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify({status: 'success', exit_code: 0, requested_model: model}));
+    main('render', {ANALYSIS_DIRECTORY: directory, TRAE_RESULT: directory, GITHUB_OUTPUT: outputs});
+    const body = fs.readFileSync(path.join(directory, 'analysis.md'), 'utf8');
+    assert.match(body, /unknown type Tile/);
+    assert.equal(body.includes('<sub>By '), !!model);
+    if (model) assert.ok(body.includes(`By ${model}`));
+    assert.match(fs.readFileSync(outputs, 'utf8'), /status=analyzed/);
+  }
 }));
 
-test('TRAE installation is actually reused by all four model entry points', () => {
+test('failed or invalid execution records preserve the normal failure report', () => temporaryTest(directory => {
+  fs.writeFileSync(path.join(directory, 'response.md'), JSON.stringify({cause: 'reason', evidence: 'log', next_step: 'fix'}));
+  for (const record of [{status: 'failed', exit_code: 1, requested_model: 'model'},
+    {status: 'success', exit_code: 124, requested_model: 'model'},
+    {status: 'success', exit_code: 0, requested_model: '<html>'}, {}]) {
+    fs.writeFileSync(path.join(directory, 'result.json'), JSON.stringify(record));
+    main('render', {ANALYSIS_DIRECTORY: directory, TRAE_RESULT: directory});
+    assert.equal(fs.readFileSync(path.join(directory, 'analysis.md'), 'utf8').trim(), fallback);
+  }
+}));
+
+test('all four model entry points share one CATLASS execution policy', () => {
   for (const name of ['reply-atomgit-issue', 'fix-atomgit-issue', 'review-atomgit-pr']) {
-    assert.match(read(`.github/workflows/${name}.yml`), /uses: yuantao313\/actions\/setup-traecn@[0-9a-f]{40}/);
-    assert.doesNotMatch(read(`.github/workflows/${name}.yml`), /install_trae_cn\.sh|Install pinned[^]*?shell: bash\n        uses:/);
+    assert.match(read(`.github/workflows/${name}.yml`), /uses: \.\/\.github\/actions\/catlass-ai/);
+    assert.doesNotMatch(read(`.github/workflows/${name}.yml`), /model:|expected-version:|cli-path:|host:|sandbox:|bwrap/);
   }
   const action = read('.github/actions/analyze-ci-failure/action.yml');
-  assert.match(action, /actions\/setup-traecn@[0-9a-f]{40}/);
-  assert.match(action, /actions\/traecn@[0-9a-f]{40}/);
+  assert.match(action, /actions\/catlass-ai@main/);
+  assert.doesNotMatch(action, /model: \$|expected-version:|cli-path:|host:|sandbox:|bwrap/);
+  const policy = read('.github/actions/catlass-ai/action.yml');
+  assert.match(policy, /actions\/setup-traecn@[0-9a-f]{40}/);
+  assert.match(policy, /actions\/traecn@[0-9a-f]{40}/);
+  assert.match(policy, /model: DeepSeek-V4.1-Flash/);
   assert.match(action, /actions\/github-script@v9/);
   assert.doesNotMatch(action, /PR_NUMBER|ATOMGIT_TOKEN|GITCODE_TOKEN|Test PR/);
 });

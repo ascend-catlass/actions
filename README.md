@@ -37,11 +37,11 @@ Action 在发布前复查 PR/Issue 状态并查重。自动修复发布账号需
 
 | 分类 | Actions |
 | --- | --- |
-| 社区协作 | [TRAE CN](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/traecn)、[Issue 上下文与回复](.github/actions/atomgit-issue/README.md)、[CI 通过提醒](.github/actions/atomgit-ci-passed/README.md)、[社区角色](.github/actions/community-repo-roles/README.md) |
-| PR 测试 | [PR 元数据](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-pr-metadata)、[创建容器](.github/actions/create-ascend-container/README.md)、[测试准备](.github/actions/prepare-ci-tests/README.md)、[运行测试](.github/actions/run-ci-tests/README.md)、[RDV 状态](.github/actions/rdv-status/README.md) |
+| 社区协作 | [TRAE CN](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/traecn)、[Issue 上下文与回复](.github/actions/atomgit-issue/README.md)、[CI 通过提醒](.github/actions/atomgit-ci-passed/README.md)、[社区角色](.github/actions/community-repo-roles/README.md) |
+| PR 测试 | [PR 元数据](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-pr-metadata)、[创建容器](.github/actions/create-ascend-container/README.md)、[测试准备](.github/actions/prepare-ci-tests/README.md)、[运行测试](.github/actions/run-ci-tests/README.md)、[RDV 状态](.github/actions/rdv-status/README.md) |
 | 构建与分发 | [NPUIR 本机归档](.github/actions/npuir-local-archive/README.md)、[AtomGit Release](.github/actions/atomgit-release/README.md) |
-| 分析与运行环境 | [CI 失败分析](.github/actions/analyze-ci-failure/README.md)、[安装 TRAE CN](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/setup-traecn) |
-| 通用接口 | [AtomGit API](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-api) |
+| 分析与运行环境 | [统一 AI 执行策略](.github/actions/catlass-ai/README.md)、 [CI 失败分析](.github/actions/analyze-ci-failure/README.md)、[安装 TRAE CN](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) |
+| 通用接口 | [AtomGit API](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-api) |
 
 每个 Action 都有中英文用途说明、输入输出和调用示例。四条业务流水线复用这些组件，不把每条流程都重复实现成独立工具。
 
@@ -56,7 +56,7 @@ Action 在发布前复查 PR/Issue 状态并查重。自动修复发布账号需
 ```text
 python -m pip install -r requirements-docs.txt
 git clone https://github.com/yuantao313/actions.git shared_actions
-git -C shared_actions checkout fbfd9b229556d974d5aee35dafdf9dffe976facd
+git -C shared_actions checkout 02defff4ec04b38b33adfaec06bcb1406f5a2150
 python -m unittest discover -s tests -p "test_*.py"
 python scripts/check_docs.py
 python -m mkdocs build --strict

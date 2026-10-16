@@ -8,6 +8,11 @@ import unittest
 from unittest.mock import patch
 
 from scripts import community_tasks as task
+from shared_actions._lib.traecn_result import TraeResult
+
+
+def stage(answer, model='provider/new-model'):
+    return TraeResult(json.dumps(answer, ensure_ascii=False), model)
 
 HEAD, BASE = 'a' * 40, 'b' * 40
 DIFF = '''diff --git a/source.cpp b/source.cpp
@@ -49,6 +54,28 @@ def metadata():
 
 
 class CommunityTaskTests(unittest.TestCase):
+    def test_fix_validation_consumes_the_preserved_execution_result_without_response_env(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = Path(directory)
+            analysis = result / 'analysis'
+            analysis.mkdir()
+            task.save(result / 'context.json', {'mode': 'fix', 'number': '739'})
+            task.save(analysis / 'result.json', {'status': 'success', 'exit_code': 0,
+                                                'requested_model': 'new-model'})
+            task.save(analysis / 'response.md', {'simple': True, 'summary': 'Fix boundary', 'patch': 'patch'})
+            args = ['community_tasks', 'validate', '--mode', 'fix', '--number', '739', '--result', str(result)]
+            with patch('sys.argv', args), patch.dict(os.environ, {'VALIDATION_COMMAND': 'test'}), \
+                    patch.object(task, 'restore_fix'), patch.object(task, 'apply_fix', return_value=True) as apply, \
+                    patch.object(task, 'git', side_effect=[b'patch', '']), patch.object(task, 'validate_fix'):
+                task.main()
+                self.assertEqual(apply.call_args.args[1]['summary'], 'Fix boundary')
+            self.assertEqual(json.loads((result / 'validation.json').read_text())['result'], 'validated')
+            task.save(analysis / 'result.json', {'status': 'failed', 'exit_code': 1, 'requested_model': 'new-model'})
+            with patch('sys.argv', args), patch.object(task, 'restore_fix') as restore:
+                with self.assertRaisesRegex(ValueError, 'did not succeed'):
+                    task.main()
+                restore.assert_not_called()
+
     def test_findings_only_on_real_added_lines(self):
         self.assertEqual(task.changed_lines(DIFF), {'source.cpp': [5, 6]})
         for path, line in [('source.cpp', 4), ('other.cpp', 5), ('../outside', 5), ('source.cpp', True)]:
@@ -58,11 +85,13 @@ class CommunityTaskTests(unittest.TestCase):
     def test_inline_publish_readback_and_retry_dedup(self):
         api = API()
         answer = {'findings': [{'path': 'source.cpp', 'line': 5, 'body': '这个边界会越界吗？'}]}
-        self.assertEqual(task.publish_review(api, metadata(), answer)['comment_ids'], ['1'])
-        self.assertEqual(task.publish_review(api, metadata(), answer)['comment_ids'], ['1'])
+        self.assertEqual(task.publish_review(api, metadata(), stage(answer))['comment_ids'], ['1'])
+        self.assertEqual(task.publish_review(api, metadata(), stage(answer))['comment_ids'], ['1'])
         self.assertEqual(len(api.writes), 1)
         self.assertEqual(api.writes[0]['position'], 5)
         self.assertEqual(api.writes[0]['position_type'], 'text')
+        self.assertIn('By provider/new-model', api.writes[0]['body'])
+        self.assertNotIn('DeepSeek', api.writes[0]['body'])
 
     def test_stale_head_base_closed_and_identity_block_before_posting(self):
         for field in ('head', 'base', 'state', 'identity'):
@@ -75,7 +104,7 @@ class CommunityTaskTests(unittest.TestCase):
             else:
                 context['user_id'] = 'different'
             with self.subTest(field=field), self.assertRaises(ValueError):
-                task.publish_review(api, context, {'findings': []})
+                task.publish_review(api, context, stage({'findings': []}))
             self.assertEqual(api.writes, [])
 
     def test_compile_is_one_exact_command_not_inline(self):
@@ -159,12 +188,13 @@ class CommunityTaskTests(unittest.TestCase):
                     patch.object(task, 'Client', return_value=client), \
                     patch.object(task, 'restore_fix'), patch.object(task, 'apply_fix', return_value=True), \
                     patch.object(task, 'git', return_value=b'patch'), patch.object(task, 'push_branch') as push:
-                response = task.publish_fix(publisher, context, {'summary': 'Fix boundary'}, result / 'source', 'test', result)
+                response = task.publish_fix(publisher, context, stage({'summary': 'Fix boundary'}), result / 'source', 'test', result)
             self.assertEqual(response['pr_number'], '123')
             push.assert_called_once_with(result / 'source', 'bot-account', branch)
             create = next(body for method, path, body in calls if method == 'POST' and path == task.ROOT + '/pulls')
             self.assertEqual(create['head'], 'bot-account:' + branch)
             self.assertEqual(create['base'], 'master')
+            self.assertIn('By provider/new-model', create['body'])
             self.assertEqual(api.writes, [{'body': 'compile'}])
 
     def test_complex_fix_publication_has_no_api_or_push(self):

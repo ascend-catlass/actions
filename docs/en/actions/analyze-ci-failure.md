@@ -8,7 +8,7 @@ Takes a GitHub run ID and attempt in the caller repository, returning cause, log
 
 ## What happens
 
-Official actions/github-script handles authentication, pagination and log downloads. A small local script only bounds/redacts evidence, prepares the prompt and formats comment content. Installation reuses setup-trae-cn; model execution reuses trae-cn. Evidence covers at most four failed jobs. Analysis runs read-only in a separate temporary Git directory without executing tested code.
+Official actions/github-script handles authentication, pagination and log downloads. A small local script only bounds/redacts evidence, prepares the prompt and formats comment content. The shared [catlass-ai](catlass-ai.md) policy composes public CLI setup and execution; this caller has no separate host or model setting. Evidence covers at most four failed jobs. Analysis runs read-only in a separate temporary Git directory without executing tested code.
 
 ## Prerequisites
 
@@ -36,8 +36,6 @@ Pass `steps.diagnosis.outputs.analysis-file` to an artifact or publishing Action
 | `trae-pat` | Yes | — | TRAE CN enterprise PAT. |
 | `run-id` | Yes | — | Workflow run in the caller repository. |
 | `run-attempt` | No | `1` | Exact retry attempt. |
-| `host` | No | `""` | Optional enterprise API host. |
-| `model` | No | `DeepSeek-V4.1-Flash` | Model used for analysis and attribution. |
 
 ## Outputs
 
@@ -45,6 +43,10 @@ Pass `steps.diagnosis.outputs.analysis-file` to an artifact or publishing Action
 | --- | --- |
 | `analysis-file` | Markdown result path, or an unavailable-analysis note. |
 | `status` | analyzed or unavailable. |
+
+## Result handoff
+
+Comment assembly accepts only the TRAE result-directory, validates execution status, and reads the response and requested_model together. It has no separate model or response-path argument. An unspecified model omits attribution. Analysis failure preserves the original RDV failure report.
 
 ## Failure handling
 

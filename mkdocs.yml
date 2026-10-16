@@ -38,6 +38,7 @@ nav:
   - 工作流: zh/workflows.md
   - 术语: zh/glossary.md
   - Actions:
+    - catlass-ai · 统一 AI 执行策略: zh/actions/catlass-ai.md
     - analyze-ci-failure · 分析 CI 失败原因: zh/actions/analyze-ci-failure.md
     - community-repo-roles · 查询社区维护者与 Committer: zh/actions/community-repo-roles.md
     - create-ascend-container · 创建昇腾测试容器: zh/actions/create-ascend-container.md
@@ -55,6 +56,7 @@ nav:
   - Build and runner operations: en/operations.md
   - Glossary: en/glossary.md
   - Actions:
+    - catlass-ai · Shared AI execution policy: en/actions/catlass-ai.md
     - analyze-ci-failure · Analyze CI failure: en/actions/analyze-ci-failure.md
     - community-repo-roles · Look up community maintainers and committers: en/actions/community-repo-roles.md
     - create-ascend-container · Create an Ascend test container: en/actions/create-ascend-container.md

@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Read pull request metadata from AtomGit
         id: pr
-        uses: yuantao313/actions/atomgit-pr-metadata@fbfd9b229556d974d5aee35dafdf9dffe976facd
+        uses: yuantao313/actions/atomgit-pr-metadata@02defff4ec04b38b33adfaec06bcb1406f5a2150
         with:
           repository: cann/catlass
           pr-number: ${{ inputs.pr_number }}
@@ -161,7 +161,7 @@ jobs:
 
       - name: Merge the pull request into its target branch
         id: merge
-        uses: yuantao313/actions/atomgit-checkout-pr@fbfd9b229556d974d5aee35dafdf9dffe976facd
+        uses: yuantao313/actions/atomgit-checkout-pr@02defff4ec04b38b33adfaec06bcb1406f5a2150
         with:
           repository: cann/catlass
           pr-number: ${{ inputs.pr_number }}
@@ -292,7 +292,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
           trae-pat: ${{ secrets.TRAE_CN_PAT }}
-          host: ${{ vars.TRAE_CN_HOST }}
           run-id: ${{ github.run_id }}
           run-attempt: ${{ github.run_attempt }}
       - name: Save comment attachment

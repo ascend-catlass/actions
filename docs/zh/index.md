@@ -9,20 +9,21 @@
 
 | Action | 做什么 |
 | --- | --- |
+| [catlass-ai](actions/catlass-ai.md) | 统一模型选择、只读沙箱及公共 TRAE 安装和执行 |
 | [analyze-ci-failure](actions/analyze-ci-failure.md) | 分析任意 GitHub CI 失败日志，返回可供评论使用的说明 |
 | [community-repo-roles](actions/community-repo-roles.md) | 查询社区维护者与 Committer |
 | [create-ascend-container](actions/create-ascend-container.md) | 创建昇腾测试容器 |
-| [atomgit-api](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-api) | 调用 AtomGit API |
+| [atomgit-api](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-api) | 调用 AtomGit API |
 | [atomgit-ci-passed](actions/atomgit-ci-passed.md) | CI 通过后提醒代码检视 |
 | [atomgit-issue](actions/atomgit-issue.md) | 准备、回复或分配 AtomGit Issue |
-| [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-pr-metadata) | 读取并校验 PR 版本信息 |
+| [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-pr-metadata) | 读取并校验 PR 版本信息 |
 | [atomgit-release](actions/atomgit-release.md) | 发布 AtomGit Release 安装包 |
 | [npuir-local-archive](actions/npuir-local-archive.md) | 复用本机 AscendNPU-IR 构建归档 |
 | [prepare-ci-tests](actions/prepare-ci-tests.md) | 准备测试依赖并选择 NPU |
 | [rdv-status](actions/rdv-status.md) | 把 RDV 测试状态写回 PR |
 | [run-ci-tests](actions/run-ci-tests.md) | 运行 CATLASS 测试阶段 |
-| [setup-trae-cn](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/setup-traecn) | 安装固定版本的官方 TRAE CN CLI |
-| [trae-cn](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/traecn) | 运行 TRAE CN 分析任务 |
+| [setup-trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) | 安装固定版本的官方 TRAE CN CLI |
+| [trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/traecn) | 运行 TRAE CN 分析任务 |
 
 ## 四条社区流水线
 
@@ -44,4 +45,4 @@
 
 ## 当前范围
 
-手册覆盖 10 个 CATLASS 专用 Action；通用组件由 [yuantao313/actions](https://github.com/yuantao313/actions) 维护。CANN weekly 安装、仓库镜像同步和 wheel 的整套构建分发目前由工作流与脚本实现，它们也在工作流说明中介绍，不被另算为 Action。自动化不自动批准代码检视或合并 PR。
+手册覆盖 11 个 CATLASS 专用 Action；通用组件由 [yuantao313/actions](https://github.com/yuantao313/actions) 维护。CANN weekly 安装、仓库镜像同步和 wheel 的整套构建分发目前由工作流与脚本实现，它们也在工作流说明中介绍，不被另算为 Action。自动化不自动批准代码检视或合并 PR。

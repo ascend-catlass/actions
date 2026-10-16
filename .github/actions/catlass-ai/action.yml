@@ -1,0 +1,52 @@
+name: Run CATLASS AI analysis
+description: Apply CATLASS model policy using the public TRAE CN setup and execution Actions
+inputs:
+  pat:
+    description: TRAE CN enterprise PAT
+    required: true
+  working-directory:
+    description: Prepared source or analysis Git directory inside GITHUB_WORKSPACE
+    required: true
+  prompt-file:
+    description: Trusted prompt path relative to working-directory
+    required: true
+  output-schema-file:
+    description: Optional JSON schema relative to working-directory
+    default: ''
+  timeout-seconds:
+    description: Execution budget in seconds
+    default: '900'
+outputs:
+  result-directory:
+    description: Response and execution record from the same TRAE run
+    value: ${{ steps.run.outputs.result-directory }}
+  status:
+    description: success, failed, timeout or cancelled
+    value: ${{ steps.run.outputs.status }}
+runs:
+  using: composite
+  steps:
+    - name: Prepare the read-only sandbox dependency
+      shell: bash
+      run: |
+        if ! command -v bwrap >/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+        fi
+    - name: Install the pinned official CLI
+      id: cli
+      uses: yuantao313/actions/setup-traecn@02defff4ec04b38b33adfaec06bcb1406f5a2150
+    - name: Run the task with CATLASS model policy
+      id: run
+      uses: yuantao313/actions/traecn@02defff4ec04b38b33adfaec06bcb1406f5a2150
+      with:
+        pat: ${{ inputs.pat }}
+        cli-path: ${{ steps.cli.outputs.cli-path }}
+        expected-version: ${{ steps.cli.outputs.version }}
+        host: ${{ vars.TRAE_CN_HOST }}
+        model: DeepSeek-V4.1-Flash
+        working-directory: ${{ inputs.working-directory }}
+        prompt-file: ${{ inputs.prompt-file }}
+        output-schema-file: ${{ inputs.output-schema-file }}
+        sandbox: read-only
+        timeout-seconds: ${{ inputs.timeout-seconds }}

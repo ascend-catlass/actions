@@ -21,7 +21,7 @@ Use it to compose Issue analysis or separate context preparation from comment pu
 ## Before you run it
 
 - A Linux runner with Python 3, Git and a token allowed to read Issues and write comments.
-- prepare needs a trusted prompt-template file. publish needs the earlier result directory and model response file. Role routing uses community-repo-roles output.
+- prepare needs a trusted prompt-template file. publish needs the earlier context directory and TRAE execution result directory. Role routing uses community-repo-roles output.
 
 ## Example
 
@@ -47,12 +47,11 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 | --- | --- | --- | --- |
 | `operation` | Yes | — | prepare or publish |
 | `token` | Yes | — | AtomGit token from an Actions secret |
-| `issue-url` | Yes | — | AtomGit Issue URL |
+| `issue-url` | No | `""` | Required for prepare; publish reads the Issue from its context instead. |
 | `worktree` | No | `_issue-source` | Source checkout path; prepare clones here if absent |
 | `prompt-template` | No | `.github/prompts/atomgit-issue-reply.md` | Trusted UTF-8 prompt template for prepare |
 | `result-directory` | No | `_issue-result` | Directory for context metadata and publication evidence |
-| `response-file` | No | `""` | Final model answer for publish |
-| `model` | No | `DeepSeek-V4.1-Flash` | Actual model name for the single final By line |
+| `stage-result` | No | `""` | Required for publish: TRAE result-directory containing response.md and result.json from the same execution. |
 | `roles-file` | No | `""` | Optional community repository role JSON; rechecks author eligibility before analysis or publication |
 
 Required follows action.yml. Some optional fields become necessary for a particular operation; see the process and notes.
@@ -66,6 +65,7 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 ## Notes and common questions
 
+- Publication accepts one analysis result directory. Body and attribution come from the same successful execution; the model is selected only at execution. An unspecified model omits attribution rather than guessing the account default.
 - The workflow checks the author before analysis. Publication checks the current author and discussion again using roles-file.
 - Existing owned legacy replies migrate to the public comment marker after those checks; retries update the same comment.
 - The workflow is manually dispatched. `publish=false` generates an analysis without publishing.

@@ -8,7 +8,7 @@
 
 ## 执行过程
 
-官方 actions/github-script 负责认证、分页和下载日志；本地小脚本只负责截取、脱敏、准备提示词和组装评论内容。模型安装复用 setup-trae-cn，执行复用 trae-cn。最多读取四个失败 job 的证据，不执行被测代码，在单独初始化的临时 Git 目录里只读分析。
+官方 actions/github-script 负责认证、分页和下载日志；本地小脚本只负责截取、脱敏、准备提示词和组装评论内容。模型执行统一复用 [catlass-ai](catlass-ai.md) 策略，由它组合公共安装和执行组件；本调用方不再配置独立的 host 或 model。最多读取四个失败 job 的证据，不执行被测代码，在单独初始化的临时 Git 目录里只读分析。
 
 ## 使用前准备
 
@@ -36,8 +36,6 @@ Linux x64 GitHub 托管 runner，Git、Node 与 Bash。job 权限设为 `content
 | `trae-pat` | 是 | — | TRAE CN 企业 PAT。 |
 | `run-id` | 是 | — | 当前仓库的工作流运行编号。 |
 | `run-attempt` | 否 | `1` | 精确选择重跑轮次。 |
-| `host` | 否 | `""` | 可选企业 API 地址。 |
-| `model` | 否 | `DeepSeek-V4.1-Flash` | 模型名称，同时用于署名。 |
 
 ## 输出
 
@@ -45,6 +43,10 @@ Linux x64 GitHub 托管 runner，Git、Node 与 Bash。job 权限设为 `content
 | --- | --- |
 | `analysis-file` | Markdown 结果文件路径；分析不可用时为提示文字。 |
 | `status` | analyzed 或 unavailable。 |
+
+## 结果传递
+
+评论组装只接收 TRAE 的 result-directory，从中校验执行状态并读取答复与 requested_model，不另外传入模型 ID 或答复路径。未指定模型时不显示模型署名。分析失败时保留原 RDV 失败报告。
 
 ## 失败处理
 

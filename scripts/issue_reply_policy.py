@@ -6,6 +6,7 @@ import os
 import re
 
 from shared_actions._lib import operations
+from shared_actions._lib.traecn_result import load_result
 from scripts.atomgit_api import AtomGitAPI, resolve_token
 from scripts.atomgit_issue_reply import MARKER, LEGACY_MARKER, check_author_roles
 
@@ -49,13 +50,13 @@ def check_publication(api, metadata, answer, roles):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--context-file', type=Path, required=True)
-    parser.add_argument('--body-file', type=Path, required=True)
+    parser.add_argument('--stage-result', type=Path, required=True)
     parser.add_argument('--roles-file', type=Path)
     args = parser.parse_args()
     metadata = json.loads(args.context_file.read_text(encoding='utf-8'))
     roles = json.loads(args.roles_file.read_text(encoding='utf-8')) if args.roles_file else None
     result = check_publication(AtomGitAPI(resolve_token()), metadata,
-                               args.body_file.read_text(encoding='utf-8'), roles)
+                               load_result(args.stage_result).body, roles)
     args.context_file.write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
 
 

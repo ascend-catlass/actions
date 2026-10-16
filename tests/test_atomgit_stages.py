@@ -23,8 +23,24 @@ class StageContracts(unittest.TestCase):
         api_steps = [s for s in steps if s.get("uses") == "./.github/actions/atomgit-issue"]
         self.assertEqual([s["with"]["operation"] for s in api_steps], ["prepare", "publish"])
         analyze = next(s for s in steps if s.get("id") == "trae")
-        self.assertEqual(analyze["with"]["model"], "DeepSeek-V4.1-Flash")
+        self.assertEqual(analyze['uses'], './.github/actions/catlass-ai')
         self.assertNotIn("ATOMGIT_TOKEN", analyze.get("env", {}))
+        publish = api_steps[1]['with']
+        self.assertEqual(publish['stage-result'], '${{ steps.trae.outputs.result-directory }}')
+        for redundant in ('model', 'response-file', 'issue-url'):
+            self.assertNotIn(redundant, publish)
+
+    def test_all_model_publishers_consume_results_without_reselecting_the_model(self):
+        for name in ('fix-atomgit-issue', 'review-atomgit-pr'):
+            text = (ROOT / f'.github/workflows/{name}.yml').read_text(encoding='utf-8')
+            self.assertNotIn('TASK_RESPONSE', text)
+            self.assertNotIn('model:', text)
+            self.assertNotIn('expected-version: 0.209.1', text)
+        action = yaml.safe_load((ROOT / '.github/actions/analyze-ci-failure/action.yml').read_text(encoding='utf-8'))
+        render = next(step for step in action['runs']['steps'] if step.get('id') == 'render')
+        self.assertEqual(render['env']['TRAE_RESULT'], '${{ steps.model.outputs.result-directory }}')
+        self.assertNotIn('ANALYSIS_MODEL', render['env'])
+        self.assertNotIn('ANALYSIS_RESPONSE', render['env'])
 
     def test_release_workflow_uses_release_stage(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/release-dsl-wheel.yml").read_text(encoding="utf-8"))
@@ -40,7 +56,7 @@ class StageContracts(unittest.TestCase):
         guarded = [s for s in steps if s.get("id") == "trae"
                    or (s.get("uses") == "./.github/actions/atomgit-issue" and s["with"]["operation"] != "assign")
                    or s.get("name", "").startswith("Install pinned")]
-        self.assertEqual(len(guarded), 4)
+        self.assertEqual(len(guarded), 3)
         for step in guarded:
             self.assertLess(gate_index, steps.index(step))
             self.assertIn("steps.eligibility.outputs.analyze == 'true'", step["if"])
