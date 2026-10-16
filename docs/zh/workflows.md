@@ -25,13 +25,13 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 
 ## PR 测试
 
-1. [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/atomgit-pr-metadata) 查询 PR 分支和来源提交。
+1. [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-pr-metadata) 查询 PR 分支和来源提交。
 2. [rdv-status](actions/rdv-status.md) 写入测试开始状态。
 3. GitHub-hosted runner 下载目标分支与 PR，按修改路径分类。只有文档或图片变更时在此完成，不调度 Ascend 950。
 4. 代码变更交给 `ascend950` 自托管 runner 合并。获取到的 PR head 与查询结果不同或合并冲突时会失败。
 5. [create-ascend-container](actions/create-ascend-container.md) 准备环境；[prepare-ci-tests](actions/prepare-ci-tests.md) 安装过滤后的依赖并选卡。
 6. [run-ci-tests](actions/run-ci-tests.md) 执行所需阶段：DSL 依次进行 dev 构建、IR/Lit 测试和设备测试；非 DSL 按变更与反向头文件依赖选择测试。两类都修改则两类都运行。
-7. 已启动 RDV 后，准备阶段或测试 job 失败会启动独立的 GitHub 托管分析 job：调用通用的 [`analyze-ci-failure`](actions/analyze-ci-failure.md)，传入当前运行编号与 attempt。Action 内复用官方 `actions/github-script` 获取日志、[`setup-trae-cn`](https://github.com/yuantao313/actions/tree/fbfd9b229556d974d5aee35dafdf9dffe976facd/setup-traecn) 安装 CLI、`trae-cn` 执行 DeepSeek-V4.1-Flash 分析；独立的小脚本负责日志摘取、脱敏和评论组装，输出原因、依据和下一步建议。安装 Action 也供 Issue 分析、修复和 PR 检视共用。不检出或执行 PR 代码。
+7. 已启动 RDV 后，准备阶段或测试 job 失败会启动独立的 GitHub 托管分析 job：调用通用的 [`analyze-ci-failure`](actions/analyze-ci-failure.md)，传入当前运行编号与 attempt。Action 内复用官方 `actions/github-script` 获取日志、[`setup-trae-cn`](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) 安装 CLI、`trae-cn` 执行 DeepSeek-V4.1-Flash 分析；独立的小脚本负责日志摘取、脱敏和评论组装，输出原因、依据和下一步建议。安装 Action 也供 Issue 分析、修复和 PR 检视共用。不检出或执行 PR 代码。
 8. 报告 job 将分析追加在原 RDV Failed 评论的运行链接下；分析 job 超时、模型失败或日志不可用时附加“分析暂不可用”，仍正常发布 RDV-FAIL。成功与取消的评论保持原样。分析 job 最长 12 分钟，模型执行预算 5 分钟；评论附件保存七天。容器清理由 `always()` 步骤处理。
 
 减少重复工作的方式是共用准备步骤、复用 DSL dev 构建、按变更选择测试，以及把日志链接自动写回 PR。测试选择范围见[源码说明](https://github.com/ascend-catlass/actions/blob/main/.github/actions/run-ci-tests/SOURCE.md)。
@@ -96,6 +96,10 @@ Token 通过 Secret 传给需要它的步骤；不要放进源码、提示词或
 
 ## 公共 Action 依赖
 
-通用步骤引用 `yuantao313/actions` 的固定提交 `fbfd9b229556d974d5aee35dafdf9dffe976facd`；RDV 状态发布使用修复版本 `38c9c6b54de142c3120e000f1e4cdff84970bf47`。CATLASS Python 策略需要传输 helpers 时，工作流将同一版本检出到 `shared_actions`。本地忽略该目录；公共实现及其单元测试由上游维护。
+通用步骤引用 `yuantao313/actions` 的固定提交 `02defff4ec04b38b33adfaec06bcb1406f5a2150`；RDV 状态发布使用修复版本 `02defff4ec04b38b33adfaec06bcb1406f5a2150`。CATLASS Python 策略需要传输 helpers 时，工作流将同一版本检出到 `shared_actions`。本地忽略该目录；公共实现及其单元测试由上游维护。
 
 凭据优先读取 `ATOMGIT_TOKEN`，未设置或为空时回退到原有 `GITCODE_TOKEN`，已有配置无需改名。发布环境保留原有标识 `gitcode-release` 及其权限配置。工作流入口文件已统一为 `atomgit` 名称。历史 NPUIR 20260720 保留诊断行为，仅更新上游域名和平台称谓。
+
+## AI 分析结果如何传递
+
+Issue 回复、手动修复、PR 检视与 CI 失败分析统一使用 [catlass-ai](actions/catlass-ai.md) 选择模型、企业地址和只读沙箱，组合公共安装与执行组件。下游读取同一份执行结果中的正文和模型记录，不再单独指定署名模型。修复流程把答复和执行记录一起保存为提案，供验证和发布共用。CLI 版本取自安装步骤输出；Issue URL 的默认值仅在调度入口定义。目标编号、源码版本、补丁与验证命令的核对仍保留，用于阻止过期或不匹配的结果被发布。

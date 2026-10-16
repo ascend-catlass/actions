@@ -12,10 +12,10 @@ import tempfile
 
 from scripts.atomgit_api import AtomGitAPI, resolve_token
 from scripts.atomgit_issue_reply import Client, fingerprint, snapshot
+from shared_actions._lib.traecn_result import load_result
 
 ROOT = '/repos/cann/catlass'
 SOURCE = 'https://atomgit.com/cann/catlass.git'
-MODEL = 'DeepSeek-V4.1-Flash'
 
 
 def git(worktree, *args, binary=False):
@@ -155,8 +155,8 @@ def current_pr(api, metadata):
     return pr
 
 
-def publish_review(api, metadata, answer):
-    findings = validate_findings(answer, metadata['lines'])
+def publish_review(api, metadata, stage):
+    findings = validate_findings(stage.json(), metadata['lines'])
     current_pr(api, metadata)
     identity = api.request('GET', '/user')
     if identity['id'] != metadata['user_id']:
@@ -167,7 +167,7 @@ def publish_review(api, metadata, answer):
     for finding in findings:
         key = hashlib.sha256(json.dumps([metadata['head_sha'], finding], sort_keys=True).encode()).hexdigest()
         marker = f'<!-- trae-cn-review:{key} -->'
-        body = f"{finding['body'].strip()}\n\n<sub>By {MODEL}</sub>\n{marker}"
+        body = f"{finding['body'].strip()}{stage.attribution}\n{marker}"
         matches = [c for c in existing if (c.get('user') or {}).get('id') == identity['id'] and marker in c.get('body', '')]
         if matches:
             published.append(matches[0]['id'])
@@ -269,7 +269,7 @@ def push_branch(worktree, login, branch):
                         'push', f'https://atomgit.com/{login}/catlass.git', f'HEAD:refs/heads/{branch}'], env=env, check=True, timeout=180)
 
 
-def publish_fix(api, metadata, answer, worktree, validation_command, result):
+def publish_fix(api, metadata, stage, worktree, validation_command, result):
     validation = json.loads((result / 'validation.json').read_text(encoding='utf-8'))
     if validation['result'] == 'needs-human':
         return validation
@@ -277,6 +277,7 @@ def publish_fix(api, metadata, answer, worktree, validation_command, result):
         raise ValueError('Missing successful validation result')
     if validation.get('command') != validation_command:
         raise ValueError('Validation command changed')
+    answer = stage.json()
     restore_fix(metadata, worktree)
     if not apply_fix(worktree, answer):
         raise ValueError('Validation and model decision disagree')
@@ -309,7 +310,7 @@ def publish_fix(api, metadata, answer, worktree, validation_command, result):
         push_branch(worktree, login, branch)
         pr = api.request('POST', ROOT + '/pulls', {
             'title': f"fix: resolve issue #{metadata['number']}", 'head': f'{login}:{branch}', 'base': 'master',
-            'body': f"{marker}\nFixes #{metadata['number']}\n\n{answer['summary']}\n\nValidation: `{validation_command}`\n\nBy {MODEL}"})
+            'body': f"{marker}\nFixes #{metadata['number']}\n\n{answer['summary']}\n\nValidation: `{validation_command}`{stage.attribution}"})
     n = number(pr.get('number') or pr.get('iid'))
     verified = api.request('GET', f'{ROOT}/pulls/{n}')
     require_open(verified)
@@ -329,7 +330,7 @@ def main():
     args = parser.parse_args()
     number(args.number)
     if args.phase == 'validate':
-        answer = json.loads(Path(os.environ['TASK_RESPONSE']).read_text(encoding='utf-8'))
+        answer = load_result(args.result / 'analysis').json()
         if args.mode != 'fix':
             raise ValueError('Validation phase is only for fixes')
         metadata = json.loads((args.result / 'context.json').read_text(encoding='utf-8'))
@@ -352,9 +353,9 @@ def main():
         metadata = json.loads((args.result / 'context.json').read_text(encoding='utf-8'))
         if metadata['number'] != args.number or metadata['mode'] != args.mode:
             raise ValueError('Task context mismatch')
-        answer = json.loads(Path(os.environ['TASK_RESPONSE']).read_text(encoding='utf-8'))
-        result = (publish_review(api, metadata, answer) if args.mode == 'review' else
-                  publish_fix(api, metadata, answer, args.worktree, os.environ.get('VALIDATION_COMMAND', ''), args.result))
+        stage = load_result(os.environ['TRAE_RESULT'] if args.mode == 'review' else args.result / 'analysis')
+        result = (publish_review(api, metadata, stage) if args.mode == 'review' else
+                  publish_fix(api, metadata, stage, args.worktree, os.environ.get('VALIDATION_COMMAND', ''), args.result))
         save(args.result / 'publication.json', result)
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as stream:
             stream.write(json.dumps(result, ensure_ascii=False) + '\n')

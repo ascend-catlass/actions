@@ -9,7 +9,7 @@ inputs:
     required: true
   issue-url:
     description: AtomGit Issue URL
-    required: true
+    default: ''
   worktree:
     description: Source checkout path
     default: _issue-source
@@ -19,12 +19,9 @@ inputs:
   result-directory:
     description: Context and publication evidence directory
     default: _issue-result
-  response-file:
-    description: Final model answer for publish
+  stage-result:
+    description: TRAE result-directory containing the final response and execution record for publish
     default: ''
-  model:
-    description: Model attribution
-    default: DeepSeek-V4.1-Flash
   roles-file:
     description: Community role declarations for publication eligibility
     default: ''
@@ -44,7 +41,7 @@ runs:
       run: '[[ "$OPERATION" == prepare || "$OPERATION" == publish ]] || exit 1'
     - id: context
       if: ${{ inputs.operation == 'prepare' }}
-      uses: yuantao313/actions/atomgit-issue-context@fbfd9b229556d974d5aee35dafdf9dffe976facd
+      uses: yuantao313/actions/atomgit-issue-context@02defff4ec04b38b33adfaec06bcb1406f5a2150
       with:
         token: ${{ inputs.token }}
         issue-url: ${{ inputs.issue-url }}
@@ -57,18 +54,17 @@ runs:
       env:
         ATOMGIT_TOKEN: ${{ inputs.token }}
         CONTEXT_FILE: ${{ inputs.result-directory }}/context.json
-        BODY_FILE: ${{ inputs.response-file }}
+        TRAE_RESULT: ${{ inputs.stage-result }}
         ROLES_FILE: ${{ inputs.roles-file }}
       run: |
         role_args=()
         if [[ -n "$ROLES_FILE" ]]; then role_args=(--roles-file "$ROLES_FILE"); fi
-        python3 -m scripts.issue_reply_policy --context-file "$CONTEXT_FILE" --body-file "$BODY_FILE" "${role_args[@]}"
+        python3 -m scripts.issue_reply_policy --context-file "$CONTEXT_FILE" --stage-result "$TRAE_RESULT" "${role_args[@]}"
     - id: publish
       if: ${{ inputs.operation == 'publish' }}
-      uses: yuantao313/actions/atomgit-issue-comment@fbfd9b229556d974d5aee35dafdf9dffe976facd
+      uses: yuantao313/actions/atomgit-issue-comment@02defff4ec04b38b33adfaec06bcb1406f5a2150
       with:
         token: ${{ inputs.token }}
         context-file: ${{ inputs.result-directory }}/context.json
-        body-file: ${{ inputs.response-file }}
-        model: ${{ inputs.model }}
+        stage-result: ${{ inputs.stage-result }}
         result-file: ${{ inputs.result-directory }}/published.json

@@ -13,12 +13,6 @@ inputs:
   run-attempt:
     description: Attempt number to inspect
     default: '1'
-  host:
-    description: Optional TRAE CN enterprise API host
-    default: ''
-  model:
-    description: TRAE CN model for the diagnosis and attribution
-    default: DeepSeek-V4.1-Flash
 outputs:
   analysis-file:
     description: UTF-8 Markdown diagnosis or unavailable-analysis note; caller decides how to publish it
@@ -71,35 +65,16 @@ runs:
       env:
         ANALYSIS_DIRECTORY: ${{ steps.workspace.outputs.directory }}
       run: node "${GITHUB_ACTION_PATH}/comment.cjs" prepare
-    - name: Prepare the model sandbox dependency
-      if: ${{ steps.prompt.outcome == 'success' }}
-      continue-on-error: true
-      shell: bash
-      run: |
-        if ! command -v bwrap >/dev/null; then
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap
-        fi
-    - name: Install TRAE CN
-      id: install
-      if: ${{ steps.prompt.outcome == 'success' }}
-      continue-on-error: true
-      uses: yuantao313/actions/setup-traecn@fbfd9b229556d974d5aee35dafdf9dffe976facd
     - name: Analyze logs with TRAE CN
       id: model
-      if: ${{ steps.prompt.outcome == 'success' && steps.install.outcome == 'success' }}
+      if: ${{ steps.prompt.outcome == 'success' }}
       continue-on-error: true
-      uses: yuantao313/actions/traecn@fbfd9b229556d974d5aee35dafdf9dffe976facd
+      uses: ascend-catlass/actions/.github/actions/catlass-ai@main
       with:
         pat: ${{ inputs.trae-pat }}
-        cli-path: ${{ steps.install.outputs.cli-path }}
-        host: ${{ inputs.host }}
-        expected-version: 0.209.1
-        model: ${{ inputs.model }}
         working-directory: ${{ steps.workspace.outputs.directory }}
         prompt-file: prompt.md
         output-schema-file: schema.json
-        sandbox: read-only
         timeout-seconds: '300'
     - name: Format the comment attachment
       id: render
@@ -107,6 +82,5 @@ runs:
       shell: bash
       env:
         ANALYSIS_DIRECTORY: ${{ steps.workspace.outputs.directory }}
-        ANALYSIS_RESPONSE: ${{ steps.model.outputs.status == 'success' && steps.model.outputs.response-file || '' }}
-        ANALYSIS_MODEL: ${{ inputs.model }}
+        TRAE_RESULT: ${{ steps.model.outputs.result-directory }}
       run: node "${GITHUB_ACTION_PATH}/comment.cjs" render

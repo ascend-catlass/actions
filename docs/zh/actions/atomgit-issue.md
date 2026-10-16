@@ -21,7 +21,7 @@
 ## 使用前准备
 
 - Linux runner，Python 3、Git，具有 Issue 读取和评论写入权限的 Token。
-- prepare 需要可信 prompt-template 文件；publish 需要此前的结果目录和模型答复文件；角色分流需 community-repo-roles 结果。
+- prepare 需要可信 prompt-template 文件；publish 需要此前的上下文目录和 TRAE 执行结果目录；角色分流需 community-repo-roles 结果。
 
 ## 调用示例
 
@@ -47,12 +47,11 @@
 | --- | --- | --- | --- |
 | `operation` | 是 | — | prepare 或 publish。 |
 | `token` | 是 | — | 用于 Issue 读取及评论发布的 AtomGit Token。 |
-| `issue-url` | 是 | — | 目标 AtomGit Issue 的 HTTPS 地址。 |
+| `issue-url` | 否 | `""` | prepare 必须提供的 Issue 地址；publish 从上下文读取，无需重复传入。 |
 | `worktree` | 否 | `_issue-source` | 源码目录；prepare 在目录不存在时下载源码。 |
 | `prompt-template` | 否 | `.github/prompts/atomgit-issue-reply.md` | prepare 使用的可信 UTF-8 模板路径。 |
 | `result-directory` | 否 | `_issue-result` | 上下文与发布证据的保存目录；prepare 和 publish 使用同一目录。 |
-| `response-file` | 否 | `""` | publish 读取的模型最终答复文件。 |
-| `model` | 否 | `DeepSeek-V4.1-Flash` | 公开答复末尾署名使用的实际模型名称。 |
+| `stage-result` | 否 | `""` | publish 必须提供的 TRAE result-directory，内含同一次执行的 response.md 和 result.json。 |
 | `roles-file` | 否 | `""` | 可选的社区角色 JSON 文件；用于重查作者资格。 |
 
 “必填”按 action.yml 标记；某些可选字段在特定操作下仍必须提供，见执行过程与说明。
@@ -66,6 +65,7 @@
 
 ## 说明与常见问题
 
+- 发布只传分析结果目录，正文和署名来自同一次成功执行。模型只在执行步骤选择；记录中未指定模型时不猜测署名。
 - 工作流在分析前检查作者；发布时通过 roles-file 再次检查当前作者与讨论。
 - 旧的本账号回复在检查通过后迁移到公共评论标记，重试继续更新同一条评论。
 - 工作流为手动调度。publish=false 只生成分析，不发表评论。
