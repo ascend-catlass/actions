@@ -1,0 +1,35 @@
+name: Package hardware test tools
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out pinned public helpers
+        uses: actions/checkout@v4
+        with:
+          repository: yuantao313/actions
+          ref: 02defff4ec04b38b33adfaec06bcb1406f5a2150
+          path: shared_actions
+          persist-credentials: false
+          sparse-checkout: |
+            trust-checkout
+            install-python-requirements
+      - name: Upload tools for this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: catlass-hardware-tools
+          path: |
+            .github
+            scripts
+            shared_actions/trust-checkout
+            shared_actions/install-python-requirements
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1

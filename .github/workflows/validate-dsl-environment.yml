@@ -18,8 +18,12 @@ concurrency:
   group: validate-dsl-environment-${{ inputs.runner_label }}
   cancel-in-progress: false
 jobs:
+  tools:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/package-hardware-tools.yml
   validate:
     if: ${{ github.ref == 'refs/heads/main' }}
+    needs: tools
     strategy:
       fail-fast: false
       matrix:
@@ -27,9 +31,10 @@ jobs:
     runs-on: [self-hosted, Linux, ascend950, '${{ matrix.runner_label }}']
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          persist-credentials: false
+          name: catlass-hardware-tools
+          path: hardware-tools
       - name: Check out trusted CATLASS source
         id: source
         shell: bash
@@ -47,7 +52,7 @@ jobs:
           git -C "$source_dir" rev-parse HEAD
       - name: Create environment (build image immediately if missing)
         id: container
-        uses: ./.github/actions/create-ascend-container
+        uses: ./hardware-tools/.github/actions/create-ascend-container
         with:
           name: catlass-env-${{ github.run_id }}-${{ github.run_attempt }}
           worktree: ${{ steps.source.outputs.worktree }}
@@ -61,31 +66,32 @@ jobs:
         run: docker inspect "$CONTAINER" --format '{{json .Mounts}}'
       - name: Prepare tests and select device
         id: prepare
-        uses: ./.github/actions/prepare-ci-tests
+        uses: ./hardware-tools/.github/actions/prepare-ci-tests
         with:
           worktree: ${{ steps.container.outputs.worktree }}
           container: ${{ steps.container.outputs.container-name }}
+          helpers-path: ${{ github.workspace }}/hardware-tools/shared_actions
       - name: Build editable DSL package
-        uses: ./.github/actions/run-ci-tests
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl-dev
           worktree: ${{ steps.container.outputs.worktree }}
           container: ${{ steps.container.outputs.container-name }}
           device-id: ${{ steps.prepare.outputs.device-id }}
       - name: Run IR tests
-        uses: ./.github/actions/run-ci-tests
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl-ir
           worktree: ${{ steps.container.outputs.worktree }}
           container: ${{ steps.container.outputs.container-name }}
       - name: Run Lit tests
-        uses: ./.github/actions/run-ci-tests
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl-lit
           worktree: ${{ steps.container.outputs.worktree }}
           container: ${{ steps.container.outputs.container-name }}
       - name: Build Release wheel and run NPU tests
-        uses: ./.github/actions/run-ci-tests
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl
           worktree: ${{ steps.container.outputs.worktree }}

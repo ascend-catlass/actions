@@ -41,6 +41,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 | --- | --- | --- | --- |
 | `worktree` | Yes | — | Source path in the test environment |
 | `container` | No | `""` | Managed Docker container; empty for a container runner |
+| `helpers-path` | No | `""` | Host directory of trusted prepackaged shared helpers; empty checks out the pinned helpers |
 
 Required follows action.yml. Some optional fields become necessary for a particular operation; see the process and notes.
 
@@ -55,6 +56,7 @@ Required follows action.yml. Some optional fields become necessary for a particu
 - Filtering applies to direct requirements; pip still resolves transitive dependencies. The original requirements.txt is unchanged, and the DSL dev stage may still install Lit.
 - Default eligibility requires more than 1024 MB free memory and fewer than four processes. No candidate fails preparation. Selection is a snapshot, not an exclusive reservation.
 - The selector comes from flash-attention-npu; its source attribution and license are kept with the Action.
+- Hardware workflows package the pinned public helpers on a hosted runner and download them with the current run's artifact. Passing `helpers-path` avoids a GitHub Git checkout on the hardware worker. Other callers retain the pinned-checkout fallback.
 
 ## Implementation and callers
 

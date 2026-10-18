@@ -140,9 +140,14 @@ jobs:
         run: |
           echo "Only documentation or image files changed; no tests are required."
 
+  tools:
+    needs: prepare
+    if: ${{ github.ref == 'refs/heads/main' && (needs.prepare.outputs.run_dsl == 'true' || needs.prepare.outputs.run_all == 'true') }}
+    uses: ./.github/workflows/package-hardware-tools.yml
+
   merge-and-test:
     name: "Test PR #${{ inputs.pr_number }}"
-    needs: prepare
+    needs: [prepare, tools]
     if: ${{ github.ref == 'refs/heads/main' && (needs.prepare.outputs.run_dsl == 'true' || needs.prepare.outputs.run_all == 'true') }}
     runs-on: [self-hosted, ascend950]
     timeout-minutes: 90
@@ -150,6 +155,11 @@ jobs:
       RDV_CONTAINER: catlass-rdv-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
+      - name: Download tools prepared for this run
+        uses: actions/download-artifact@v4
+        with:
+          name: catlass-hardware-tools
+          path: hardware-tools
       - name: Detect runner environment
         shell: bash
         run: |
@@ -174,7 +184,7 @@ jobs:
         if: >-
           ${{ needs.prepare.outputs.run_dsl == 'true' ||
               needs.prepare.outputs.run_all == 'true' }}
-        uses: ascend-catlass/actions/.github/actions/create-ascend-container@main
+        uses: ./hardware-tools/.github/actions/create-ascend-container
         with:
           image-repository: ascend-catlass-dsl
           image-tag: ubuntu24-py312-weekly-v1
@@ -189,15 +199,16 @@ jobs:
         if: >-
           ${{ needs.prepare.outputs.run_dsl == 'true' ||
               needs.prepare.outputs.run_all == 'true' }}
-        uses: ascend-catlass/actions/.github/actions/prepare-ci-tests@main
+        uses: ./hardware-tools/.github/actions/prepare-ci-tests
         with:
           worktree: ${{ steps.create_container.outputs.worktree }}
           container: ${{ steps.create_container.outputs.container-name }}
+          helpers-path: ${{ github.workspace }}/hardware-tools/shared_actions
 
       - name: Build DSL in dev mode
         id: dsl_dev
         if: ${{ needs.prepare.outputs.run_dsl == 'true' }}
-        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl-dev
           worktree: ${{ steps.create_container.outputs.worktree }}
@@ -207,7 +218,7 @@ jobs:
       - name: Run DSL IR tests
         id: dsl_ir
         if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
-        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl-ir
           worktree: ${{ steps.create_container.outputs.worktree }}
@@ -217,7 +228,7 @@ jobs:
       - name: Run DSL Lit tests
         id: dsl_lit
         if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
-        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl-lit
           worktree: ${{ steps.create_container.outputs.worktree }}
@@ -226,7 +237,7 @@ jobs:
 
       - name: Build Release wheel and run DSL device tests
         if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
-        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl
           worktree: ${{ steps.create_container.outputs.worktree }}
@@ -240,7 +251,7 @@ jobs:
               steps.create_container.outcome == 'success' &&
               steps.prepare_tests.outcome == 'success' &&
               needs.prepare.outputs.run_all == 'true' }}
-        uses: ascend-catlass/actions/.github/actions/run-ci-tests@main
+        uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: all
           base-sha: ${{ steps.merge.outputs.base-sha }}
