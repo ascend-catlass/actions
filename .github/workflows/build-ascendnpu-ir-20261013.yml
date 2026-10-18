@@ -3,6 +3,16 @@ name: Build AscendNPU-IR 20261013
 on:
   workflow_call:
     inputs:
+      runner_label:
+        description: Unique host label; empty keeps both DSL build architecture pools
+        required: false
+        default: ''
+        type: string
+      target_arch:
+        description: CPU architecture when runner_label selects one host
+        required: false
+        default: x86_64
+        type: string
       branch:
         description: AscendNPU-IR branch used when the archive is missing
         required: false
@@ -24,6 +34,17 @@ on:
         type: number
   workflow_dispatch:
     inputs:
+      runner_label:
+        description: Unique host label; empty keeps both DSL build architecture pools
+        required: false
+        default: ''
+        type: string
+      target_arch:
+        description: CPU architecture when runner_label selects one host
+        required: false
+        default: x86_64
+        type: choice
+        options: [x86_64, aarch64]
       branch:
         description: AscendNPU-IR branch used when the archive is missing
         required: true
@@ -44,7 +65,7 @@ on:
         required: true
         default: 64
         type: number
-run-name: NPUIR 20261013 �� ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }} �� x86_64 + aarch64
+run-name: NPUIR 20261013 - ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }} - ${{ inputs.runner_label || 'x86_64 + aarch64' }}
 
 permissions:
   contents: read
@@ -57,26 +78,35 @@ env:
   NPUIR_LEGACY_POSTFIX: "20260930"
 
 concurrency:
-  group: local-npuir-${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }}-clang19-v1
+  group: local-npuir-${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }}-clang19-v1-${{ inputs.runner_label || 'default' }}
   cancel-in-progress: false
 
 jobs:
+  runners:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.runners.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select dependency runners
+        id: runners
+        env:
+          TARGET_RUNNER_LABEL: ${{ inputs.runner_label }}
+          TARGET_ARCH: ${{ inputs.target_arch || 'x86_64' }}
+          DEFAULT_RUNNER_LABEL: ascend-catlass-dsl-build
+        run: python3 scripts/dependency_runner_matrix.py
+
   prepare:
     if: ${{ github.ref == 'refs/heads/main' }}
+    needs: runners
     name: Reuse or build AscendNPU-IR (${{ matrix.target_arch }})
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target_arch: x86_64
-            runner_arch: X64
-            container_image: quay.io/pypa/manylinux_2_28_x86_64
-            use_all_cores: false
-          - target_arch: aarch64
-            runner_arch: ARM64
-            container_image: quay.io/pypa/manylinux_2_28_aarch64
-            use_all_cores: true
-    runs-on: [self-hosted, Linux, ascend-catlass-dsl-build, "${{ matrix.runner_arch }}"]
+      matrix: ${{ fromJSON(needs.runners.outputs.matrix) }}
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 720
     env:
       NPUIR_TARGET_ARCH: ${{ matrix.target_arch }}

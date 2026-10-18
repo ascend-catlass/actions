@@ -44,11 +44,12 @@ class BaselineTests(unittest.TestCase):
         npuir = workflow('build-ascendnpu-ir-20261013.yml')['jobs']['prepare']
         expected = ['self-hosted', 'Linux', 'ascend-catlass-dsl-build', '${{ matrix.runner_arch }}']
         self.assertEqual(wheel['runs-on'], expected)
-        self.assertEqual(npuir['runs-on'], expected)
-        for job in [wheel, npuir]:
-            self.assertEqual({row['target_arch']: row['runner_arch']
-                              for row in job['strategy']['matrix']['include']},
-                             {'x86_64': 'X64', 'aarch64': 'ARM64'})
+        self.assertEqual(npuir['runs-on'], '${{ matrix.runs_on }}')
+        selector = workflow('build-ascendnpu-ir-20261013.yml')['jobs']['runners']
+        self.assertEqual(selector['steps'][-1]['env']['DEFAULT_RUNNER_LABEL'], 'ascend-catlass-dsl-build')
+        self.assertEqual({row['target_arch']: row['runner_arch']
+                          for row in wheel['strategy']['matrix']['include']},
+                         {'x86_64': 'X64', 'aarch64': 'ARM64'})
         # Release transport and historical diagnosis have separate routing.
         self.assertEqual(workflow('release-dsl-wheel.yml')['jobs']['publish-atomgit']['runs-on'],
                          ['self-hosted', 'publish', 'X64'])

@@ -5,6 +5,20 @@ on:
     # Daily 02:00 Asia/Shanghai; GitHub schedules use UTC.
     - cron: "0 18 * * *"
   workflow_dispatch:
+    inputs:
+      runner_label:
+        description: Unique host label; empty keeps both bz architecture pools
+        required: false
+        default: ''
+        type: string
+      target_arch:
+        description: CPU architecture when runner_label selects one host
+        required: false
+        default: x86_64
+        type: choice
+        options: [x86_64, aarch64]
+
+run-name: Install CANN weekly - ${{ inputs.runner_label || 'bz hosts' }}
 
 permissions:
   contents: read
@@ -21,7 +35,18 @@ jobs:
     outputs:
       build: ${{ steps.weekly.outputs.build }}
       version: ${{ steps.weekly.outputs.version }}
+      matrix: ${{ steps.runners.outputs.matrix }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select dependency runners
+        id: runners
+        env:
+          TARGET_RUNNER_LABEL: ${{ inputs.runner_label }}
+          TARGET_ARCH: ${{ inputs.target_arch || 'x86_64' }}
+          DEFAULT_RUNNER_LABEL: bz
+        run: python3 scripts/dependency_runner_matrix.py
       - name: Pin the latest master build for both hosts
         id: weekly
         shell: bash
@@ -52,13 +77,8 @@ jobs:
     timeout-minutes: 150
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - cpu: x86_64
-            runner_arch: X64
-          - cpu: aarch64
-            runner_arch: ARM64
-    runs-on: [self-hosted, Linux, bz, "${{ matrix.runner_arch }}"]
+      matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    runs-on: ${{ matrix.runs_on }}
     steps:
       - uses: actions/checkout@v4
         with:
