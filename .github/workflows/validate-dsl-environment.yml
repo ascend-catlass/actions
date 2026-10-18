@@ -1,0 +1,104 @@
+name: Validate DSL runner environment
+run-name: Validate DSL environment on ${{ inputs.runner_label }}
+on:
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: Machine to validate (all runs on both replacement workers)
+        type: choice
+        default: all
+        options: [all, host-179-223-2-2, host-179-228-2-2]
+      catlass_ref:
+        description: Trusted CATLASS branch, tag or commit to validate
+        type: string
+        default: master
+permissions:
+  contents: read
+concurrency:
+  group: validate-dsl-environment-${{ inputs.runner_label }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner_label: ${{ fromJSON(inputs.runner_label == 'all' && '["host-179-223-2-2","host-179-228-2-2"]' || format('["{0}"]', inputs.runner_label)) }}
+    runs-on: [self-hosted, Linux, ascend950, '${{ matrix.runner_label }}']
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out trusted CATLASS source
+        id: source
+        shell: bash
+        env:
+          CATLASS_REF: ${{ inputs.catlass_ref }}
+        run: |
+          set -euo pipefail
+          source_dir="${RUNNER_TEMP}/catlass-env-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          [[ ! -e "$source_dir" ]]
+          git init -q "$source_dir"
+          git -C "$source_dir" remote add origin https://atomgit.com/cann/catlass.git
+          git -C "$source_dir" fetch --depth 1 origin "$CATLASS_REF"
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+          echo "worktree=$source_dir" >> "$GITHUB_OUTPUT"
+          git -C "$source_dir" rev-parse HEAD
+      - name: Create environment (build image immediately if missing)
+        id: container
+        uses: ./.github/actions/create-ascend-container
+        with:
+          name: catlass-env-${{ github.run_id }}-${{ github.run_attempt }}
+          worktree: ${{ steps.source.outputs.worktree }}
+          base-image: docker.m.daocloud.io/library/ubuntu:24.04
+          cann-root: /opt/cann_weekly/latest/ascend-toolkit
+          npuir-root: /opt/AscendNPU-IR/latest/AscendNPU-IR
+      - name: Record read-only dependency mounts
+        shell: bash
+        env:
+          CONTAINER: ${{ steps.container.outputs.container-name }}
+        run: docker inspect "$CONTAINER" --format '{{json .Mounts}}'
+      - name: Prepare tests and select device
+        id: prepare
+        uses: ./.github/actions/prepare-ci-tests
+        with:
+          worktree: ${{ steps.container.outputs.worktree }}
+          container: ${{ steps.container.outputs.container-name }}
+      - name: Build editable DSL package
+        uses: ./.github/actions/run-ci-tests
+        with:
+          suite: dsl-dev
+          worktree: ${{ steps.container.outputs.worktree }}
+          container: ${{ steps.container.outputs.container-name }}
+          device-id: ${{ steps.prepare.outputs.device-id }}
+      - name: Run IR tests
+        uses: ./.github/actions/run-ci-tests
+        with:
+          suite: dsl-ir
+          worktree: ${{ steps.container.outputs.worktree }}
+          container: ${{ steps.container.outputs.container-name }}
+      - name: Run Lit tests
+        uses: ./.github/actions/run-ci-tests
+        with:
+          suite: dsl-lit
+          worktree: ${{ steps.container.outputs.worktree }}
+          container: ${{ steps.container.outputs.container-name }}
+      - name: Build Release wheel and run NPU tests
+        uses: ./.github/actions/run-ci-tests
+        with:
+          suite: dsl
+          worktree: ${{ steps.container.outputs.worktree }}
+          container: ${{ steps.container.outputs.container-name }}
+          device-id: ${{ steps.prepare.outputs.device-id }}
+      - name: Clean up this validation
+        if: ${{ always() }}
+        shell: bash
+        env:
+          CONTAINER: ${{ steps.container.outputs.container-name }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$CONTAINER" ]]; then docker rm --force "$CONTAINER"; fi
+          source_dir="${RUNNER_TEMP}/catlass-env-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          [[ "$source_dir" == "${RUNNER_TEMP}/catlass-env-"* && "$source_dir" != "$RUNNER_TEMP" ]]
+          if [[ -d "$source_dir" ]]; then sudo -n rm -rf -- "$source_dir"; fi

@@ -13,7 +13,9 @@ class BaselineTests(unittest.TestCase):
         main = workflow('test-atomgit-pr.yml')
         steps = main['jobs']['merge-and-test']['steps']
         container = next(s for s in steps if s.get('id') == 'create_container')
-        self.assertEqual(container['with']['image-tag'], '9.2.0-beta.2-950-ubuntu22.04-py3.12')
+        self.assertEqual(container['with']['image-tag'], 'ubuntu24-py312-weekly-v1')
+        self.assertEqual(container['with']['cann-root'], '/opt/cann_weekly/latest/ascend-toolkit')
+        self.assertEqual(container['with']['npuir-root'], '/opt/AscendNPU-IR/latest/AscendNPU-IR')
         self.assertEqual([s['with']['suite'] for s in steps if s.get('with', {}).get('suite', '').startswith('dsl')],
                          ['dsl-dev', 'dsl-ir', 'dsl-lit', 'dsl'])
 

@@ -7,9 +7,11 @@ CANN and NPUIR. It does not clone or compile LLVM/NPUIR inside Docker. Use the
 CANN installation workflow and the current NPUIR preparation workflow to provision
 those dependencies once, then bind-mount the exact version directories read-only.
 
-This is an opt-in experiment. It does not change the image or scheduling used by
-the production PR, wheel, release or community workflows. The historical NPUIR
-20260720 workflow remains unchanged.
+Production PR tests now use this lightweight environment. Missing images are built
+immediately, with a per-image lock to prevent duplicate concurrent builds. The
+manual `validate-dsl-environment.yml` workflow checks either replacement worker or
+both, including the complete DSL test gate. Wheel publication, release and community
+workflows keep their existing execution contracts; historical NPUIR 20260720 is unchanged.
 
 ## Measured baseline
 
@@ -112,5 +114,6 @@ so a directory containing sibling symlinks does not become an incomplete mount.
 Use separate source/build directories for host and container experiments: CMake
 caches contain absolute paths. A Linux checkout must use LF line endings;
 Windows-exported CRLF shell and Lit fixture files can fail before testing the
-environment. Pin a tested base digest and resolved Python requirements before
-adopting the recipe as the production baseline.
+environment. Use a new image tag when changing the base image or Python dependency baseline.
+The production container mounts the actual weekly CANN version read-only and
+activates it in every test shell, alongside the matching read-only NPUIR archive.
