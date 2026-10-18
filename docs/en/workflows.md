@@ -79,3 +79,30 @@ Credentials prefer `ATOMGIT_TOKEN`; if it is unset or empty, the existing `GITCO
 ## How AI results flow
 
 Issue replies, manual fixes, PR reviews and CI failure analysis share [catlass-ai](actions/catlass-ai.md) for model selection, enterprise host, read-only sandbox and public setup/execution. Downstream stages read the answer and model record from that execution, without configuring a separate attribution model. Fix proposals carry both response and execution record through validation and publication. CLI versions come from setup outputs; the Issue URL default is declared only at dispatch. Checks for target number, source revision, patch and validation command remain to reject stale or mismatched publication.
+## Prepare dependencies on one host
+
+Manual runs of `build-ascendnpu-ir-20261013.yml` and `install-cann-weekly.yml`
+accept `runner_label` and `target_arch`. Supply a unique custom host label such
+as `host-179-223-2-2`, and select `x86_64` or `aarch64`. The worker must also
+match `self-hosted`, `Linux` and the corresponding `X64` / `ARM64` label.
+Use a label that uniquely identifies the host, not its runner display name.
+
+```sh
+gh workflow run install-cann-weekly.yml --repo ascend-catlass/actions --ref main \
+  -f runner_label=host-179-223-2-2 -f target_arch=x86_64
+gh workflow run build-ascendnpu-ir-20261013.yml --repo ascend-catlass/actions --ref main \
+  -f runner_label=host-179-223-2-2 -f target_arch=x86_64 \
+  -f branch=feature/regbase -f ref=693abf31f3d88d13d30d9578fcf6513b90c0ee33 \
+  -f use_mirror=true -f build_jobs=64
+```
+
+Dispatch separately with `host-179-228-2-2` for the second host. Empty
+`runner_label` retains both architectures and the original worker pools;
+`target_arch` does not filter those default runs. Scheduled CANN runs and
+existing reusable NPUIR calls keep their previous defaults. The historical
+20260720 diagnostic workflow is unchanged. Both entry points execute only on
+`main`.
+
+NPUIR archives remain under `/opt/AscendNPU-IR` on the selected worker; CANN
+installs under `/opt/cann_weekly`. The runner user needs Docker access and the
+passwordless sudo permissions required by the existing installation steps.

@@ -103,3 +103,25 @@ Token 通过 Secret 传给需要它的步骤；不要放进源码、提示词或
 ## AI 分析结果如何传递
 
 Issue 回复、手动修复、PR 检视与 CI 失败分析统一使用 [catlass-ai](actions/catlass-ai.md) 选择模型、企业地址和只读沙箱，组合公共安装与执行组件。下游读取同一份执行结果中的正文和模型记录，不再单独指定署名模型。修复流程把答复和执行记录一起保存为提案，供验证和发布共用。CLI 版本取自安装步骤输出；Issue URL 的默认值仅在调度入口定义。目标编号、源码版本、补丁与验证命令的核对仍保留，用于阻止过期或不匹配的结果被发布。
+## 指定机器准备构建依赖
+
+`build-ascendnpu-ir-20261013.yml` 和 `install-cann-weekly.yml` 支持手动指定一台机器。
+填写 `runner_label`（机器独有的自定义标签，例如 `host-179-223-2-2`），并用
+`target_arch` 选择 `x86_64` 或 `aarch64`。目标仍须匹配 `self-hosted`、`Linux`
+和对应的 `X64` / `ARM64` 标签。标签不是 runner 显示名称，必须唯一匹配目标机器。
+
+```sh
+gh workflow run install-cann-weekly.yml --repo ascend-catlass/actions --ref main \
+  -f runner_label=host-179-223-2-2 -f target_arch=x86_64
+gh workflow run build-ascendnpu-ir-20261013.yml --repo ascend-catlass/actions --ref main \
+  -f runner_label=host-179-223-2-2 -f target_arch=x86_64 \
+  -f branch=feature/regbase -f ref=693abf31f3d88d13d30d9578fcf6513b90c0ee33 \
+  -f use_mirror=true -f build_jobs=64
+```
+
+第二台机器使用 `host-179-228-2-2`，分别 dispatch 即可。留空 `runner_label` 时仍运行
+原有双架构矩阵，`target_arch` 此时不筛选任务；定时 CANN 和原有 NPUIR 复用调用保持
+原来的调度池。20260720 历史诊断入口未改动。两条流水线均只在 `main` 执行。
+
+NPUIR 的归档仍写入目标机 `/opt/AscendNPU-IR`，CANN 写入 `/opt/cann_weekly`。
+runner 用户须能运行 Docker 并具有现有安装步骤所需的免密 sudo 权限。
