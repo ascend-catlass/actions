@@ -10,6 +10,11 @@ LLVM/NPUIR。先通过 CANN 安装流水线和当前 NPUIR 准备流水线安装
 手动入口 `validate-dsl-environment.yml` 可验证任一替换主机或同时验证两台，包含完整 DSL 测试。
 wheel 发布、Release 和社区流水线保留现有执行约定；历史 NPUIR 20260720 流水线保持不变。
 
+`package-hardware-tools.yml` 在 GitHub 托管节点检出自动化代码及固定版本公共 helper，
+上传只包含 `.github`、`scripts` 和必要 helper 目录的短期构件。硬件任务使用官方
+download-artifact Action 下载并执行本次运行的工具，避免网络不稳定的硬件机直接从
+GitHub 检出 Git 仓库；CATLASS 源码仍来自 AtomGit。
+
 ## 实测基线
 
 2026-10-19 在 Ubuntu 24.04 x86_64、Ascend 950PR 构建机上测得：

@@ -9,6 +9,22 @@ def workflow(name):
     return yaml.safe_load((ROOT / '.github/workflows' / name).read_text(encoding='utf-8'))
 
 class BaselineTests(unittest.TestCase):
+    def test_hardware_jobs_download_tools_from_the_current_run(self):
+        for filename, jobname in [('test-atomgit-pr.yml', 'merge-and-test'), ('validate-dsl-environment.yml', 'validate')]:
+            config = workflow(filename)
+            self.assertEqual(config['jobs']['tools']['uses'], './.github/workflows/package-hardware-tools.yml')
+            job = config['jobs'][jobname]
+            self.assertIn('tools', job['needs'])
+            download = next(s for s in job['steps'] if s.get('uses') == 'actions/download-artifact@v4')
+            self.assertEqual(download['with']['name'], 'catlass-hardware-tools')
+            self.assertEqual(download['with']['path'], 'hardware-tools')
+            self.assertFalse(any(s.get('uses') == 'actions/checkout@v4' for s in job['steps']))
+        package = workflow('package-hardware-tools.yml')['jobs']['package']
+        upload = next(s for s in package['steps'] if s.get('uses') == 'actions/upload-artifact@v4')
+        self.assertTrue(upload['with']['include-hidden-files'])
+        self.assertIn('.github', upload['with']['path'].splitlines())
+        self.assertNotIn('.git', upload['with']['path'].splitlines())
+
     def test_pr_entrypoint_uses_expected_stages_and_image(self):
         main = workflow('test-atomgit-pr.yml')
         steps = main['jobs']['merge-and-test']['steps']

@@ -8,6 +8,9 @@ inputs:
     description: Managed Docker container; empty for a container runner
     required: false
     default: ''
+  helpers-path:
+    description: Host directory of trusted prepackaged shared helpers (empty checks out pinned helpers)
+    default: ''
 outputs:
   device-id:
     description: NPU card ID selected by the upstream detect_npu.sh for DEVICE_ID
@@ -38,7 +41,7 @@ runs:
         requirements-file: ${{ inputs.worktree }}/requirements.txt
         exclude-packages: torch,torch-npu,lit
     - name: Check out shared helpers for the managed container
-      if: ${{ steps.runtime.outputs.direct != 'true' }}
+      if: ${{ steps.runtime.outputs.direct != 'true' && inputs.helpers-path == '' }}
       uses: actions/checkout@v4
       with:
         repository: yuantao313/actions
@@ -54,10 +57,12 @@ runs:
       env:
         RDV_WORKTREE: ${{ inputs.worktree }}
         RDV_CONTAINER: ${{ inputs.container }}
+        RDV_HELPERS_PATH: ${{ inputs.helpers-path }}
       run: |
         set -euo pipefail
-        docker cp "${GITHUB_WORKSPACE}/shared_actions/trust-checkout/trust-checkout.sh" "${RDV_CONTAINER}:/tmp/shared-trust-checkout.sh"
-        docker cp "${GITHUB_WORKSPACE}/shared_actions/install-python-requirements/install.py" "${RDV_CONTAINER}:/tmp/shared-install-requirements.py"
+        helpers_root="${RDV_HELPERS_PATH:-${GITHUB_WORKSPACE}/shared_actions}"
+        docker cp "${helpers_root}/trust-checkout/trust-checkout.sh" "${RDV_CONTAINER}:/tmp/shared-trust-checkout.sh"
+        docker cp "${helpers_root}/install-python-requirements/install.py" "${RDV_CONTAINER}:/tmp/shared-install-requirements.py"
         docker exec -i "${RDV_CONTAINER}" bash /tmp/shared-trust-checkout.sh "$RDV_WORKTREE"
         docker exec -i --env "REQUIREMENTS_FILE=${RDV_WORKTREE}/requirements.txt" \
           --env EXCLUDE_PACKAGES=torch,torch-npu,lit "$RDV_CONTAINER" python3 /tmp/shared-install-requirements.py

@@ -13,6 +13,13 @@ manual `validate-dsl-environment.yml` workflow checks either replacement worker 
 both, including the complete DSL test gate. Wheel publication, release and community
 workflows keep their existing execution contracts; historical NPUIR 20260720 is unchanged.
 
+`package-hardware-tools.yml` checks out the automation code and pinned public
+helpers on a GitHub-hosted runner, then uploads a short-lived artifact containing
+only `.github`, `scripts` and the required helper directories. Hardware jobs use
+the official download-artifact Action and execute those tools from the current
+run. This avoids direct GitHub Git fetches on hardware workers with unreliable
+GitHub connections; CATLASS source still comes from AtomGit.
+
 ## Measured baseline
 
 Measurements on an Ubuntu 24.04 x86_64 Ascend 950PR worker on 2026-10-19:
