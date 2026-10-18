@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# BASH_ENV for every docker exec bash invocation, including non-DSL tests.
-source /opt/dsl-venv/bin/activate
+# Bootstrap each docker-exec shell once. Child processes must retain their own
+# PATH/CANN overrides, particularly the upstream build-script isolation tests.
+export BASH_ENV=/dev/null
+source "${CATLASS_DSL_VENV:-/opt/dsl-venv}/bin/activate"
 source "${ASCEND_HOME_PATH}/set_env.sh"
 export BISHENG_COMPILER_PATH="${ASCEND_HOME_PATH}/bin"
 export PATH="${CATLASS_DSL_PREBUILT_ASCENDNPU_IR}/build/bin:${CATLASS_DSL_PREBUILT_ASCENDNPU_IR}/build/install/bin:${PATH}"

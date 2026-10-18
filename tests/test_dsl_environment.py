@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -66,6 +67,27 @@ class DslEnvironmentTests(unittest.TestCase):
         git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "fixture")
         result = self.run_environment(expected=None)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_container_bootstrap_does_not_reactivate_in_test_children(self):
+        fake_bin = self.root / 'fake-bin'
+        fake_bin.mkdir()
+        fake_python = fake_bin / 'python'
+        fake_python.write_text('#!/bin/sh\nexit 0\n')
+        fake_python.chmod(0o755)
+        activations = self.root / 'activations'
+        (self.venv / 'bin/activate').write_text(
+            f'printf "activated\\n" >> {shlex.quote(str(activations))}\n'
+        )
+        env = {**os.environ, 'BASH_ENV': str(SCRIPT.parent / 'container-env.sh'),
+               'CATLASS_DSL_VENV': str(self.venv), 'ASCEND_HOME_PATH': str(self.cann),
+               'CATLASS_DSL_PREBUILT_ASCENDNPU_IR': str(self.npuir)}
+        child = 'PATH=' + shlex.quote(str(fake_bin)) + ':"$PATH" ASCEND_HOME_PATH=/missing bash -c ' + shlex.quote('command -v python')
+        entry = self.root / 'test-step.sh'
+        entry.write_text(child + '\n')
+        result = subprocess.run(['bash', str(entry)], env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), str(fake_python))
+        self.assertEqual(activations.read_text().splitlines(), ['activated'])
 
 
 if __name__ == "__main__":
