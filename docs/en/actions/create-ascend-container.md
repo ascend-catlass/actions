@@ -15,12 +15,12 @@ Use it when PR tests need a consistent image while supporting both host and cont
 ## What happens
 
 1. Check /.dockerenv to determine whether the runner is already containerized.
-2. On a host, create a container using the selected image, unique name and source mount.
+2. On a host, build the selected lightweight image if absent, then mount source, weekly CANN, NPUIR and drivers. Image creation is locked and rechecked to avoid duplicate concurrent builds.
 3. Return the source path and container name to downstream test steps.
 
 ## Before you run it
 
-- A Linux Ascend test environment. Host mode requires Docker, an available image and installed NPU drivers.
+- A Linux Ascend test environment. Host mode requires Docker, installed NPU drivers, provisioned weekly CANN and a matching NPUIR archive. Missing images are built immediately.
 - worktree must be an existing absolute host path; name must be unique.
 
 ## Example
@@ -49,7 +49,10 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `image-repository` | No | `ascend-catlass-dsl` | Container image repository (CANN_REPO) |
-| `image-tag` | No | `9.2.0-beta.2-950-ubuntu22.04-py3.12` | Container image tag (CANN_TAG) |
+| `image-tag` | No | `ubuntu24-py312-weekly-v1` | Container image tag (CANN_TAG) |
+| `base-image` | No | `ubuntu:24.04` | Ubuntu 24.04 base used only for missing-image builds |
+| `cann-root` | No | `/opt/cann_weekly/latest/ascend-toolkit` | Weekly CANN toolkit; real version directory mounted read-only |
+| `npuir-root` | No | `/opt/AscendNPU-IR/latest/AscendNPU-IR` | Prepared NPUIR tree mounted read-only |
 | `name` | Yes | — | Unique container name (NAME) |
 | `worktree` | Yes | — | Existing host source directory to mount |
 | `container-worktree` | No | `/workspace/catlass` | Source directory inside the new container |
@@ -65,7 +68,9 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 ## Notes and common questions
 
-- Host mode uses --privileged for NPU access. Driver mounts are read-only; CANN, Conda and other runtime dependencies come from the image.
+- Host mode uses --privileged for NPU access. Drivers, weekly CANN and NPUIR are mounted read-only; Python 3.12 and CPU PyTorch come from the lightweight image. Every test shell activates weekly CANN. Startup validates the source gitlink against the NPUIR archive and imports acl/TorchNPU before continuing.
+- The production PR workflow uses the tested Ubuntu mirror. Override `base-image` with another trusted Ubuntu 24.04 image/digest as needed. Provision CANN and NPUIR first; the image build does not rebuild or install either dependency.
+- Use `validate-dsl-environment.yml` to build a missing image and run the complete DSL gate on either replacement machine or both. Existing images are reused; change the image tag when intentionally changing image dependencies.
 - The Action does not delete containers. The caller needs an always() cleanup step for a nonempty container-name. Container-runner mode returns an empty name and must leave the original runner alone.
 - The RDV workflow also removes the current run’s `.rdv-work/pr-run-id-attempt` source and build directory. Removing a container leaves its host bind mount intact; host runners need noninteractive `sudo` to remove files created as root. Cleanup validates the path and container name and preserves other runs and NPUIR caches.
 

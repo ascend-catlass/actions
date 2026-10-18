@@ -177,7 +177,10 @@ jobs:
         uses: ascend-catlass/actions/.github/actions/create-ascend-container@main
         with:
           image-repository: ascend-catlass-dsl
-          image-tag: 9.2.0-beta.2-950-ubuntu22.04-py3.12
+          image-tag: ubuntu24-py312-weekly-v1
+          base-image: docker.m.daocloud.io/library/ubuntu:24.04
+          cann-root: /opt/cann_weekly/latest/ascend-toolkit
+          npuir-root: /opt/AscendNPU-IR/latest/AscendNPU-IR
           name: ${{ env.RDV_CONTAINER }}
           worktree: ${{ steps.merge.outputs.worktree }}
 

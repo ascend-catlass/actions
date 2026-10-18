@@ -9,7 +9,16 @@ inputs:
   image-tag:
     description: Container image tag (CANN_TAG)
     required: false
-    default: 9.2.0-beta.2-950-ubuntu22.04-py3.12
+    default: ubuntu24-py312-weekly-v1
+  base-image:
+    description: Ubuntu 24.04 base image used only when building a missing image
+    default: ubuntu:24.04
+  cann-root:
+    description: Host weekly CANN toolkit directory (resolved before mounting read-only)
+    default: /opt/cann_weekly/latest/ascend-toolkit
+  npuir-root:
+    description: Host prepared NPUIR source and install tree (mounted read-only)
+    default: /opt/AscendNPU-IR/latest/AscendNPU-IR
   name:
     description: Unique container name (NAME)
     required: true
@@ -38,7 +47,10 @@ runs:
       env:
         CANN_REPO: ${{ inputs.image-repository }}
         CANN_TAG: ${{ inputs.image-tag }}
+        BASE_IMAGE: ${{ inputs.base-image }}
         NAME: ${{ inputs.name }}
         HOST_WORKTREE: ${{ inputs.worktree }}
         CONTAINER_WORKTREE: ${{ inputs.container-worktree }}
+        CANN_ROOT: ${{ inputs.cann-root }}
+        NPUIR_ROOT: ${{ inputs.npuir-root }}
       run: bash "${GITHUB_ACTION_PATH}/create-ascend-container.sh"
