@@ -36,6 +36,7 @@ nav:
 - 中文:
   - 概览: zh/index.md
   - 工作流: zh/workflows.md
+  - DSL 轻量环境实验: zh/dsl-environment.md
   - 术语: zh/glossary.md
   - Actions:
     - catlass-ai · 统一 AI 执行策略: zh/actions/catlass-ai.md
@@ -53,6 +54,7 @@ nav:
 - English:
   - Overview: en/index.md
   - Workflows: en/workflows.md
+  - DSL environment experiment: en/dsl-environment.md
   - Build and runner operations: en/operations.md
   - Glossary: en/glossary.md
   - Actions:
