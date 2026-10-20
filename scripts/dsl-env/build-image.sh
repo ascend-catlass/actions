@@ -9,5 +9,6 @@ source_root=$(realpath "$1")
 context=$(mktemp -d)
 trap 'rm -rf -- "$context"' EXIT
 cp "$script_dir/Dockerfile" "$context/Dockerfile"
+cp "$script_dir/check-python-build.sh" "$context/check-python-build.sh"
 cp "$source_root/python/tla_dsl/requirements.txt" "$source_root/python/tla_dsl/pyproject.toml" "$context/"
 docker build --build-arg "BASE_IMAGE=${BASE_IMAGE:-ubuntu:24.04}" -t "$2" "$context"

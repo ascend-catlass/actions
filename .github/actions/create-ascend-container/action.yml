@@ -5,11 +5,11 @@ inputs:
   image-repository:
     description: Container image repository (CANN_REPO)
     required: false
-    default: ascend-catlass-dsl
+    default: catlass-dsl-lab
   image-tag:
     description: Container image tag (CANN_TAG)
     required: false
-    default: ubuntu24-py312-weekly-v1
+    default: ubuntu24-py312-rdv-v2
   base-image:
     description: Ubuntu 24.04 base image used only when building a missing image
     default: ubuntu:24.04

@@ -30,12 +30,11 @@ bash "${runner}" dsl-dev
 bash "${runner}" dsl-ir
 bash "${runner}" dsl-lit
 grep -q '^dev-build:$' "${CALL_LOG}"
-grep -Fq 'python:-m pip install --index-url https://mirrors.nju.edu.cn/pypi/web/simple lit' "${CALL_LOG}"
+if grep -Fq 'pip install' "${CALL_LOG}"; then echo 'Dev stage installed image dependencies'; exit 1; fi
 grep -q '^python:-m pytest -q tests -p no:randomly --durations=20$' "${CALL_LOG}"
 grep -q '^cmake:--build csrc/mlir/build --target check-tla-lit$' "${CALL_LOG}"
 if BUILD_EXIT=5 bash "${runner}" dsl-dev; then echo 'Build failure was hidden'; exit 1; fi
 if IR_EXIT=7 bash "${runner}" dsl-ir; then echo 'IR failure was hidden'; exit 1; fi
 if LIT_EXIT=9 bash "${runner}" dsl-lit; then echo 'Lit failure was hidden'; exit 1; fi
-if PIP_EXIT=6 bash "${runner}" dsl-dev; then echo 'Lit install failure was hidden'; exit 1; fi
 if bash "${runner}" invalid; then echo 'Invalid stage was accepted'; exit 1; fi
 echo 'DSL unit stage command and failure checks passed.'

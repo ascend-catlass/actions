@@ -48,8 +48,8 @@ PR 测试需要统一镜像环境，同时让同一套测试步骤兼容宿主�
 
 | 参数 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `image-repository` | 否 | `ascend-catlass-dsl` | Docker 镜像仓库名。 |
-| `image-tag` | 否 | `ubuntu24-py312-weekly-v1` | Docker 镜像标签。 |
+| `image-repository` | 否 | `catlass-dsl-lab` | Docker 镜像仓库名。 |
+| `image-tag` | 否 | `ubuntu24-py312-rdv-v2` | Docker 镜像标签。 |
 | `base-image` | 否 | `ubuntu:24.04` | 缺失镜像构建时使用的 Ubuntu 24.04 基础镜像。 |
 | `cann-root` | 否 | `/opt/cann_weekly/latest/ascend-toolkit` | weekly CANN toolkit；解析真实版本目录后只读挂载。 |
 | `npuir-root` | 否 | `/opt/AscendNPU-IR/latest/AscendNPU-IR` | 只读挂载的 NPUIR 归档目录。 |
