@@ -136,15 +136,18 @@ class IssueLabelTests(unittest.TestCase):
 
     def test_workflow_uses_token_free_shared_model_stage_and_serializes_issues(self):
         root = Path(__file__).resolve().parents[1]
-        workflow = yaml.safe_load((root / '.github/workflows/label-atomgit-issue.yml').read_text(encoding='utf-8'))
-        steps = workflow['jobs']['classify']['steps']
-        model = next(step for step in steps if step.get('id') == 'model')
+        workflow = yaml.safe_load((root / '.github/workflows/reply-atomgit-issue.yml').read_text(encoding='utf-8'))
+        steps = workflow['jobs']['reply']['steps']
+        model = next(step for step in steps if step.get('id') == 'trae')
         self.assertEqual(model['uses'], './.github/actions/catlass-ai')
         self.assertNotIn('ATOMGIT_TOKEN', json.dumps(model))
         self.assertNotIn('GITCODE_TOKEN', json.dumps(model))
         self.assertEqual(workflow['concurrency']['cancel-in-progress'], False)
-        publisher = next(step for step in steps if step.get('with', {}).get('operation') == 'publish')
-        self.assertIn('steps.model.outputs.result-directory', publisher['with']['stage-result'])
+        publishers = [step for step in steps if step.get('with', {}).get('operation') == 'publish']
+        self.assertEqual({step['with']['stage-result'] for step in publishers},
+                         {'_issue-analysis/label', '_issue-analysis/reply'})
+        self.assertEqual(sum(step.get('uses') == './.github/actions/catlass-ai' for step in steps), 1)
+        self.assertFalse((root / '.github/workflows/label-atomgit-issue.yml').exists())
 
 
 if __name__ == '__main__':

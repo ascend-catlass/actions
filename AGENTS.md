@@ -2,7 +2,7 @@
 
 - Functional changes go on `codex/` branches and are submitted as PRs. Do not push directly to main or deploy unmerged features.
 - Keep the four community entry points separate from build, release, environment and reusable component workflows.
-- Keep the additional Community 5 Issue classifier separate from author-filtered replies and manual fix/review entries; choose one existing Issue-kind label and preserve manual classifications.
+- Community 1 combines Issue analysis and classification in one model execution; label all authors, apply reply role filtering only to comments, preserve manual classifications, and keep fix/review entries manual.
 - Actions recheck current labels, author roles and stale state before publication.
 - Consume public components from yuantao313/actions; maintain only CATLASS policies and hardware stages here.
 - Keep TRAE CN model steps free of AtomGit/GitHub publishing tokens. Manual fix/review entries must stay manual.

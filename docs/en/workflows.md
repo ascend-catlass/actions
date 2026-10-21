@@ -2,25 +2,24 @@
 
 [中文](../zh/workflows.md) · [English](../en/workflows.md)
 
-## Five community workflows
+## Four community workflows
 
 | Entry | Trigger | Result |
 | --- | --- | --- |
-| `reply-atomgit-issue.yml` · Community 1 | New/reopened public Issue by a non-role author, or manual | Short source-based TRAE CN analysis |
+| `reply-atomgit-issue.yml` · Community 1 | New/reopened public Issue by any author, or manual | One AI execution for classification and eligible source-grounded replies |
 | `reply-atomgit-ci-passed.yml` · Community 2 | Passed label added to an open PR, or manual | Deduplicated reminder for PRs by every author |
 | `fix-atomgit-issue.yml` · Community 3 | Manual only | Verified small patch, fork PR and `compile` comment |
 | `review-atomgit-pr.yml` · Community 4 | Manual only | Evidence-based inline questions on changed code |
-| `label-atomgit-issue.yml` · Community 5 | All new public Issues via hook, or manual | One verified existing Issue-kind label; preserve manual categories |
 
-Community 5 is independent of the reply's author-role filter. It fetches the live
-label catalogue, uses the shared AI stage, then adds one category after rechecking
-the Issue and preserving all existing labels. See [Issue classification](actions/atomgit-issue-label.md).
+Community 1 runs one AI request for analysis and classification. All authors are
+eligible for classification; only non-role authors receive source-grounded replies.
+Existing categories and unrelated labels are preserved. See [Issue classification](actions/atomgit-issue-label.md).
 
 Select the entry in GitHub Actions, click **Run workflow**, and choose `main`. The three model tasks reuse [trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/traecn), pinned official China enterprise CLI 0.209.1 and DeepSeek-V4.1-Flash.
 
-## 1. Brief Issue analysis
+## 1. Issue analysis and classification
 
-The Action checks the latest community role declarations, skips committer/maintainer authors, reads source and discussion, and publishes or updates one owned reply. Manual input is `issue_url`; `publish=false` analyzes without publication. Current state and discussion are checked again before publishing.
+The Action prepares live category labels for every author and source/discussion context for non-role authors. One AI execution returns classification and an eligible reply. Committers/maintainers receive labels but no automated reply; existing categories are preserved. Both publishers consume projections of the same verified response and provenance, recheck live state and read back writes. Manual input is `issue_url`; `publish=false` writes neither labels nor comments.
 
 ## 2. CI-passed reminder
 

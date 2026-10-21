@@ -10,10 +10,9 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | --- | --- | --- |
 | [test-atomgit-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/test-atomgit-pr.yml) | 合并并测试 AtomGit PR，再写回 RDV 状态 | 手动指定 PR 编号 |
 | [reply-atomgit-ci-passed.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-atomgit-ci-passed.yml) | CI 通过后发送检视提醒 | 手动；检查通过标签 |
-| [reply-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-atomgit-issue.yml) | 非角色成员 Issue 简要分析（TRAE CN） | 手动 |
+| [reply-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-atomgit-issue.yml) | 一次 AI 分类所有作者，为非角色作者回复 | hook 自动；可手动补跑 |
 | [fix-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/fix-atomgit-issue.yml) | 简单 Issue 修复、提 PR、评论 compile（TRAE CN） | 仅手动 |
 | [review-atomgit-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/review-atomgit-pr.yml) | 对变更行发布检视意见（TRAE CN） | 仅手动 |
-| [label-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/label-atomgit-issue.yml) | 从已有类型标签选择一个并挂到 Issue | 所有作者的新建公开 Issue；也可手动补跑 |
 | [build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml) | 准备当前日期基线的 NPUIR 依赖归档 | 手动或被其他工作流调用 |
 | [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | 保留旧 NPUIR 日期基线，供历史问题定位 | 手动或被其他工作流调用 |
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | 构建 x86_64、aarch64 的 DSL wheel 并保存产物 | 手动或被 nightly/release 调用 |
@@ -26,8 +25,8 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 
 ## Issue 自动分类
 
-新增的 [Issue 分类 Action](actions/atomgit-issue-label.md) 不受简要分析回复的角色过滤影响。
-分类流程只挂一个已有类型标签，保留人工已有分类，不触发手动修复或代码检视。
+[Issue 分类 Action](actions/atomgit-issue-label.md) 已合入 Community 1：一次 AI 同时生成分类和分析回复。
+所有作者均可分类，只有非角色作者收到分析回复。只追加一个已有类型标签，保留人工分类；不触发手动修复或代码检视。
 
 ## PR 测试
 
@@ -44,11 +43,11 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 
 ## 四条社区协作流水线
 
-### 1. Issue 简要分析（自动，TRAE CN）
+### 1. Issue 分析与分类（自动，TRAE CN）
 
-Action 读取社区仓库的最新角色声明，跳过 Committer/维护者作者，不自动分配。其余 Issue 读取源码和讨论，TRAE CN 使用 DeepSeek-V4.1-Flash 给出简短分析；发布前复查角色和讨论，更新或创建本账号的一条回复。
+Action 读取已有类型标签和最新社区角色声明。一次 AI 为所有作者选择合适标签，并为非 Committer/维护者作者读取源码和讨论、生成简短回复；角色成员只分类、不回复。已有类型标签保留，其他 Issue 可继续分析。发布前分别复查标签、状态、角色和讨论，追加标签并更新或创建本账号的一条回复，两项都回读验证。
 
-手动补跑：选择 **Community 1**，填写 `issue_url`。`publish=false` 只生成分析，不发评论。结果保留七天。
+手动补跑：选择 **Community 1**，填写 `issue_url`。`publish=false` 只生成分析和分类，不发评论也不挂标签。结果保留七天。
 
 ### 2. PR CI 通过后回复（自动，所有 PR）
 
@@ -58,7 +57,7 @@ Action 查询当前状态、分页查重并发送检视提醒；同一 PR 串行
 
 ### 3. 简单 Issue 快速修复（仅手动，TRAE CN）
 
-选择 **Community 3**，填写 `issue_number` 与 `validation_command`。这是独立的维护者手动任务，与简要分析回复没有依赖或互相触发关系；无需先分析、不要求已有回复，也不限制 Issue 作者角色。
+选择 **Community 3**，填写 `issue_number` 与 `validation_command`。这是独立的维护者手动任务，与分析与分类回复没有依赖或互相触发关系；无需先分析、不要求已有回复，也不限制 Issue 作者角色。
 
 1. 固定 CATLASS master 源码和 Issue 讨论快照。
 2. TRAE CN 只读分析根因，输出是否简单、修复说明与 unified patch。复杂或不明确的问题结束为 `needs-human`，不提 PR。

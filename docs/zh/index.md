@@ -26,15 +26,14 @@
 | [setup-trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) | 安装固定版本的官方 TRAE CN CLI |
 | [trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/traecn) | 运行 TRAE CN 分析任务 |
 
-## 五条社区流水线
+## 四条社区流水线
 
 | 流程 | 触发 | 结果 |
 | --- | --- | --- |
-| Issue 简要分析 | 非 Committer/维护者的公开 Issue 新建/重开，或手动 | TRAE CN 简要分析与回复 |
+| Issue 分析与分类 | 所有作者的公开 Issue 新建/重开，或手动 | 一次 AI 分类；仅非角色作者收到源码分析回复 |
 | PR CI 通过回复 | 开启 PR 新增通过标签，或手动 | 向全部 PR 作者发送一次检视提醒 |
 | 简单 Issue 修复 | 仅手动 | TRAE CN 补丁、验证、提 PR、评论 compile |
 | PR 行级检视 | 仅手动 | TRAE CN 针对变更行提出有依据的问题 |
-| Issue 类型标签 | 全部作者的新建公开 Issue，或手动 | 追加一个已有类型标签，保留人工分类 |
 
 另保留 PR 测试、每日构建、环境安装、版本发布和旧 NPUIR 问题定位入口。操作方法见[工作流说明](workflows.md)，详细构建配置见[运维说明](../en/operations.md)。
 

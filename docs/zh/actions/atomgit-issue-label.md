@@ -4,14 +4,14 @@
 
 ## 用途
 
-Community 5 覆盖所有作者的新建公开 Issue，包括 Committer 和维护者。复用统一 AI 阶段，
+Community 1 将分析回复和分类合在同一次 AI 执行中。分类覆盖所有作者，包括 Committer 和维护者，
 模型不接收发布凭据。分页读取仓库标签，从实时存在的类型标签中选取候选：documentation、
 feature、bug-report、wontfix、question、enhancement、bug、kind/feature、requirement、
 tech-debt、invalid、duplicate、RFC。模型只选一个，不新建标签；信息不足不应直接判为 wontfix。
 
 发布阶段同时读取成功模型阶段的响应和执行记录，复查 Issue 内容、状态、标签和候选列表，
 只追加一个类型标签并回读验证。保留人工分类和其他标签。分析期间内容变化则拒绝发布，
-已关闭或保密 Issue 跳过。独立分析流水线的新评论不会干扰分类。
+已关闭或保密 Issue 跳过。同一次分析的回复不会干扰分类。
 
 ## 示例
 
@@ -44,6 +44,7 @@ tech-debt、invalid、duplicate、RFC。模型只选一个，不新建标签；�
 
 ## 运维
 
-新建/open 事件独立触发，不受现有简要分析流程的角色过滤影响；reopen/update 不重分类。
+新建/open 和 reopen 事件统一触发 Community 1，一次 AI 生成回复和分类；角色过滤仅控制回复。
+已有人工分类不覆盖，update 不触发。
 可手动补跑，publish=false 只分析。按 Issue 串行并在发布前查重，应对重复投递。
 不新建标签、不评论、不关闭 Issue，也不自动触发修复。

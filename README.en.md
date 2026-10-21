@@ -4,19 +4,18 @@
 
 This repository owns CATLASS community workflows, PR tests, builds and releases. General stages are consumed from [yuantao313/actions](https://github.com/yuantao313/actions); only project policies and hardware stages are maintained here.
 
-## Five community workflows
+## Four community workflows
 
 | Workflow | Trigger | Result |
 | --- | --- | --- |
-| [1. Brief Issue analysis](.github/workflows/reply-atomgit-issue.yml) | Manual; skip committer/maintainer authors | TRAE CN reads source and discussion, then creates or updates one short reply |
+| [1. Issue analysis and classification](.github/workflows/reply-atomgit-issue.yml) | Hook and manual recovery | One AI execution classifies every author and produces source-grounded replies for non-role authors |
 | [2. CI-passed PR reminder](.github/workflows/reply-atomgit-ci-passed.yml) | Manual; verify the passed label before publication | One deduplicated review, SIG and Ascend 950 reminder for PRs by all authors |
 | [3. Quick fix for a simple Issue](.github/workflows/fix-atomgit-issue.yml) | **Manual only**: Issue number and validation command | TRAE CN proposes a small patch; verified changes go to the account's personal fork, then a PR and a `compile` comment |
 | [4. Inline PR review](.github/workflows/review-atomgit-pr.yml) | **Manual only**: PR number | TRAE CN posts evidence-based questions on changed code lines; no findings means no comments |
-| [5. Issue type label](.github/workflows/label-atomgit-issue.yml) | Hook for all new public Issues; manual recovery | Select one existing category label, recheck live state and preserve manual categories |
 
 Brief analysis and manual fixes are independent: no prerequisite reply, no author-role restriction for fixes, and no cross-triggering.
 
-Choose a `Community 1–5` workflow in GitHub Actions, click **Run workflow**, and select `main`. Fix validation runs on a disposable Linux runner without an NPU. Supply the actual test command and dependency setup relevant to the Issue. Complex Issues and failed verification do not produce PRs.
+Choose a `Community 1–4` workflow in GitHub Actions, click **Run workflow**, and select `main`. Fix validation runs on a disposable Linux runner without an NPU. Supply the actual test command and dependency setup relevant to the Issue. Complex Issues and failed verification do not produce PRs.
 
 Actions recheck current state and deduplicate before publication. The publishing account needs a verified CATLASS fork and permission to comment.
 

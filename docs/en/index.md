@@ -2,7 +2,7 @@
 
 [中文](../zh/index.md) · [English](../en/index.md)
 
-The five community workflows provide brief Issue analysis, CI-passed reminders, manual simple-Issue fixes, manual inline PR review and [automatic Issue classification](actions/atomgit-issue-label.md). All model tasks use the shared CATLASS AI stage. See [workflow instructions](workflows.md) for triggers, inputs and publication rules.
+The four community workflows provide combined Issue analysis and [classification](actions/atomgit-issue-label.md), CI-passed reminders, manual simple-Issue fixes and manual inline PR review. All model tasks use the shared CATLASS AI stage. See [workflow instructions](workflows.md) for triggers, inputs and publication rules.
 
 PR tests, daily builds, releases, environment maintenance and historical NPUIR diagnosis remain separate. See [build operations](operations.md) for runner setup.
 

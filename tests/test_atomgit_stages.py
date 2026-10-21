@@ -26,7 +26,9 @@ class StageContracts(unittest.TestCase):
         self.assertEqual(analyze['uses'], './.github/actions/catlass-ai')
         self.assertNotIn("ATOMGIT_TOKEN", analyze.get("env", {}))
         publish = api_steps[1]['with']
-        self.assertEqual(publish['stage-result'], '${{ steps.trae.outputs.result-directory }}')
+        self.assertEqual(publish['stage-result'], '_issue-analysis/reply')
+        extract = next(s for s in steps if s.get('id') == 'extract')
+        self.assertEqual(extract['env']['STAGE_RESULT'], '${{ steps.trae.outputs.result-directory }}')
         for redundant in ('model', 'response-file', 'issue-url'):
             self.assertNotIn(redundant, publish)
 
@@ -47,22 +49,23 @@ class StageContracts(unittest.TestCase):
         self.assertTrue(any(s.get("uses") == "./.github/actions/atomgit-release"
                             for s in workflow["jobs"]["publish-atomgit"]["steps"]))
 
-    def test_issue_role_gate_precedes_all_analysis_and_publication(self):
+    def test_issue_role_gate_controls_replies_but_not_classification(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/reply-atomgit-issue.yml").read_text(encoding="utf-8"))
         steps = workflow["jobs"]["reply"]["steps"]
         roles = next(s for s in steps if s.get("id") == "roles")
         self.assertEqual(roles["uses"], "./.github/actions/community-repo-roles")
         gate_index = next(i for i, s in enumerate(steps) if s.get("id") == "eligibility")
-        guarded = [s for s in steps if s.get("id") == "trae"
-                   or (s.get("uses") == "./.github/actions/atomgit-issue" and s["with"]["operation"] != "assign")
-                   or s.get("name", "").startswith("Install pinned")]
-        self.assertEqual(len(guarded), 3)
+        guarded = [s for s in steps if s.get("uses") == "./.github/actions/atomgit-issue"]
+        self.assertEqual(len(guarded), 2)
         for step in guarded:
             self.assertLess(gate_index, steps.index(step))
             self.assertIn("steps.eligibility.outputs.analyze == 'true'", step["if"])
             if step.get("uses") == "./.github/actions/atomgit-issue":
                 self.assertEqual(step["with"]["roles-file"], "${{ steps.roles.outputs.result-file }}")
         self.assertFalse(any(s.get("id") == "assign" for s in steps))
+        request = next(s for s in steps if s.get('id') == 'request')
+        self.assertEqual(request['env']['ANALYZE_REPLY'], '${{ steps.eligibility.outputs.analyze }}')
+        self.assertEqual(request['env']['ANALYZE_LABEL'], '${{ steps.label.outputs.analyze }}')
 
 
 if __name__ == "__main__":
