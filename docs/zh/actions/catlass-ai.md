@@ -3,7 +3,7 @@
 [中文](../../zh/actions/catlass-ai.md) · [English](../../en/actions/catlass-ai.md)
 
 Issue 简要分析、Issue 修复、PR 检视和失败分析共用此执行策略。模型只在这里选择
-DeepSeek-V4.1-Flash，企业地址读取可选变量 TRAE_CN_HOST；统一准备只读沙箱并组合
+DeepSeek-V4.1-Flash，企业地址读取调用方环境中的可选变量 TRAE_CN_HOST；统一准备只读沙箱并组合
 公共 setup-traecn 和 traecn Action。CLI 版本校验引用安装输出，不另写版本号。
 本 Action 不接收发布凭据。
 
@@ -39,3 +39,6 @@ DeepSeek-V4.1-Flash，企业地址读取可选变量 TRAE_CN_HOST；统一准备
 ```
 
 下游只传 result-directory，不再单独填写模型 ID。
+
+工作流使用 `env: { TRAE_CN_HOST: '${{ vars.TRAE_CN_HOST }}' }` 映射仓库变量。
+composite Action 内不能直接使用 vars 上下文；空值沿用账号默认地址。

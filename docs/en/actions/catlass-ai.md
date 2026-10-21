@@ -3,7 +3,7 @@
 [中文](../../zh/actions/catlass-ai.md) · [English](../../en/actions/catlass-ai.md)
 
 Issue analysis, Issue fixes, PR review and failure diagnosis share this execution
-policy. It selects DeepSeek-V4.1-Flash once, reads the optional TRAE_CN_HOST variable,
+policy. It selects DeepSeek-V4.1-Flash once, reads optional TRAE_CN_HOST from the caller environment,
 prepares the read-only sandbox and composes the public setup-traecn and traecn
 Actions. CLI version checks use the setup output. Publishing tokens are not inputs.
 
@@ -39,3 +39,6 @@ checkout containing the prompt. Callers provide publication and stale-state chec
 ```
 
 Pass the result-directory to the publisher. Do not pass another model ID.
+
+Workflows map the repository variable with `env: { TRAE_CN_HOST: '${{ vars.TRAE_CN_HOST }}' }`.
+Composite Actions cannot directly evaluate the vars context. An empty value uses the account default.

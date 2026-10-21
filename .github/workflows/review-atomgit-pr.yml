@@ -9,6 +9,9 @@ on:
         type: string
         required: true
 
+env:
+  TRAE_CN_HOST: ${{ vars.TRAE_CN_HOST }}
+
 permissions:
   contents: read
 

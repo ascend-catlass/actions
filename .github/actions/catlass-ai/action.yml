@@ -43,7 +43,7 @@ runs:
         pat: ${{ inputs.pat }}
         cli-path: ${{ steps.cli.outputs.cli-path }}
         expected-version: ${{ steps.cli.outputs.version }}
-        host: ${{ vars.TRAE_CN_HOST }}
+        host: ${{ env.TRAE_CN_HOST }}
         model: DeepSeek-V4.1-Flash
         working-directory: ${{ inputs.working-directory }}
         prompt-file: ${{ inputs.prompt-file }}
