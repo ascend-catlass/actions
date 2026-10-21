@@ -16,7 +16,7 @@
 
 简单分析与手动修复互相独立：修复无需先分析，也不限制作者角色，两条流程不会互相触发。
 
-在 GitHub **Actions** 页选择对应的 `Community 1–4` 工作流，点击 **Run workflow**，选择 `main`。修复命令应是与本 Issue 对应的实际测试，例如 `python3 -m pytest tests/path/to/test_case.py`；执行环境是 GitHub Linux runner，没有 NPU，所需依赖需由验证命令准备。复杂问题或验证失败时不会创建 PR。
+在 GitHub **Actions** 页选择对应的 `Community 1–5` 工作流，点击 **Run workflow**，选择 `main`。修复命令应是与本 Issue 对应的实际测试，例如 `python3 -m pytest tests/path/to/test_case.py`；执行环境是 GitHub Linux runner，没有 NPU，所需依赖需由验证命令准备。复杂问题或验证失败时不会创建 PR。
 
 Action 在发布前复查 PR/Issue 状态并查重。自动修复发布账号需要已有 `cann/catlass` 的个人 fork 和评论权限。详见[使用方法与运行结果](docs/zh/workflows.md)。
 

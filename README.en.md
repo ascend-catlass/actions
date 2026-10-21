@@ -16,7 +16,7 @@ This repository owns CATLASS community workflows, PR tests, builds and releases.
 
 Brief analysis and manual fixes are independent: no prerequisite reply, no author-role restriction for fixes, and no cross-triggering.
 
-Choose a `Community 1–4` workflow in GitHub Actions, click **Run workflow**, and select `main`. Fix validation runs on a disposable Linux runner without an NPU. Supply the actual test command and dependency setup relevant to the Issue. Complex Issues and failed verification do not produce PRs.
+Choose a `Community 1–5` workflow in GitHub Actions, click **Run workflow**, and select `main`. Fix validation runs on a disposable Linux runner without an NPU. Supply the actual test command and dependency setup relevant to the Issue. Complex Issues and failed verification do not produce PRs.
 
 Actions recheck current state and deduplicate before publication. The publishing account needs a verified CATLASS fork and permission to comment.
 
