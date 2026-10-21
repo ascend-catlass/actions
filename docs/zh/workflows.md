@@ -13,6 +13,7 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | [reply-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/reply-atomgit-issue.yml) | 非角色成员 Issue 简要分析（TRAE CN） | 手动 |
 | [fix-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/fix-atomgit-issue.yml) | 简单 Issue 修复、提 PR、评论 compile（TRAE CN） | 仅手动 |
 | [review-atomgit-pr.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/review-atomgit-pr.yml) | 对变更行发布检视意见（TRAE CN） | 仅手动 |
+| [label-atomgit-issue.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/label-atomgit-issue.yml) | 从已有类型标签选择一个并挂到 Issue | 所有作者的新建公开 Issue；也可手动补跑 |
 | [build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml) | 准备当前日期基线的 NPUIR 依赖归档 | 手动或被其他工作流调用 |
 | [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | 保留旧 NPUIR 日期基线，供历史问题定位 | 手动或被其他工作流调用 |
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | 构建 x86_64、aarch64 的 DSL wheel 并保存产物 | 手动或被 nightly/release 调用 |
@@ -22,6 +23,11 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | [sync-atomgit.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/sync-atomgit.yml) | 把 AtomGit `master` 与 tags 镜像同步到 GitHub | 每日北京时间 02:00，或手动 |
 
 定时表达式使用 UTC；表格已换算为北京时间。定时任务的实际启动可能排队。业务 job 均要求 `main` 分支，手动选择其他分支不会执行业务任务。PR 检查只测试和构建文档，不发布评论。
+
+## Issue 自动分类
+
+新增的 [Issue 分类 Action](actions/atomgit-issue-label.md) 不受简要分析回复的角色过滤影响。
+分类流程只挂一个已有类型标签，保留人工已有分类，不触发手动修复或代码检视。
 
 ## PR 测试
 
