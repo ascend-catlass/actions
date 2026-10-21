@@ -33,6 +33,7 @@ if args[:2] == ['image', 'inspect']:
 assert args[0] == 'build', args
 context = pathlib.Path(args[-1])
 assert (context / 'Dockerfile').is_file()
+assert (context / 'check-python-build.sh').is_file()
 assert (context / 'requirements.txt').is_file()
 assert (context / 'pyproject.toml').is_file()
 with (root / 'builds').open('a') as f:

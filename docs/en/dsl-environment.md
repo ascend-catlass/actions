@@ -105,7 +105,7 @@ bash scripts/dsl-env/run-container.sh /path/to/separate-catlass-worktree \
 `BASE_IMAGE` can select a trusted mirror or a pinned Ubuntu 24.04 digest. The
 measured experiment used `docker.m.daocloud.io/library/ubuntu:24.04`. No CANN,
 NPUIR, repository history or full source checkout enters the build context:
-only the Dockerfile and the two Python dependency manifests are copied.
+only the Dockerfile, the offline build check and the two Python dependency manifests are copied.
 
 At runtime, mount a separate CATLASS worktree read-write, CANN and NPUIR read-only
 at their original absolute paths, and the installed Ascend driver paths read-only.
@@ -124,3 +124,5 @@ Windows-exported CRLF shell and Lit fixture files can fail before testing the
 environment. Use a new image tag when changing the base image or Python dependency baseline.
 The production container mounts the actual weekly CANN version read-only and
 activates it in every test shell, alongside the matching read-only NPUIR archive.
+
+The RDV image is `catlass-dsl-lab:ubuntu24-py312-rdv-v2`. Its `/opt/dsl-venv` already contains the build tools and Lit from the DSL dependency manifest, alongside CPU PyTorch and TorchNPU. Image builds verify wheel creation with networking disabled and reject incompatible build requirements. `PIP_NO_BUILD_ISOLATION=0` selects pip's negative `--no-build-isolation` option; `PIP_CHECK_BUILD_DEPENDENCIES=1` checks the checkout's build requirements before compiling. Release builds reuse the image environment instead of downloading a fresh isolated environment. Installed versions are recorded in `/opt/dsl-venv/requirements-resolved.txt`. CANN and NPUIR continue to be mounted read-only. Rebuild under a new tag when Python dependencies change; existing image tags are reused.

@@ -48,8 +48,8 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `image-repository` | No | `ascend-catlass-dsl` | Container image repository (CANN_REPO) |
-| `image-tag` | No | `ubuntu24-py312-weekly-v1` | Container image tag (CANN_TAG) |
+| `image-repository` | No | `catlass-dsl-lab` | Container image repository (CANN_REPO) |
+| `image-tag` | No | `ubuntu24-py312-rdv-v2` | Container image tag (CANN_TAG) |
 | `base-image` | No | `ubuntu:24.04` | Ubuntu 24.04 base used only for missing-image builds |
 | `cann-root` | No | `/opt/cann_weekly/latest/ascend-toolkit` | Weekly CANN toolkit; real version directory mounted read-only |
 | `npuir-root` | No | `/opt/AscendNPU-IR/latest/AscendNPU-IR` | Prepared NPUIR tree mounted read-only |

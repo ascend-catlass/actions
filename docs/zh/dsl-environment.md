@@ -91,7 +91,7 @@ bash scripts/dsl-env/run-container.sh /path/to/separate-catlass-worktree \
 ```
 
 可通过 `BASE_IMAGE` 选择可信镜像源或固定的 Ubuntu 24.04 digest。
-实测使用 `docker.m.daocloud.io/library/ubuntu:24.04`。构建上下文只包含 Dockerfile 和两份
+实测使用 `docker.m.daocloud.io/library/ubuntu:24.04`。构建上下文只包含 Dockerfile、离线构建检查脚本和两份
 Python 依赖清单，不包含 CANN、NPUIR、仓库历史或完整源码。
 
 运行时将独立 CATLASS 工作目录以读写方式挂载；CANN 和 NPUIR 在原绝对路径只读挂载；
@@ -106,3 +106,5 @@ Python 依赖清单，不包含 CANN、NPUIR、仓库历史或完整源码。
 Linux 检出应使用 LF 换行；Windows 导出的 CRLF shell 和 Lit 测试文件可能在环境验证前
 就失败。更新基础镜像或 Python 依赖基线时应更换镜像标签。生产容器会将实际 weekly CANN 版本
 与匹配的 NPUIR 归档同时只读挂载，并在每个测试 shell 中激活 weekly CANN。
+
+RDV 使用 `catlass-dsl-lab:ubuntu24-py312-rdv-v2` 镜像。`/opt/dsl-venv` 已包含 DSL 依赖清单中的构建工具和 Lit，以及 CPU PyTorch、TorchNPU。构建镜像时禁用网络验证 wheel 打包，并验证不兼容的构建依赖会被拒绝。`PIP_NO_BUILD_ISOLATION=0` 对应 pip 的反向布尔选项 `--no-build-isolation`；`PIP_CHECK_BUILD_DEPENDENCIES=1` 在编译前检查当前源码的构建依赖。Release 直接复用镜像内环境，不再下载新的隔离环境。安装版本记录在 `/opt/dsl-venv/requirements-resolved.txt`。CANN 和 NPUIR 继续只读挂载。Python 依赖变化后应使用新标签重建，已有镜像标签会直接复用。

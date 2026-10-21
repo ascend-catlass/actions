@@ -15,8 +15,7 @@ export PYTHONPATH="${PWD}:${PYTHONPATH:-}"
 
 case "$1" in
     dsl-dev)
-        # Temporary package-index install until the image ships LLVM Lit sources.
-        python -m pip install --index-url https://mirrors.nju.edu.cn/pypi/web/simple lit
+        # Lit and build tools are provisioned in the lab image.
         bash build.sh
         python -c 'import catlass; print("Dev package:", catlass.__file__)'
         ;;
