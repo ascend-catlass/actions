@@ -111,8 +111,8 @@ test('failed or invalid execution records preserve the normal failure report', (
   }
 }));
 
-test('all five model entry points share one valid CATLASS execution policy', () => {
-  for (const name of ['reply-atomgit-issue', 'fix-atomgit-issue', 'review-atomgit-pr', 'label-atomgit-issue']) {
+test('all four model entry points share one valid CATLASS execution policy', () => {
+  for (const name of ['reply-atomgit-issue', 'fix-atomgit-issue', 'review-atomgit-pr']) {
     assert.match(read(`.github/workflows/${name}.yml`), /uses: \.\/\.github\/actions\/catlass-ai/);
     assert.doesNotMatch(read(`.github/workflows/${name}.yml`), /model:|expected-version:|cli-path:|host:|sandbox:|bwrap/);
   }
@@ -125,7 +125,7 @@ test('all five model entry points share one valid CATLASS execution policy', () 
   assert.match(policy, /model: DeepSeek-V4.1-Flash/);
   assert.doesNotMatch(policy, /\$\{\{\s*vars\./);
   assert.match(policy, /host: \$\{\{ env\.TRAE_CN_HOST \}\}/);
-  for (const name of ['reply-atomgit-issue', 'fix-atomgit-issue', 'review-atomgit-pr', 'label-atomgit-issue', 'test-atomgit-pr']) {
+  for (const name of ['reply-atomgit-issue', 'fix-atomgit-issue', 'review-atomgit-pr', 'test-atomgit-pr']) {
     assert.match(read(`.github/workflows/${name}.yml`), /TRAE_CN_HOST: \$\{\{ vars\.TRAE_CN_HOST \}\}/);
   }
   assert.match(action, /actions\/github-script@v9/);

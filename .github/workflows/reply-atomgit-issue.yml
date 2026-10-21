@@ -1,4 +1,4 @@
-name: "Community 1 · Issue analysis (TRAE CN)"
+name: "Community 1 · Issue analysis and label (TRAE CN)"
 run-name: TRAE CN reply to ${{ inputs.issue_url }}
 
 on:
@@ -10,7 +10,7 @@ on:
         required: true
         default: https://atomgit.com/cann/catlass/issues/739
       publish:
-        description: Publish the short analysis reply (role members are skipped)
+        description: Publish the label and eligible short analysis reply
         type: boolean
         default: true
 
@@ -55,7 +55,17 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
               handle.write(f'repository={owner}/{repo}\n')
               handle.write(f'path=/repos/{owner}/{repo}/issues/{number}\n')
+              if (owner, repo) != ('cann', 'catlass'):
+                  raise ValueError('Expected cann/catlass Issue')
+              handle.write(f'number={number}\n')
           PY
+      - name: Prepare existing Issue type labels for every author
+        id: label
+        uses: ./.github/actions/atomgit-issue-label
+        with:
+          operation: prepare
+          issue-number: ${{ steps.issue_repository.outputs.number }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
       - name: Read Issue author
         id: issue_author
         uses: yuantao313/actions/atomgit-api@02defff4ec04b38b33adfaec06bcb1406f5a2150
@@ -73,6 +83,8 @@ jobs:
           community-path: _issue-community
       - name: Check whether the Issue author needs an automated reply
         id: eligibility
+        if: ${{ !contains(fromJSON('["confidential_issue", "issue_not_open"]'), steps.label.outputs.result) }}
+        continue-on-error: true
         shell: bash
         env:
           ISSUE_FILE: ${{ steps.issue_author.outputs.response-file }}
@@ -89,28 +101,51 @@ jobs:
           roles-file: ${{ steps.roles.outputs.result-file }}
           token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           issue-url: ${{ inputs.issue_url }}
-      - name: Analyze Issue and source
+      - name: Compose one analysis and classification request
+        id: request
+        env:
+          ANALYZE_REPLY: ${{ steps.eligibility.outputs.analyze }}
+          ANALYZE_LABEL: ${{ steps.label.outputs.analyze }}
+        run: python3 -m scripts.issue_analysis prepare
+      - name: Analyze Issue and choose its label once
         id: trae
-        if: ${{ steps.eligibility.outputs.analyze == 'true' }}
+        if: ${{ steps.request.outputs.analyze == 'true' }}
         uses: ./.github/actions/catlass-ai
         with:
           pat: ${{ secrets.TRAE_CN_PAT }}
-          working-directory: _issue-source
-          prompt-file: .action-context/prompt.md
+          working-directory: ${{ steps.request.outputs.worktree }}
+          prompt-file: ${{ steps.request.outputs.prompt }}
+          output-schema-file: ${{ steps.request.outputs.schema }}
+      - name: Extract publisher results with original execution provenance
+        id: extract
+        if: ${{ steps.trae.outputs.status == 'success' }}
+        env:
+          STAGE_RESULT: ${{ steps.trae.outputs.result-directory }}
+        run: python3 -m scripts.issue_analysis extract
+      - name: Recheck, apply the selected label and read it back
+        if: ${{ steps.extract.outcome == 'success' && steps.label.outputs.analyze == 'true' && inputs.publish }}
+        uses: ./.github/actions/atomgit-issue-label
+        with:
+          operation: publish
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
+          stage-result: _issue-analysis/label
       - name: Publish and read back the short reply
-        if: ${{ steps.eligibility.outputs.analyze == 'true' && steps.trae.outputs.status == 'success' && (inputs.publish) }}
+        if: ${{ !cancelled() && steps.extract.outcome == 'success' && steps.eligibility.outputs.analyze == 'true' && inputs.publish }}
         uses: ./.github/actions/atomgit-issue
         with:
           operation: publish
           roles-file: ${{ steps.roles.outputs.result-file }}
           token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
-          stage-result: ${{ steps.trae.outputs.result-directory }}
+          stage-result: _issue-analysis/reply
       - name: Save analysis and publication evidence
-        if: ${{ always() && (steps.trae.outputs.result-directory != '') }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: atomgit-issue-reply-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             _issue-result/
+            _issue-label-result/
+            _issue-analysis/
             ${{ steps.trae.outputs.result-directory }}
+          if-no-files-found: ignore
           retention-days: 7

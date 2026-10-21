@@ -4,8 +4,8 @@
 
 ## Purpose
 
-Community 5 labels new public CATLASS Issues from every author, including committers
-and maintainers. The shared CATLASS AI stage receives no publishing credentials.
+Community 1 combines Issue analysis and classification in one AI execution.
+Classification includes every author, including committers and maintainers. The shared CATLASS AI stage receives no publishing credentials.
 Candidates are the existing Issue-kind labels: documentation, feature, bug-report,
 wontfix, question, enhancement, bug, kind/feature, requirement, tech-debt, invalid,
 duplicate and RFC. Only names present in the live catalogue are candidates.
@@ -13,8 +13,7 @@ duplicate and RFC. Only names present in the live catalogue are candidates.
 Publish consumes the successful AI response and provenance together, rechecks the
 Issue content/state/labels and catalogue, adds exactly one label and reads it back.
 Existing category labels are preserved; other labels are never replaced. Changed
-content fails without writing; closed/confidential Issues are skipped. Comments
-from the independent analysis workflow do not invalidate classification.
+content fails without writing; closed/confidential Issues are skipped. Analysis comments do not invalidate classification.
 
 ## Example
 
@@ -48,8 +47,8 @@ The model stage runs between prepare and publish.
 
 ## Operation
 
-New/open hook events dispatch Community 5 independently of Community 1's author-role
-filter. Reopen/update events do not reclassify. Manual dispatch recovers missed
-events; publish=false only analyzes. Per-Issue concurrency and publication rechecks
+Public open/reopen events dispatch Community 1 once. Reply author-role filtering
+never disables classification. Existing category labels are preserved; update
+events are ignored. Manual dispatch recovers missed events; publish=false writes nothing. Per-Issue concurrency and publication rechecks
 make redelivery idempotent. No labels are created; classification never comments,
 closes Issues or triggers fixes. Lack of detail does not justify wontfix.
