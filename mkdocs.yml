@@ -50,6 +50,7 @@ nav:
     - prepare-ci-tests · 准备测试依赖并选择 NPU: zh/actions/prepare-ci-tests.md
     - rdv-status · 把 RDV 测试状态写回 PR: zh/actions/rdv-status.md
     - run-ci-tests · 运行 CATLASS 测试阶段: zh/actions/run-ci-tests.md
+    - install-cann-release · 安装正式发布 CANN: zh/actions/install-cann-release.md
   - 文档维护: zh/maintaining.md
 - English:
   - Overview: en/index.md
@@ -69,4 +70,5 @@ nav:
     - prepare-ci-tests · Prepare test dependencies and select an NPU: en/actions/prepare-ci-tests.md
     - rdv-status · Report RDV test status on a PR: en/actions/rdv-status.md
     - run-ci-tests · Run a CATLASS test stage: en/actions/run-ci-tests.md
+    - install-cann-release · Install a CANN release: en/actions/install-cann-release.md
   - Maintain the docs: en/maintaining.md

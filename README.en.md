@@ -29,6 +29,7 @@ Actions recheck current state and deduplicate before publication. The publishing
 | Shared wheel build | [build-dsl-wheel](.github/workflows/build-dsl-wheel.yml) | Shared nightly/release build, also manual |
 | NPUIR dependencies | [20261013](.github/workflows/build-ascendnpu-ir-20261013.yml) / [legacy 20260720](.github/workflows/build-ascendnpu-ir-20260720.yml) | Source/architecture-specific archives; legacy entry retained for diagnosis |
 | Environment | [install-cann-weekly](.github/workflows/install-cann-weekly.yml) | Daily 02:00; install the same weekly build on both architectures |
+| Environment | [install-cann-release](.github/workflows/install-cann-release.yml) | Monday 03:00 or manual; install the newest semantic version under `/opt/cann/<version>` and advance latest |
 | Mirror | [sync-atomgit](.github/workflows/sync-atomgit.yml) | Daily 02:00; mirror AtomGit master and tags |
 
 Schedules may queue. See [runner and build operations](docs/en/operations.md) for images, paths, dependencies and release credentials.
