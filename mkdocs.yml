@@ -45,6 +45,7 @@ nav:
     - create-ascend-container · 创建昇腾测试容器: zh/actions/create-ascend-container.md
     - atomgit-ci-passed · CI 通过后提醒代码检视: zh/actions/atomgit-ci-passed.md
     - atomgit-issue · 准备、回复或分配 AtomGit Issue: zh/actions/atomgit-issue.md
+    - atomgit-issue-label · 为新建 Issue 选择类型标签: zh/actions/atomgit-issue-label.md
     - atomgit-release · 发布 AtomGit Release 安装包: zh/actions/atomgit-release.md
     - npuir-local-archive · 复用本机 AscendNPU-IR 构建归档: zh/actions/npuir-local-archive.md
     - prepare-ci-tests · 准备测试依赖并选择 NPU: zh/actions/prepare-ci-tests.md
@@ -64,6 +65,7 @@ nav:
     - create-ascend-container · Create an Ascend test container: en/actions/create-ascend-container.md
     - atomgit-ci-passed · Send a review reminder after CI passes: en/actions/atomgit-ci-passed.md
     - atomgit-issue · Prepare, reply to or assign a AtomGit Issue: en/actions/atomgit-issue.md
+    - atomgit-issue-label · Classify new Issues: en/actions/atomgit-issue-label.md
     - atomgit-release · Publish a AtomGit release bundle: en/actions/atomgit-release.md
     - npuir-local-archive · Reuse local AscendNPU-IR build archives: en/actions/npuir-local-archive.md
     - prepare-ci-tests · Prepare test dependencies and select an NPU: en/actions/prepare-ci-tests.md

@@ -2,7 +2,7 @@
 
 [中文](../zh/workflows.md) · [English](../en/workflows.md)
 
-## Four community workflows
+## Five community workflows
 
 | Entry | Trigger | Result |
 | --- | --- | --- |
@@ -10,6 +10,11 @@
 | `reply-atomgit-ci-passed.yml` · Community 2 | Passed label added to an open PR, or manual | Deduplicated reminder for PRs by every author |
 | `fix-atomgit-issue.yml` · Community 3 | Manual only | Verified small patch, fork PR and `compile` comment |
 | `review-atomgit-pr.yml` · Community 4 | Manual only | Evidence-based inline questions on changed code |
+| `label-atomgit-issue.yml` · Community 5 | All new public Issues via hook, or manual | One verified existing Issue-kind label; preserve manual categories |
+
+Community 5 is independent of the reply's author-role filter. It fetches the live
+label catalogue, uses the shared AI stage, then adds one category after rechecking
+the Issue and preserving all existing labels. See [Issue classification](actions/atomgit-issue-label.md).
 
 Select the entry in GitHub Actions, click **Run workflow**, and choose `main`. The three model tasks reuse [trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/traecn), pinned official China enterprise CLI 0.209.1 and DeepSeek-V4.1-Flash.
 

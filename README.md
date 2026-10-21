@@ -4,7 +4,7 @@
 
 本仓库负责 CATLASS 的社区协作、PR 测试、每日构建和版本发布。通用组件引用 [yuantao313/actions](https://github.com/yuantao313/actions)，本仓只维护 CATLASS 业务步骤。
 
-## 四条社区流水线
+## 五条社区流水线
 
 | 流水线 | 触发方式 | 做什么 |
 | --- | --- | --- |
@@ -12,10 +12,11 @@
 | [2. PR CI 通过回复](.github/workflows/reply-atomgit-ci-passed.yml) | 手动；发布前检查 `ci-pipeline-passed` 标签 | 面向所有 PR 作者，查重后发送检视、SIG 和 Ascend 950 测试提醒 |
 | [3. 简单 Issue 快速修复](.github/workflows/fix-atomgit-issue.yml) | **仅手动**，填写 Issue 编号与验证命令 | TRAE CN 判断是否为简单问题、生成最小补丁；验证通过后推到个人 fork、创建 PR，并评论 `compile` |
 | [4. PR 行级检视](.github/workflows/review-atomgit-pr.yml) | **仅手动**，填写 PR 编号 | TRAE CN 检视变更，对有依据的疑问发布行级评论；没有问题就不评论 |
+| [5. Issue 类型标签](.github/workflows/label-atomgit-issue.yml) | hook 自动触发所有新建公开 Issue；也可手动补跑 | 从实时已有类型标签选择一个，复查后追加；保留人工分类和其他标签 |
 
 简单分析与手动修复互相独立：修复无需先分析，也不限制作者角色，两条流程不会互相触发。
 
-在 GitHub **Actions** 页选择对应的 `Community 1–4` 工作流，点击 **Run workflow**，选择 `main`。修复命令应是与本 Issue 对应的实际测试，例如 `python3 -m pytest tests/path/to/test_case.py`；执行环境是 GitHub Linux runner，没有 NPU，所需依赖需由验证命令准备。复杂问题或验证失败时不会创建 PR。
+在 GitHub **Actions** 页选择对应的 `Community 1–5` 工作流，点击 **Run workflow**，选择 `main`。修复命令应是与本 Issue 对应的实际测试，例如 `python3 -m pytest tests/path/to/test_case.py`；执行环境是 GitHub Linux runner，没有 NPU，所需依赖需由验证命令准备。复杂问题或验证失败时不会创建 PR。
 
 Action 在发布前复查 PR/Issue 状态并查重。自动修复发布账号需要已有 `cann/catlass` 的个人 fork 和评论权限。详见[使用方法与运行结果](docs/zh/workflows.md)。
 
@@ -43,7 +44,7 @@ Action 在发布前复查 PR/Issue 状态并查重。自动修复发布账号需
 | 分析与运行环境 | [统一 AI 执行策略](.github/actions/catlass-ai/README.md)、 [CI 失败分析](.github/actions/analyze-ci-failure/README.md)、[安装 TRAE CN](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) |
 | 通用接口 | [AtomGit API](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-api) |
 
-每个 Action 都有中英文用途说明、输入输出和调用示例。四条业务流水线复用这些组件，不把每条流程都重复实现成独立工具。
+每个 Action 都有中英文用途说明、输入输出和调用示例。五条业务流水线复用这些组件，不把每条流程都重复实现成独立工具。
 
 ## 配置与维护
 

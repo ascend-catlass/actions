@@ -1,0 +1,37 @@
+name: Classify a CATLASS Issue
+description: Prepare existing label candidates or publish one verified Issue-kind label
+inputs:
+  operation:
+    description: prepare or publish
+    required: true
+  token:
+    description: AtomGit credential with Issue and repository label access
+    required: true
+  issue-number:
+    description: Issue number in cann/catlass for prepare
+    default: ''
+  result-directory:
+    description: Prepared context and publication evidence directory
+    default: _issue-label-result
+  stage-result:
+    description: Successful AI response and execution provenance directory for publish
+    default: ''
+outputs:
+  analyze:
+    description: Whether classification should run
+    value: ${{ steps.policy.outputs.analyze }}
+  result:
+    description: ready, labeled, already_classified, issue_not_open or confidential_issue
+    value: ${{ steps.policy.outputs.result }}
+runs:
+  using: composite
+  steps:
+    - id: policy
+      shell: bash
+      env:
+        ATOMGIT_TOKEN: ${{ inputs.token }}
+        ISSUE_NUMBER: ${{ inputs.issue-number }}
+        RESULT_DIRECTORY: ${{ inputs.result-directory }}
+        STAGE_RESULT: ${{ inputs.stage-result }}
+        OPERATION: ${{ inputs.operation }}
+      run: python3 -m scripts.issue_label "$OPERATION"
