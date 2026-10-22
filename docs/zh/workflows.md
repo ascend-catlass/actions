@@ -130,3 +130,7 @@ gh workflow run build-ascendnpu-ir-20261013.yml --repo ascend-catlass/actions --
 
 NPUIR 的归档仍写入目标机 `/opt/AscendNPU-IR`，CANN 写入 `/opt/cann_weekly`。
 runner 用户须能运行 Docker 并具有现有安装步骤所需的免密 sudo 权限。
+
+## 正式发布 CANN 环境
+
+[install-cann-release](actions/install-cann-release.md) 每周一北京时间 03:00 检查正式发布镜像，也支持在 main 手动触发。按语义版本选择最新包（9.2.0 高于 9.2.0-beta.2），锁定同一版本后安装到双架构 bz host 的 /opt/cann/<version>。latest 只指向成功版本且不回退。手动 runner_label 和 target_arch 可选定单机；与 weekly 共用并发组，日志保存 30 天。

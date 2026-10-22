@@ -110,3 +110,7 @@ existing reusable NPUIR calls keep their previous defaults. The historical
 NPUIR archives remain under `/opt/AscendNPU-IR` on the selected worker; CANN
 installs under `/opt/cann_weekly`. The runner user needs Docker access and the
 passwordless sudo permissions required by the existing installation steps.
+
+## Released CANN environments
+
+[install-cann-release](actions/install-cann-release.md) checks the release mirror on Monday at 03:00 Asia/Shanghai, or manually on main. Semantic precedence ranks 9.2.0 above 9.2.0-beta.2. Both bz hosts install one pinned version under /opt/cann/<version>; latest advances only to completed versions and never downgrades. Optional runner_label and target_arch select one host. The workflow shares the weekly concurrency group and retains logs for 30 days.

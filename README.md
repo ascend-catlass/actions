@@ -29,6 +29,7 @@ Action 在发布前复查 PR/Issue 状态并查重。自动修复发布账号需
 | 公共构建 | [build-dsl-wheel](.github/workflows/build-dsl-wheel.yml) | 被 nightly/release 复用，也可手动构建 |
 | NPUIR 依赖 | [20261013](.github/workflows/build-ascendnpu-ir-20261013.yml) / [20260720 旧版](.github/workflows/build-ascendnpu-ir-20260720.yml) | 按源码与架构准备归档；**旧版保留用于定位问题** |
 | 环境维护 | [install-cann-weekly](.github/workflows/install-cann-weekly.yml) | 每日 02:00，安装同一 CANN weekly 构建到双架构主机 |
+| 环境维护 | [install-cann-release](.github/workflows/install-cann-release.yml) | 每周一 03:00 或手动，按语义版本安装到 `/opt/cann/<version>`，更新 latest |
 | 镜像同步 | [sync-atomgit](.github/workflows/sync-atomgit.yml) | 每日 02:00，同步 AtomGit master 与 tags 到 GitHub |
 
 构建环境、归档目录、镜像、依赖和发布权限见[运维说明](docs/en/operations.md)。定时任务可能排队。
