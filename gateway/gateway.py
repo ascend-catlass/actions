@@ -47,7 +47,11 @@ GITHUB_ACTIONS_TOKEN = env("GITHUB_ACTIONS_TOKEN")  # 调度 workflow 的凭据
 GITHUB_REPO = env("GITHUB_REPO", "ascend-catlass/actions")
 GITHUB_REF = env("GITHUB_REF_BRANCH", "main")
 
-TARGET_REPOSITORY = env("TARGET_REPOSITORY", "cann/catlass")
+# 受管仓库表。格式（逗号分隔）：
+#   owner/repo:sig          该仓库用这个 SIG 的名单，目标分支取 TARGET_BRANCH
+#   owner/repo:sig:branch   额外指定该仓库要求的 PR 目标分支
+# 例：cann/catlass:catlass,cann/ops-nn:ops-nn,cann/ops-basic:ops-basic:master
+REPOS_SPEC = env("REPOS", "cann/catlass:catlass")
 TARGET_BRANCH = env("TARGET_BRANCH", "master")
 CI_PASSED_LABEL = env("CI_PASSED_LABEL", "ci-pipeline-passed")
 
@@ -77,9 +81,53 @@ DRY_RUN_SECRET = env("DRY_RUN_SECRET", "1")
 
 log = logging.getLogger("gateway")
 
-# 名单客户端（进程内单例，带 TTL 缓存）
-roster = CommunityRoster(sig=SIG_NAME, cache_file=ROSTER_CACHE, cache_ttl=ROSTER_TTL)
-ALLOW_RULES = parse_allow_list(ALLOW_LIST)
+
+def parse_repos(spec: str, default_branch: str) -> dict[str, dict[str, str]]:
+    """解析受管仓库表。
+
+    返回 {仓库路径: {"sig": ..., "branch": ...}}。
+    格式非法或为空时回落到 cann/catlass，保证服务仍可用。
+    """
+    out: dict[str, dict[str, str]] = {}
+    for raw in (spec or "").split(","):
+        token = raw.strip()
+        if not token:
+            continue
+        parts = token.split(":")
+        repo = parts[0].strip()
+        if "/" not in repo:
+            log.warning("仓库路径无效，已跳过: %s", token)
+            continue
+        sig = parts[1].strip() if len(parts) > 1 and parts[1].strip() else repo.split("/")[-1]
+        branch = parts[2].strip() if len(parts) > 2 and parts[2].strip() else default_branch
+        out[repo] = {"sig": sig, "branch": branch}
+    if not out:
+        log.warning("仓库表为空，回落到 cann/catlass")
+        out["cann/catlass"] = {"sig": "catlass", "branch": default_branch}
+    return out
+
+
+REPOS = parse_repos(REPOS_SPEC, TARGET_BRANCH)
+# 保留单一仓库时的便捷视图（兼容既有调用）
+TARGET_REPOSITORY = next(iter(REPOS))
+
+# 名单客户端按 SIG 缓存，一个 SIG 一个实例
+_rosters: dict[str, CommunityRoster] = {}
+
+
+def roster_for(repo: str) -> CommunityRoster:
+    """取该仓库对应 SIG 的名单客户端。"""
+    sig = (REPOS.get(repo) or {}).get("sig") or "catlass"
+    client = _rosters.get(sig)
+    if client is None:
+        cache = ROSTER_CACHE.replace(".json", f"-{sig}.json") if len(REPOS) > 1 else ROSTER_CACHE
+        client = CommunityRoster(sig=sig, cache_file=cache, cache_ttl=ROSTER_TTL)
+        _rosters[sig] = client
+    return client
+
+
+# 默认实例（无仓库上下文时用，例如启动自检）
+roster = roster_for(TARGET_REPOSITORY)
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +152,18 @@ def _project_is(target: str) -> Predicate:
     def check(p: dict[str, Any], c: Ctx) -> bool:
         return (p.get("project") or {}).get("path_with_namespace") == target
     return check
+
+
+def _project_managed(p: dict[str, Any], c: Ctx) -> bool:
+    """仓库在受管表内。"""
+    return (p.get("project") or {}).get("path_with_namespace") in REPOS
+
+
+def _mr_branch_is_target(p: dict[str, Any], c: Ctx) -> bool:
+    """PR 目标分支等于该仓库要求的分支。"""
+    repo = (p.get("project") or {}).get("path_with_namespace") or ""
+    want = (REPOS.get(repo) or {}).get("branch") or TARGET_BRANCH
+    return (p.get("merge_request") or {}).get("target_branch") == want
 
 
 def _note_is_mr(p: dict[str, Any], c: Ctx) -> bool:
@@ -241,14 +301,22 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE events ADD COLUMN {col} {decl}")
 
 
-def get_allow_list() -> tuple[str, str | None, str | None]:
+def allow_file_for(repo: str | None = None) -> str:
+    """该仓库的名单文件路径。只有多仓时才按仓库分文件。"""
+    if not repo or len(REPOS) <= 1:
+        return ALLOW_FILE
+    safe = repo.replace("/", "__")
+    return os.path.join(os.path.dirname(ALLOW_FILE), f"allow_list.{safe}.txt")
+
+
+def get_allow_list(repo: str | None = None) -> tuple[str, str | None, str | None]:
     """读当前名单。返回 (表达式, 更新时间, 修改者)。
 
     配置文件不存在时回落到环境变量 ALLOW_LIST（首次启动的初始值）。
     文件格式：第一行可选注释，随后是名单表达式，也支持多行。
     """
     try:
-        text = Path(ALLOW_FILE).read_text(encoding="utf-8")
+        text = Path(allow_file_for(repo)).read_text(encoding="utf-8")
     except FileNotFoundError:
         return ALLOW_LIST, None, None
     except Exception as exc:  # noqa: BLE001
@@ -278,7 +346,8 @@ def get_allow_list() -> tuple[str, str | None, str | None]:
     return value, updated_at, updated_by
 
 
-def set_allow_list(value: str, updated_by: str | None = None) -> None:
+def set_allow_list(value: str, updated_by: str | None = None,
+                   repo: str | None = None) -> None:
     """写名单到配置文件（原子替换）。"""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     body = [
@@ -290,16 +359,16 @@ def set_allow_list(value: str, updated_by: str | None = None) -> None:
         value,
         "",
     ]
-    path = Path(ALLOW_FILE)
+    path = Path(allow_file_for(repo))
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     tmp.write_text("\n".join(body), encoding="utf-8")
     tmp.replace(path)
 
 
-def current_rules() -> list:
-    """当前生效的规则（每次都从库里读，支持界面即时修改）。"""
-    expr, _, _ = get_allow_list()
+def current_rules(repo: str | None = None) -> list:
+    """当前生效的规则（每次都从文件读，支持界面即时修改）。"""
+    expr, _, _ = get_allow_list(repo)
     return parse_allow_list(expr)
 
 
@@ -351,15 +420,26 @@ def record_event(**fields: Any) -> None:
         log.warning("写事件记录失败: %s", exc)
 
 
-def query_events(days: int = 7, limit: int = 500) -> list[dict[str, Any]]:
-    """查最近 N 天的记录。"""
+def query_events(days: int = 7, limit: int = 500, repo: str | None = None,
+                 include_ignored: bool = True) -> list[dict[str, Any]]:
+    """查最近 N 天的记录，可按仓库过滤并选择是否包含忽略请求。"""
     cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
     cutoff_iso = datetime.fromtimestamp(cutoff, timezone.utc).isoformat(timespec="seconds")
+
+    where = ["ts >= ?"]
+    args: list[Any] = [cutoff_iso]
+    if repo:
+        where.append("repo = ?")
+        args.append(repo)
+    if not include_ignored:
+        where.append("outcome != 'ignored'")
+    args.append(limit)
+
     try:
         with _db_lock, _db() as conn:
             rows = conn.execute(
-                "SELECT * FROM events WHERE ts >= ? ORDER BY id DESC LIMIT ?",
-                (cutoff_iso, limit),
+                f"SELECT * FROM events WHERE {' AND '.join(where)} ORDER BY id DESC LIMIT ?",
+                tuple(args),
             ).fetchall()
         return [dict(r) for r in rows]
     except Exception as exc:  # noqa: BLE001
@@ -367,23 +447,34 @@ def query_events(days: int = 7, limit: int = 500) -> list[dict[str, Any]]:
         return []
 
 
-def event_stats(days: int = 7) -> dict[str, Any]:
-    """按结果与动作聚合。"""
+def event_stats(days: int = 7, repo: str | None = None,
+                include_ignored: bool = True) -> dict[str, Any]:
+    """按结果与动作聚合，可按仓库过滤并选择是否统计忽略请求。"""
     cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
     cutoff_iso = datetime.fromtimestamp(cutoff, timezone.utc).isoformat(timespec="seconds")
+
+    where = ["ts >= ?"]
+    args: list[Any] = [cutoff_iso]
+    if repo:
+        where.append("repo = ?")
+        args.append(repo)
+    if not include_ignored:
+        where.append("outcome != 'ignored'")
+    cond = " AND ".join(where)
+
     try:
         with _db_lock, _db() as conn:
             by_outcome = {r["outcome"]: r["n"] for r in conn.execute(
-                "SELECT outcome, COUNT(*) n FROM events WHERE ts >= ? GROUP BY outcome",
-                (cutoff_iso,))}
+                f"SELECT outcome, COUNT(*) n FROM events WHERE {cond} GROUP BY outcome",
+                tuple(args))}
             by_action = {r["action"] or "-": r["n"] for r in conn.execute(
-                "SELECT action, COUNT(*) n FROM events WHERE ts >= ? GROUP BY action",
-                (cutoff_iso,))}
+                f"SELECT action, COUNT(*) n FROM events WHERE {cond} GROUP BY action",
+                tuple(args))}
             by_reason = {r["reason"] or "-": r["n"] for r in conn.execute(
-                "SELECT reason, COUNT(*) n FROM events WHERE ts >= ? AND reason IS NOT NULL "
-                "GROUP BY reason ORDER BY n DESC LIMIT 20", (cutoff_iso,))}
-            total = conn.execute("SELECT COUNT(*) n FROM events WHERE ts >= ?",
-                                 (cutoff_iso,)).fetchone()["n"]
+                f"SELECT reason, COUNT(*) n FROM events WHERE {cond} AND reason IS NOT NULL "
+                "GROUP BY reason ORDER BY n DESC LIMIT 20", tuple(args))}
+            total = conn.execute(f"SELECT COUNT(*) n FROM events WHERE {cond}",
+                                 tuple(args)).fetchone()["n"]
         return {"days": days, "total": total, "by_outcome": by_outcome,
                 "by_action": by_action, "by_reason": by_reason}
     except Exception as exc:  # noqa: BLE001
@@ -403,11 +494,11 @@ ROUTES: list[dict[str, Any]] = [
         "workflow": "test-atomgit-pr.yml",
         "when": [
             _kind_is("note"),
-            _project_is(TARGET_REPOSITORY),
+            _project_managed,
             _note_is_mr,
             _note_text_is("rdvcompile"),
             # 白名单已移到 actions 仓，这里不过滤评论者
-            _mr_branch_is(TARGET_BRANCH),
+            _mr_branch_is_target,
             _mr_open,
             _iid_positive("merge_request", "iid"),
         ],
@@ -420,7 +511,7 @@ ROUTES: list[dict[str, Any]] = [
         "workflow": "reply-atomgit-ci-passed.yml",
         "when": [
             _kind_is("merge_request"),
-            _project_is(TARGET_REPOSITORY),
+            _project_managed,
             _pr_open,
             _label_added(CI_PASSED_LABEL),
             _iid_positive("object_attributes", "iid"),
@@ -434,13 +525,14 @@ ROUTES: list[dict[str, Any]] = [
         "workflow": "reply-atomgit-issue.yml",
         "when": [
             _kind_is("issue"),
-            _project_is(TARGET_REPOSITORY),
+            _project_managed,
             _issue_open_or_reopen,
             _issue_not_confidential,
             _iid_positive("object_attributes", "iid"),
         ],
         "inputs": lambda p: {
-            "issue_url": f"https://atomgit.com/{TARGET_REPOSITORY}/issues/"
+            "issue_url": f"{ATOMGIT_WEB}/"
+                         f"{(p.get('project') or {}).get('path_with_namespace')}/issues/"
                          f"{(p.get('object_attributes') or {}).get('iid')}",
             "publish": "true",
         },
@@ -450,7 +542,8 @@ ROUTES: list[dict[str, Any]] = [
 
 def decide(payload: dict[str, Any]) -> dict[str, Any] | None:
     """按路由表决定动作。返回 None 表示忽略。"""
-    ctx: Ctx = {"repo": TARGET_REPOSITORY}
+    ctx: Ctx = {"repo": (payload.get("project") or {}).get("path_with_namespace")
+                or TARGET_REPOSITORY}
     for route in ROUTES:
         if all(check(payload, ctx) for check in route["when"]):
             return route
@@ -703,9 +796,10 @@ def handle(payload: dict[str, Any], headers: dict[str, str], raw: bytes) -> tupl
     # 名单判断：命中路由后再校验触发者是否有权限
     # 规则每次从库里读，界面改完立即生效，无需重启
     user = facts.get("user") or ""
-    rules = current_rules()
-    if not roster.allows(facts.get("repo") or "", user, rules,
-                         files=facts.get("files") or None):
+    repo_path = facts.get("repo") or ""
+    rules = current_rules(repo_path)
+    if not roster_for(repo_path).allows(repo_path, user, rules,
+                                        files=facts.get("files") or None):
         log.info("denied action=%s user=%s repo=%s", route["action"], user, facts.get("repo"))
         record_event(**facts, action=route["action"], outcome="denied",
                      reason="not_in_allow_list", workflow=route["workflow"], http_status=200)
@@ -820,13 +914,17 @@ async def assets(path: str):
 
 
 @api.get("/api/events")
-async def api_events(days: int = 7, limit: int = 500):
-    return {"days": days, "events": query_events(days=days, limit=min(limit, 2000))}
+async def api_events(days: int = 7, limit: int = 500, repo: str | None = None,
+                     show_ignored: bool = False):
+    """触发记录。默认隐藏忽略请求，需要时传 show_ignored=true。"""
+    return {"days": days, "repo": repo, "show_ignored": show_ignored,
+            "events": query_events(days=days, limit=min(limit, 2000),
+                                   repo=repo, include_ignored=show_ignored)}
 
 
 @api.get("/api/stats")
-async def api_stats(days: int = 7):
-    return event_stats(days=days)
+async def api_stats(days: int = 7, repo: str | None = None, show_ignored: bool = False):
+    return event_stats(days=days, repo=repo, include_ignored=show_ignored)
 
 
 @api.put("/api/roster")
@@ -858,21 +956,37 @@ async def api_roster_update(request: Request):
         return JSONResponse({"ok": False, "error": "invalid_allow_list",
                              "detail": detail}, status_code=400)
 
+    repo = (body or {}).get("repo") or None
+    if repo and repo not in REPOS:
+        return JSONResponse({"ok": False, "error": "unknown_repo", "repo": repo},
+                            status_code=400)
+
     # 记录修改者：优先用请求头里的用户名，其次记 IP
-    who = request.headers.get("x-editor") or request.client.host if request.client else None
-    set_allow_list(value, who)
+    who = request.headers.get("x-editor") or (request.client.host if request.client else None)
+    set_allow_list(value, who, repo)
     log.info("allow_list updated by=%s rules=%s", who, describe_rules(parse_allow_list(value)))
     return {"ok": True, "rules": describe_rules(parse_allow_list(value)),
             "detail": detail, "updated_by": who}
 
 
+@api.get("/api/repos")
+async def api_repos():
+    """受管仓库列表，供界面下拉选择。"""
+    return {"repos": [{"path": k, "sig": v["sig"], "branch": v["branch"]}
+                      for k, v in REPOS.items()]}
+
+
 @api.get("/api/roster")
-async def api_roster():
-    """当前名单状态（便于排查权限问题）。"""
-    expr, updated_at, updated_by = get_allow_list()
-    st = roster.status()
+async def api_roster(repo: str | None = None):
+    """当前名单状态。repo 缺省时取默认仓库。"""
+    target = repo or TARGET_REPOSITORY
+    expr, updated_at, updated_by = get_allow_list(target)
+    client = roster_for(target)
+    st = client.status()
+    st["repo"] = target
+    st["sig"] = (REPOS.get(target) or {}).get("sig")
     st["allow_list"] = expr
-    st["rules"] = describe_rules(current_rules())
+    st["rules"] = describe_rules(parse_allow_list(expr))
     st["updated_at"] = updated_at
     st["updated_by"] = updated_by
     return st
