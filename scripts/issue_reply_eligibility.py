@@ -24,7 +24,16 @@ FEEDBACK_HINTS = (
     "建议", "问题", "错误", "异常", "崩溃", "失败", "报错", "不支持",
     "无法", "不能", "期望", "应该是", "优化", "缺陷", "越界", "泄漏",
     "希望", "支持", "增加", "新增", "能否", "可否", "建议增加",
+    "溢出", "破坏", "覆盖", "丢失", "死循环", "卡死", "不生效", "不一致",
     "need", "support", "add", "request", "improve", "allow",
+    # 技术描述类：报缺陷时常常只讲现象，不写 bug/error 字样
+    "overflow", "overrun", "out-of-bound", "out of bound", "oob",
+    "corrupt", "corruption", "memory", "buffer", "leak", "use-after",
+    "null", "dangling", "race", "deadlock", "hang", "stall", "timeout",
+    "exceed", "invalid", "violat", "mismatch", "undefined", "uninitialized",
+    "incorrect", "unexpected", "should be", "expected", "cannot", "doesn't",
+    "does not", "not work", "broken", "missing", "wrong", "fail", "crash",
+    "panic", "abort", "assert", "regression", "slow", "performance",
 )
 
 
@@ -58,7 +67,14 @@ def _looks_like_feedback(issue):
     # 否则要看正文，且正文得有一定篇幅
     if len(body.strip()) < 20:
         return False
-    return any(hint in body for hint in FEEDBACK_HINTS)
+    if any(hint in body for hint in FEEDBACK_HINTS):
+        return True
+
+    # 兜底：没有标签、正文较长且提到代码位置或具体数值时，
+    # 大概率是在反馈具体问题（例如只描述越界细节而不写 bug 字样）。
+    if len(body) >= 120 and re.search(r"\b[a-z0-9_]+\.(?:h|hpp|cpp|c|cc|py)\b|:\d+|\[\d+\]", body):
+        return True
+    return False
 
 
 def eligibility(issue, roles, repository, developers=None):
@@ -89,9 +105,13 @@ def eligibility(issue, roles, repository, developers=None):
         ):
             raise ValueError(f"Invalid role list: {field}")
         members.update(value.casefold() for value in values)
-    if issue.get("state") not in {"open", "opened"}:
+    state = issue.get("state")
+    if not isinstance(state, str) or not state.strip():
+        # 状态缺失说明上游数据不完整，直接报错而不是当成已关闭
+        raise ValueError("Issue state is missing or empty")
+    if state.strip().casefold() not in {"open", "opened"}:
         return {"analyze": False, "assign": False, "remind": False,
-                "reason": "issue-is-not-open"}
+                "reason": f"issue-is-not-open ({state})"}
 
     is_member = author.casefold() in members
 
@@ -133,9 +153,14 @@ def main():
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
         handle.write(f"analyze={str(result['analyze']).lower()}\n")
         handle.write(f"assign={str(result['assign']).lower()}\n")
-    summary = ("Proceed with Issue analysis." if result["analyze"] else
-               "Assign Issue to its author without model analysis." if result["assign"] else
-               "Skip closed Issue.")
+    if result["analyze"]:
+        summary = "Proceed with Issue analysis."
+    elif result["assign"]:
+        summary = "Assign Issue to its author and remind them to close the loop."
+    elif result["remind"]:
+        summary = "Remind the internal developer to close the loop."
+    else:
+        summary = f"Skip this Issue. Reason: {result['reason']}."
     with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
         handle.write(f"{summary} Reason: `{result['reason']}`.\n")
     print(summary)
