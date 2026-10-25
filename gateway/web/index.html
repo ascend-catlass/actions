@@ -382,8 +382,7 @@ async function loadRepos() {
       currentRepo = list[0].path;
       sel.value = currentRepo;
     }
-    // 只有一个仓库时没必要让用户选
-    if (list.length <= 1) sel.closest('.ctl').style.display = 'none';
+    // 始终显示选择框：即便只有一个仓库，也让使用者看到当前服务的范围
   } catch (err) { /* 忽略 */ }
 }
 

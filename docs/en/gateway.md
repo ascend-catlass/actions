@@ -41,6 +41,17 @@ Each entry is `path:SIG[:branch]`. The branch falls back to `TARGET_BRANCH` when
 
 The console has a repository selector at the top and shows only that repository's events and allow list. With a single managed repository the selector is hidden.
 
+## How issues are handled
+
+Issues are classified by **content**, not by who opened them:
+
+| Content | Treatment |
+| --- | --- |
+| Reports a problem with this repository (bug, crash, suggestion, usage question) | Runs AI analysis and replies |
+| Anything else (meeting notes, announcements, design discussion) | Posts a fixed reminder to close the loop; also assigns the author when they are a committer or maintainer |
+
+Type labels are checked first; new issues usually have none, so the wording of the body decides. A minimum body length keeps empty issues from counting as feedback.
+
 ## Where the allow list applies
 
 The list constrains PR routes only; issue analysis does not check it:

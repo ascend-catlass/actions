@@ -137,6 +137,15 @@ jobs:
           roles-file: ${{ steps.roles.outputs.result-file }}
           token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
           stage-result: _issue-analysis/reply
+      - name: Remind internal author to close the loop
+        if: ${{ !cancelled() && steps.eligibility.outputs.remind == 'true' && inputs.publish }}
+        env:
+          ATOMGIT_TOKEN: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
+        run: |
+          python3 -m scripts.issue_internal_reminder \
+            --issue-url "${{ inputs.issue_url }}" \
+            --reason "${{ steps.eligibility.outputs.reason }}" \
+            --publish
       - name: Save analysis and publication evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

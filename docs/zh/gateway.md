@@ -41,6 +41,17 @@ REPOS=cann/catlass:catlass,cann/ops-nn:ops-nn,cann/ops-basic:ops-basic:develop
 
 控制台顶部有仓库选择框，只显示当前仓库的触发记录与名单。只有一个受管仓库时不显示选择框。
 
+## Issue 的处理规则
+
+Issue 按**内容**分两类，不看作者身份：
+
+| 内容 | 处理 |
+| --- | --- |
+| 反馈本仓库的问题（bug、异常、建议、使用疑问） | 跑 AI 分析并回复 |
+| 其他（会议记录、通知、设计讨论等） | 发固定提示，提醒及时闭环；作者是 committer/maintainer 时同时分配给作者 |
+
+判定优先看 Issue 上的类型标签；新 Issue 通常还没有标签，因此退到正文措辞。要求正文有一定长度，避免空 Issue 被当作反馈。
+
 ## 名单的作用范围
 
 名单只约束 PR 相关的路由，Issue 分析不校验：
