@@ -108,7 +108,7 @@
     // data-label 供移动端卡片式布局显示字段名
     return '<tr>' +
              '<td class="mono dim" data-label="时间">' +
-               '<span class="badge ' + o.cls + '">' + esc(o.label) + '</span>' +
+               '<span class="badge ' + o.cls + ' badge--inline">' + esc(o.label) + '</span>' +
                '<span>' + esc(time) + '</span></td>' +
              '<td class="col-result" data-label="结果"><span class="badge ' + o.cls + '">' +
                esc(o.label) + '</span></td>' +

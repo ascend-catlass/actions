@@ -421,8 +421,9 @@ def record_event(**fields: Any) -> None:
 
 
 def query_events(days: int = 7, limit: int = 500, repo: str | None = None,
-                 include_ignored: bool = True) -> list[dict[str, Any]]:
-    """查最近 N 天的记录，可按仓库过滤并选择是否包含忽略请求。"""
+                 include_ignored: bool = True,
+                 include_dry_run: bool = True) -> list[dict[str, Any]]:
+    """查最近 N 天的记录，可按仓库过滤并选择是否包含忽略请求与测试记录。"""
     cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
     cutoff_iso = datetime.fromtimestamp(cutoff, timezone.utc).isoformat(timespec="seconds")
 
@@ -431,8 +432,16 @@ def query_events(days: int = 7, limit: int = 500, repo: str | None = None,
     if repo:
         where.append("repo = ?")
         args.append(repo)
+
+    excluded = []
     if not include_ignored:
-        where.append("outcome != 'ignored'")
+        excluded.append("ignored")
+    if not include_dry_run:
+        excluded.append("dry_run")
+    for outcome in excluded:
+        where.append("outcome != ?")
+        args.append(outcome)
+
     args.append(limit)
 
     try:
@@ -448,8 +457,9 @@ def query_events(days: int = 7, limit: int = 500, repo: str | None = None,
 
 
 def event_stats(days: int = 7, repo: str | None = None,
-                include_ignored: bool = True) -> dict[str, Any]:
-    """按结果与动作聚合，可按仓库过滤并选择是否统计忽略请求。"""
+                include_ignored: bool = True,
+                include_dry_run: bool = True) -> dict[str, Any]:
+    """按结果与动作聚合，可按仓库过滤并选择是否统计忽略请求与测试记录。"""
     cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
     cutoff_iso = datetime.fromtimestamp(cutoff, timezone.utc).isoformat(timespec="seconds")
 
@@ -458,8 +468,16 @@ def event_stats(days: int = 7, repo: str | None = None,
     if repo:
         where.append("repo = ?")
         args.append(repo)
+
+    excluded = []
     if not include_ignored:
-        where.append("outcome != 'ignored'")
+        excluded.append("ignored")
+    if not include_dry_run:
+        excluded.append("dry_run")
+    for outcome in excluded:
+        where.append("outcome != ?")
+        args.append(outcome)
+
     cond = " AND ".join(where)
 
     try:
@@ -925,16 +943,20 @@ async def assets(path: str):
 
 @api.get("/api/events")
 async def api_events(days: int = 7, limit: int = 500, repo: str | None = None,
-                     show_ignored: bool = False):
-    """触发记录。默认隐藏忽略请求，需要时传 show_ignored=true。"""
-    return {"days": days, "repo": repo, "show_ignored": show_ignored,
-            "events": query_events(days=days, limit=min(limit, 2000),
-                                   repo=repo, include_ignored=show_ignored)}
+                     show_ignored: bool = False, show_dry_run: bool = True):
+    """触发记录。忽略请求默认隐藏；测试记录默认显示，可传 show_dry_run=false 隐藏。"""
+    return {"days": days, "repo": repo,
+            "show_ignored": show_ignored, "show_dry_run": show_dry_run,
+            "events": query_events(days=days, limit=min(limit, 2000), repo=repo,
+                                   include_ignored=show_ignored,
+                                   include_dry_run=show_dry_run)}
 
 
 @api.get("/api/stats")
-async def api_stats(days: int = 7, repo: str | None = None, show_ignored: bool = False):
-    return event_stats(days=days, repo=repo, include_ignored=show_ignored)
+async def api_stats(days: int = 7, repo: str | None = None,
+                    show_ignored: bool = False, show_dry_run: bool = True):
+    return event_stats(days=days, repo=repo, include_ignored=show_ignored,
+                       include_dry_run=show_dry_run)
 
 
 @api.put("/api/roster")
