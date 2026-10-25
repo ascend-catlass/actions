@@ -41,6 +41,18 @@ Each entry is `path:SIG[:branch]`. The branch falls back to `TARGET_BRANCH` when
 
 The console has a repository selector at the top and shows only that repository's events and allow list. With a single managed repository the selector is hidden.
 
+## Where the allow list applies
+
+The list constrains PR routes only; issue analysis does not check it:
+
+| Route | Checks list | Why |
+| --- | --- | --- |
+| `pr/comment/rdvcompile` | yes | Keeps arbitrary users from triggering CI |
+| `pr/label/cipassed` | yes | Maintainer action |
+| `issue/open` | no | Issue analysis is open to all authors |
+
+Role differences — which authors get a reply — are decided by the downstream workflow, not by the gateway.
+
 ## Allow list
 
 The list mixes role references and explicit names, comma separated:

@@ -588,6 +588,23 @@ def test_ci_passed_other_labels():
         assert call(p)[1].get("ignored") is True, str(labels)
 
 
+def test_issue_open_to_non_members():
+    """Issue 分析面向所有作者，外部用户也能触发。"""
+    p = issue_payload()
+    p["user"] = {"username": "not_a_member_at_all"}
+    status, body = call(p)
+    assert status == 200
+    assert body["action"] == "issue_analysis"
+    assert sent[-1][0] == "reply-atomgit-issue.yml"
+
+
+def test_pr_still_requires_allow_list():
+    """PR 评论仍受名单约束，与 Issue 不同。"""
+    p = note_payload()
+    p["user"] = {"username": "not_a_member_at_all"}
+    assert call(p)[1].get("denied") == "not_in_allow_list"
+
+
 def test_issue_dispatches():
     status, body = call(issue_payload())
     assert status == 200
