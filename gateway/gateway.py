@@ -492,6 +492,7 @@ ROUTES: list[dict[str, Any]] = [
         "category": "pr",
         "subtype": "comment/rdvcompile",
         "workflow": "test-atomgit-pr.yml",
+        "requires_allow_list": True,
         "when": [
             _kind_is("note"),
             _project_managed,
@@ -509,6 +510,7 @@ ROUTES: list[dict[str, Any]] = [
         "category": "pr",
         "subtype": "label/cipassed",
         "workflow": "reply-atomgit-ci-passed.yml",
+        "requires_allow_list": True,
         "when": [
             _kind_is("merge_request"),
             _project_managed,
@@ -523,6 +525,9 @@ ROUTES: list[dict[str, Any]] = [
         "category": "issue",
         "subtype": "open",
         "workflow": "reply-atomgit-issue.yml",
+        # Issue 分析面向所有作者：任何人都可以提 Issue 并得到分析，
+        # 因此不校验名单。角色相关的回复策略由下游 workflow 处理。
+        "requires_allow_list": False,
         "when": [
             _kind_is("issue"),
             _project_managed,
@@ -797,13 +802,16 @@ def handle(payload: dict[str, Any], headers: dict[str, str], raw: bytes) -> tupl
     # 规则每次从库里读，界面改完立即生效，无需重启
     user = facts.get("user") or ""
     repo_path = facts.get("repo") or ""
-    rules = current_rules(repo_path)
-    if not roster_for(repo_path).allows(repo_path, user, rules,
-                                        files=facts.get("files") or None):
-        log.info("denied action=%s user=%s repo=%s", route["action"], user, facts.get("repo"))
-        record_event(**facts, action=route["action"], outcome="denied",
-                     reason="not_in_allow_list", workflow=route["workflow"], http_status=200)
-        return 200, {"ok": True, "ignored": True, "denied": "not_in_allow_list"}
+
+    # 只有声明需要名单的路由才校验。Issue 分析对所有作者开放。
+    if route.get("requires_allow_list", True):
+        rules = current_rules(repo_path)
+        if not roster_for(repo_path).allows(repo_path, user, rules,
+                                            files=facts.get("files") or None):
+            log.info("denied action=%s user=%s repo=%s", route["action"], user, facts.get("repo"))
+            record_event(**facts, action=route["action"], outcome="denied",
+                         reason="not_in_allow_list", workflow=route["workflow"], http_status=200)
+            return 200, {"ok": True, "ignored": True, "denied": "not_in_allow_list"}
 
     inputs = route["inputs"](payload)
 

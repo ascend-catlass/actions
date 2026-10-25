@@ -41,6 +41,18 @@ REPOS=cann/catlass:catlass,cann/ops-nn:ops-nn,cann/ops-basic:ops-basic:develop
 
 控制台顶部有仓库选择框，只显示当前仓库的触发记录与名单。只有一个受管仓库时不显示选择框。
 
+## 名单的作用范围
+
+名单只约束 PR 相关的路由，Issue 分析不校验：
+
+| 路由 | 校验名单 | 原因 |
+| --- | --- | --- |
+| `pr/comment/rdvcompile` | 是 | 防止任意人触发 CI |
+| `pr/label/cipassed` | 是 | 由维护者操作 |
+| `issue/open` | 否 | Issue 分析面向所有作者 |
+
+角色差异（哪些作者会收到回复）由下游 workflow 判断，网关不做内容相关的决策。
+
 ## 允许名单
 
 名单支持角色引用与显式用户名混用，逗号分隔：
