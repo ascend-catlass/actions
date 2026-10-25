@@ -982,6 +982,7 @@ async def api_roster(repo: str | None = None):
     target = repo or TARGET_REPOSITORY
     expr, updated_at, updated_by = get_allow_list(target)
     client = roster_for(target)
+    client.refresh()          # 主动刷新一次，保证状态是最新的
     st = client.status()
     st["repo"] = target
     st["sig"] = (REPOS.get(target) or {}).get("sig")
