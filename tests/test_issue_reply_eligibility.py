@@ -29,6 +29,28 @@ class EligibilityTests(unittest.TestCase):
                 self.assertTrue(result["assign"])
                 self.assertEqual(result["reason"], "author-is-committer-or-maintainer")
 
+    def test_technical_report_without_bug_keywords_is_feedback(self):
+        """只描述技术细节、不写 bug/error 字样的报告也要算反馈。
+
+        新 Issue 此刻还没有标签，只能靠正文判断。这类正文常见于
+        内存越界、缓冲区溢出等精确描述，必须识别为反馈。
+        """
+        self.issue["title"] = "ColumnMajor TileVmad overflows its fixed 32-element buffer"
+        self.issue["body"] = (
+            "Both ColumnMajor TileVmad specializations declare ElementX pix[32] at "
+            "tile_vmad.hpp:237 and then write n_actual elements into it at 240-242. "
+            "For layout::ColumnMajor, GetTileLayout preserves the tile shape, so the "
+            "first N tile writes 512 elements into pix[32] and corrupts adjacent memory.")
+        result = eligibility(self.issue, self.roles, "cann/catlass")
+        self.assertTrue(result["analyze"])
+        self.assertFalse(result["remind"])
+
+    def test_missing_state_is_reported_not_silently_skipped(self):
+        """状态缺失要明确报错，不能静默当成已关闭。"""
+        self.issue.pop("state")
+        with self.assertRaises(ValueError):
+            eligibility(self.issue, self.roles, "cann/catlass")
+
     def test_non_feedback_is_reminded_not_analyzed(self):
         """非反馈类不跑分析，发固定提示。"""
         self.issue["title"] = "weekly sync notes"
