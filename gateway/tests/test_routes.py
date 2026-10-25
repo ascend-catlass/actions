@@ -101,6 +101,33 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_hide_dry_run_excludes_tests():
+    """屏蔽测试记录：dry_run 不返回，其他照常。"""
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    shown = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                 include_dry_run=True)
+    hidden = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                  include_dry_run=False)
+    assert any(e["outcome"] == "dry_run" for e in shown)
+    assert all(e["outcome"] != "dry_run" for e in hidden)
+    # 用计数比较，避免受 limit 截断影响
+    assert len(hidden) == len([e for e in shown if e["outcome"] != "dry_run"])
+
+
+def test_hide_ignored_and_dry_run_together():
+    """两个开关可叠加：同时隐藏忽略与测试。"""
+    gateway.record_event(kind="push", outcome="ignored", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                include_ignored=False, include_dry_run=False)
+    outcomes = {e["outcome"] for e in rows}
+    assert "ignored" not in outcomes, outcomes
+    assert "dry_run" not in outcomes, outcomes
+    assert "dispatched" in outcomes, "至少应保留一条真实触发"
+
+
 def test_show_ignored_default_hidden():
     """默认查询不返回忽略请求。"""
     gateway.record_event(kind="push", outcome="ignored", reason="no_route",
@@ -271,6 +298,33 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_hide_dry_run_excludes_tests():
+    """屏蔽测试记录：dry_run 不返回，其他照常。"""
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    shown = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                 include_dry_run=True)
+    hidden = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                  include_dry_run=False)
+    assert any(e["outcome"] == "dry_run" for e in shown)
+    assert all(e["outcome"] != "dry_run" for e in hidden)
+    # 用计数比较，避免受 limit 截断影响
+    assert len(hidden) == len([e for e in shown if e["outcome"] != "dry_run"])
+
+
+def test_hide_ignored_and_dry_run_together():
+    """两个开关可叠加：同时隐藏忽略与测试。"""
+    gateway.record_event(kind="push", outcome="ignored", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                include_ignored=False, include_dry_run=False)
+    outcomes = {e["outcome"] for e in rows}
+    assert "ignored" not in outcomes, outcomes
+    assert "dry_run" not in outcomes, outcomes
+    assert "dispatched" in outcomes, "至少应保留一条真实触发"
+
+
 def test_show_ignored_default_hidden():
     """默认查询不返回忽略请求。"""
     gateway.record_event(kind="push", outcome="ignored", reason="no_route",
@@ -325,6 +379,33 @@ def test_unmanaged_repo_ignored():
         assert call(p)[1].get("ignored") is True
     finally:
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_hide_dry_run_excludes_tests():
+    """屏蔽测试记录：dry_run 不返回，其他照常。"""
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    shown = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                 include_dry_run=True)
+    hidden = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                  include_dry_run=False)
+    assert any(e["outcome"] == "dry_run" for e in shown)
+    assert all(e["outcome"] != "dry_run" for e in hidden)
+    # 用计数比较，避免受 limit 截断影响
+    assert len(hidden) == len([e for e in shown if e["outcome"] != "dry_run"])
+
+
+def test_hide_ignored_and_dry_run_together():
+    """两个开关可叠加：同时隐藏忽略与测试。"""
+    gateway.record_event(kind="push", outcome="ignored", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                include_ignored=False, include_dry_run=False)
+    outcomes = {e["outcome"] for e in rows}
+    assert "ignored" not in outcomes, outcomes
+    assert "dry_run" not in outcomes, outcomes
+    assert "dispatched" in outcomes, "至少应保留一条真实触发"
 
 
 def test_show_ignored_default_hidden():
@@ -388,6 +469,33 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_hide_dry_run_excludes_tests():
+    """屏蔽测试记录：dry_run 不返回，其他照常。"""
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    shown = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                 include_dry_run=True)
+    hidden = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                  include_dry_run=False)
+    assert any(e["outcome"] == "dry_run" for e in shown)
+    assert all(e["outcome"] != "dry_run" for e in hidden)
+    # 用计数比较，避免受 limit 截断影响
+    assert len(hidden) == len([e for e in shown if e["outcome"] != "dry_run"])
+
+
+def test_hide_ignored_and_dry_run_together():
+    """两个开关可叠加：同时隐藏忽略与测试。"""
+    gateway.record_event(kind="push", outcome="ignored", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                include_ignored=False, include_dry_run=False)
+    outcomes = {e["outcome"] for e in rows}
+    assert "ignored" not in outcomes, outcomes
+    assert "dry_run" not in outcomes, outcomes
+    assert "dispatched" in outcomes, "至少应保留一条真实触发"
+
+
 def test_show_ignored_default_hidden():
     """默认查询不返回忽略请求。"""
     gateway.record_event(kind="push", outcome="ignored", reason="no_route",
@@ -443,6 +551,33 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_hide_dry_run_excludes_tests():
+    """屏蔽测试记录：dry_run 不返回，其他照常。"""
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    shown = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                 include_dry_run=True)
+    hidden = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                  include_dry_run=False)
+    assert any(e["outcome"] == "dry_run" for e in shown)
+    assert all(e["outcome"] != "dry_run" for e in hidden)
+    # 用计数比较，避免受 limit 截断影响
+    assert len(hidden) == len([e for e in shown if e["outcome"] != "dry_run"])
+
+
+def test_hide_ignored_and_dry_run_together():
+    """两个开关可叠加：同时隐藏忽略与测试。"""
+    gateway.record_event(kind="push", outcome="ignored", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                include_ignored=False, include_dry_run=False)
+    outcomes = {e["outcome"] for e in rows}
+    assert "ignored" not in outcomes, outcomes
+    assert "dry_run" not in outcomes, outcomes
+    assert "dispatched" in outcomes, "至少应保留一条真实触发"
+
+
 def test_show_ignored_default_hidden():
     """默认查询不返回忽略请求。"""
     gateway.record_event(kind="push", outcome="ignored", reason="no_route",
@@ -496,6 +631,33 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_hide_dry_run_excludes_tests():
+    """屏蔽测试记录：dry_run 不返回，其他照常。"""
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    shown = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                 include_dry_run=True)
+    hidden = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                  include_dry_run=False)
+    assert any(e["outcome"] == "dry_run" for e in shown)
+    assert all(e["outcome"] != "dry_run" for e in hidden)
+    # 用计数比较，避免受 limit 截断影响
+    assert len(hidden) == len([e for e in shown if e["outcome"] != "dry_run"])
+
+
+def test_hide_ignored_and_dry_run_together():
+    """两个开关可叠加：同时隐藏忽略与测试。"""
+    gateway.record_event(kind="push", outcome="ignored", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                include_ignored=False, include_dry_run=False)
+    outcomes = {e["outcome"] for e in rows}
+    assert "ignored" not in outcomes, outcomes
+    assert "dry_run" not in outcomes, outcomes
+    assert "dispatched" in outcomes, "至少应保留一条真实触发"
+
+
 def test_show_ignored_default_hidden():
     """默认查询不返回忽略请求。"""
     gateway.record_event(kind="push", outcome="ignored", reason="no_route",
@@ -546,6 +708,33 @@ def test_unmanaged_repo_ignored():
         assert call(p)[1].get("ignored") is True
     finally:
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_hide_dry_run_excludes_tests():
+    """屏蔽测试记录：dry_run 不返回，其他照常。"""
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    shown = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                 include_dry_run=True)
+    hidden = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                  include_dry_run=False)
+    assert any(e["outcome"] == "dry_run" for e in shown)
+    assert all(e["outcome"] != "dry_run" for e in hidden)
+    # 用计数比较，避免受 limit 截断影响
+    assert len(hidden) == len([e for e in shown if e["outcome"] != "dry_run"])
+
+
+def test_hide_ignored_and_dry_run_together():
+    """两个开关可叠加：同时隐藏忽略与测试。"""
+    gateway.record_event(kind="push", outcome="ignored", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass",
+                                include_ignored=False, include_dry_run=False)
+    outcomes = {e["outcome"] for e in rows}
+    assert "ignored" not in outcomes, outcomes
+    assert "dry_run" not in outcomes, outcomes
+    assert "dispatched" in outcomes, "至少应保留一条真实触发"
 
 
 def test_show_ignored_default_hidden():

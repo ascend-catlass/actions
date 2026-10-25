@@ -87,6 +87,8 @@
   .badge--ignored{background:#eeeeef;color:var(--s-grey-700)}
   .badge--failed{background:#fbe5e4;color:#b8332e}
   .badge--rejected{background:#fbe5e4;color:#b8332e}
+  /* 时间列的结果标签只在移动端显示（桌面用独立的结果列） */
+  table.ev td[data-label="时间"] .badge--inline { display:none }
 
   /* 名单编辑 */
   .editor { padding:2px 18px 18px; }
@@ -156,6 +158,7 @@
       align-items: center; gap: 8px; flex-wrap: wrap;
     }
     table.ev td[data-label="时间"]::before { content: none; }
+    table.ev td[data-label="时间"] .badge--inline { display: inline-block; }
     /* 结果已在首行，这一列在移动端不显示 */
     table.ev td.col-result { display: none !important; }
 
@@ -227,6 +230,11 @@
       <span>显示忽略请求</span>
     </label>
 
+    <label class="ctl ctl--check">
+      <input type="checkbox" id="hide-dry-run">
+      <span>屏蔽测试记录</span>
+    </label>
+
     <span id="hero-meta" class="toolbar__meta dim" style="font-size:13px;margin-left:auto">加载中…</span>
   </div>
 
@@ -291,17 +299,19 @@
 </div>
 
 <script src="/assets/smartisan.js?v=3"></script>
-<script src="/assets/templates.js?v=6"></script>
+<script src="/assets/templates.js?v=8"></script>
 <script>
 const T = window.STemplate;
 let currentDays = 1;
 let currentRepo = null;      // 受管仓库，来自下拉框
 let showIgnored = false;     // 是否显示忽略请求（默认隐藏）
+let hideDryRun = false;      // 是否屏蔽测试记录（默认显示）
 
 /** 拼查询参数，统一带上仓库与忽略开关。 */
 function qs(extra) {
   const p = new URLSearchParams({ days: String(currentDays),
-                                  show_ignored: String(showIgnored) });
+                                  show_ignored: String(showIgnored),
+                                  show_dry_run: String(!hideDryRun) });
   if (currentRepo) p.set('repo', currentRepo);
   for (const k in (extra || {})) p.set(k, extra[k]);
   return p.toString();
@@ -464,6 +474,11 @@ document.getElementById('repo-select').addEventListener('change', e => {
 
 document.getElementById('show-ignored').addEventListener('change', e => {
   showIgnored = e.target.checked;
+  load();
+});
+
+document.getElementById('hide-dry-run').addEventListener('change', e => {
+  hideDryRun = e.target.checked;
   load();
 });
 
