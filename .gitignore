@@ -1,3 +1,7 @@
 site/
 .docs-preview/
 shared_actions/
+__pycache__/
+*.pyc
+gateway/data/
+site/

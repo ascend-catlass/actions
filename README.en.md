@@ -4,6 +4,10 @@
 
 This repository owns CATLASS community workflows, PR tests, builds and releases. General stages are consumed from [yuantao313/actions](https://github.com/yuantao313/actions); only project policies and hardware stages are maintained here.
 
+## Inbound entry
+
+AtomGit webhooks point at [gateway/](gateway/gateway.py), which handles authentication, allow-list checks and event dispatch before triggering the pipelines below and PR testing. Triggering users off the list are dropped here and consume no Actions minutes. See the [gateway guide](docs/en/gateway.md) for configuration, routing and deployment.
+
 ## Four community workflows
 
 | Workflow | Trigger | Result |

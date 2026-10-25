@@ -2,7 +2,11 @@
 
 [English](README.en.md) · [中文手册](docs/zh/index.md) · [工作流与使用方法](docs/zh/workflows.md)
 
-本仓库负责 CATLASS 的社区协作、PR 测试、每日构建和版本发布。通用组件引用 [yuantao313/actions](https://github.com/yuantao313/actions)，本仓只维护 CATLASS 业务步骤。
+本仓库负责 CATLASS 的社区协作、PR 测试、每日构建和版本发布，并托管接收入站 webhook 的网关。通用组件引用 [yuantao313/actions](https://github.com/yuantao313/actions)，本仓只维护 CATLASS 业务步骤。
+
+## 入站入口
+
+AtomGit 的 webhook 指向 [gateway/](gateway/gateway.py)，由它完成鉴权、名单校验和事件分派，再调度下面四条流水线与 PR 测试。不在名单内的触发者在这一层被拦下，不消耗 Actions 分钟数。配置、路由与部署见[网关说明](docs/zh/gateway.md)。
 
 ## 四条社区流水线
 
@@ -58,6 +62,8 @@ python -m pip install -r requirements-docs.txt
 git clone https://github.com/yuantao313/actions.git shared_actions
 git -C shared_actions checkout 02defff4ec04b38b33adfaec06bcb1406f5a2150
 python -m unittest discover -s tests -p "test_*.py"
+python gateway/tests/test_routes.py
+python gateway/tests/test_roster.py
 python scripts/check_docs.py
 python -m mkdocs build --strict
 python -m mkdocs serve

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AtomGit 转发网关</title>
+<link rel="stylesheet" href="/assets/smartisan.css?v=3">
+<style>
+  /* ============================================================
+     PC 布局：固定内容宽度、居中、两栏。不做移动端适配。
+     视觉沿用锤子规范：页面底灰、白卡片、0.8px 描边、极淡投影。
+     ============================================================ */
+  html, body { margin:0; padding:0; }
+  body.s-page { min-height:100vh; }
+  .s-appbar { position: sticky; top:0; z-index:10; }
+
+  .shell { max-width:1100px; margin:0 auto; padding:0 24px 48px; }
+
+  /* 两栏：左记录、右概览与名单 */
+  .cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:20px; align-items:start; }
+
+  .card { background:#fff; border:0.8px solid var(--s-border-list); border-radius:10px;
+          box-shadow:0 10px 16px rgba(0,0,0,.04); overflow:hidden; }
+  .card__head { padding:14px 18px 12px; display:flex; align-items:center;
+                justify-content:space-between; gap:12px; }
+  .card__title { font-size:15px; font-weight:600; color:var(--s-title-other); }
+  .card__hint { font-size:12px; color:var(--s-subtitle-list); }
+
+  /* 概览：6 格横排 */
+  .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stats > div { padding:16px 10px; text-align:center;
+                 border-right:0.8px solid var(--s-divider-color);
+                 border-bottom:0.8px solid var(--s-divider-color); }
+  .stats > div:nth-child(3n) { border-right:0; }
+  .stats > div:nth-child(n+4) { border-bottom:0; }
+  .stat-num { font-size:22px; font-weight:600; line-height:1.15; display:block; }
+  .stat-label { font-size:12px; color:var(--s-subtitle-list); margin-top:3px; display:block; }
+  .n-ok{color:#2f7a43} .n-info{color:var(--s-blue-400)} .n-warn{color:#9a7420}
+  .n-mut{color:var(--s-grey-600)} .n-err{color:#b8332e}
+
+  /* 记录表 */
+  table.ev { width:100%; border-collapse:collapse; }
+  table.ev th { text-align:left; font-size:12px; font-weight:600; color:var(--s-subtitle-list);
+                padding:8px 12px; background:#fafafa;
+                border-bottom:0.8px solid var(--s-border-list); white-space:nowrap; }
+  table.ev td { padding:10px 12px; font-size:13px; color:var(--s-title-list);
+                border-bottom:0.8px solid var(--s-divider-color); vertical-align:top; }
+  table.ev tr:last-child td { border-bottom:0; }
+  table.ev tr:hover td { background:#fafafa; }
+  /* 表格：自动布局，长内容换行而非压缩 */
+  table.ev { table-layout:auto; width:100%; }
+  table.ev td, table.ev th { word-break:normal; overflow-wrap:break-word; }
+  table.ev .mono { white-space:nowrap; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+  .dim { color:var(--s-subtitle-list); }
+  .detail { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px;
+            color:var(--s-grey-600); word-break:break-all; max-width:340px;
+            display:block; margin-top:3px; }
+
+  /* 事件类型：单个标签内呈现「大类/小类」，整体一个视觉单元 */
+  .cat { display:inline-flex; align-items:baseline; gap:0;
+         padding:2px 8px; border-radius:4px; white-space:nowrap;
+         font-size:11.5px; line-height:1.5;
+         border:0.8px solid transparent; }
+  .cat__major { font-weight:600; }
+  .cat__sep { margin:0 3px; opacity:.45; }
+  .cat__sub { font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+              font-size:11px; opacity:.92; }
+
+  /* 按事件大类着色，同类事件视觉成组 */
+  .cat--pr     { background:#eef2fb; border-color:#d8e0f5; color:#3f5aa8; }
+  .cat--issue  { background:#eef7f0; border-color:#d6ead9; color:#3d7a4e; }
+  .cat--push   { background:#f5f1fa; border-color:#e4dbf0; color:#6b4f96; }
+  .cat--other  { background:#f4f4f4; border-color:#e6e6e6; color:var(--s-grey-700); }
+
+  /* 可点击链接：明确的视觉反馈 */
+  a.link { color:var(--s-blue-400); text-decoration:none;
+           border-bottom:0.8px solid transparent; }
+  a.link:hover { border-bottom-color:var(--s-blue-400); }
+  a.link--run { display:block; margin-top:3px; font-size:12px; }
+
+  .badge { display:inline-block; padding:2px 9px; border-radius:100px;
+           font-size:12px; font-weight:500; white-space:nowrap; }
+  .badge--dispatched{background:#e3f3e7;color:#2f7a43}
+  .badge--dry_run{background:var(--s-blue-100);color:var(--s-blue-400)}
+  .badge--denied{background:#fdf3dd;color:#9a7420}
+  .badge--ignored{background:#eeeeef;color:var(--s-grey-700)}
+  .badge--failed{background:#fbe5e4;color:#b8332e}
+  .badge--rejected{background:#fbe5e4;color:#b8332e}
+
+  /* 名单编辑 */
+  .editor { padding:2px 18px 18px; }
+  .editor textarea { width:100%; box-sizing:border-box; min-height:110px; resize:vertical;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px;
+    line-height:1.7; color:var(--s-title-list); background:#fcfcfc;
+    border:0.8px solid var(--s-grey-400); border-radius:6px; padding:10px 12px;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.04); }
+  .editor textarea:focus { outline:none; border-color:var(--s-blue-500); background:#fff; }
+  .editor textarea[disabled] { color:var(--s-grey-500); background:#f7f7f7; cursor:not-allowed; }
+  .row { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .msg { font-size:12px; flex:1; min-width:0; }
+  .msg-ok{color:#2f7a43} .msg-err{color:#b8332e} .msg-dim{color:var(--s-subtitle-list)}
+
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chip { font-size:11.5px; color:var(--s-subtitle-list); background:#f5f5f5;
+          border:0.8px solid #e6e6e6; border-radius:100px; padding:2px 9px; cursor:pointer; }
+  .chip:hover { background:#ededed; }
+
+  .foot { text-align:center; padding:20px 0 0; font-size:11.5px; color:var(--s-grey-500); }
+  .empty { padding:56px; text-align:center; color:var(--s-grey-600); font-size:13px; }
+
+  .s-btn { height:32px; font-size:13px; padding:0 16px; border-radius:6px; }
+  input.pw { width:100%; box-sizing:border-box; height:32px; padding:0 10px; font-size:13px;
+             border:0.8px solid var(--s-grey-400); border-radius:6px;
+             box-shadow:inset 0 1px 2px rgba(0,0,0,.04); }
+  input.pw:focus { outline:none; border-color:var(--s-blue-500); }
+</style>
+</head>
+<body class="s-page s-page--textured">
+
+<div id="si-sprite-host"></div>
+
+<header class="s-appbar s-appbar--shadow">
+  <span class="s-appbar__spacer"></span>
+  <span class="s-appbar__title">AtomGit 转发网关</span>
+  <div class="s-appbar__actions">
+    <button id="btn-refresh" aria-label="刷新">
+      <svg class="s-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="shell">
+
+  <div style="display:flex;align-items:baseline;gap:14px;padding:20px 0 14px">
+    <span id="hero-meta" class="dim" style="font-size:13px">加载中…</span>
+    <span class="dim" style="font-size:12px">
+      测试模式：请求头 <code>X-Dry-Run: 1</code> 只走判断链并记录，不真实触发 GitHub
+    </span>
+  </div>
+
+  <!-- ── 上排：概览 + 允许名单 ───────────────────── -->
+  <div class="cols">
+
+    <div class="card">
+      <div class="card__head"><span class="card__title">概览</span></div>
+      <div class="stats" id="stat-host"></div>
+    </div>
+
+    <div class="card">
+      <div class="card__head">
+        <span class="card__title">允许名单</span>
+        <span class="card__hint" id="roster-updated">—</span>
+      </div>
+
+      <div id="unlock-panel" style="padding:0 18px 18px">
+        <div class="dim" style="font-size:12px;margin-bottom:8px">
+          编辑需管理员密码（与 AtomGit webhook 密码相同）
+        </div>
+        <input class="pw" type="password" id="pw-input"
+               placeholder="管理员密码" autocomplete="current-password">
+        <div class="row">
+          <span class="msg msg-dim" id="unlock-msg">输入后可编辑名单</span>
+          <button class="s-btn s-btn--sm" id="btn-unlock">解锁</button>
+        </div>
+      </div>
+
+      <div class="editor" id="editor-panel" hidden>
+        <textarea id="allow-input" spellcheck="false"
+                  placeholder="@maintainer, @committer, 额外用户名"></textarea>
+        <div class="chips" id="legend"></div>
+        <div class="row">
+          <span class="msg msg-dim" id="edit-msg">—</span>
+          <button class="s-btn s-btn--outline s-btn--sm" id="btn-revert">还原</button>
+          <button class="s-btn s-btn--sm" id="btn-save">保存</button>
+        </div>
+      </div>
+
+      <div style="padding:0 18px 16px">
+        <div class="card__hint" id="roster-src" style="line-height:1.7">—</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── 下排：触发记录（整行宽度）──────────────────── -->
+  <div class="card" style="margin-top:20px">
+    <div class="card__head">
+      <span class="card__title">触发记录</span>
+      <span class="s-tabs s-tabs--compact" id="range-tabs">
+        <button role="tab" data-days="1" aria-selected="true">1 天</button>
+        <button role="tab" data-days="7">7 天</button>
+        <button role="tab" data-days="30">30 天</button>
+      </span>
+    </div>
+    <div id="event-host"></div>
+  </div>
+
+  <div class="foot">数据每 30 秒自动刷新 · <span id="foot-updated">—</span></div>
+</div>
+
+<script src="/assets/smartisan.js?v=3"></script>
+<script src="/assets/templates.js?v=4"></script>
+<script>
+const T = window.STemplate;
+let currentDays = 1;
+let password = null;      // 解锁后暂存，仅本次会话
+let savedValue = '';      // 用于「还原」
+
+// ── 图标 sprite（不能 display:none，会丢渐变）──
+fetch('/assets/icons-sprite.svg')
+  .then(r => r.text())
+  .then(svg => { document.getElementById('si-sprite-host').innerHTML = svg; });
+
+function setMsg(id, text, tone) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + ({ ok:'msg-ok', err:'msg-err', dim:'msg-dim' }[tone] || 'msg-dim');
+}
+
+// ── 记录 ────────────────────────────────────────
+async function load() {
+  const meta = document.getElementById('hero-meta');
+  try {
+    const [evRes, stRes] = await Promise.all([
+      fetch(`/api/events?days=${currentDays}&limit=300`),
+      fetch(`/api/stats?days=${currentDays}`),
+    ]);
+    const ev = await evRes.json();
+    const st = await stRes.json();
+    document.getElementById('stat-host').innerHTML = T.statsGrid(st.by_outcome);
+    document.getElementById('event-host').innerHTML = T.eventTable(ev.events, currentDays);
+    meta.textContent = `最近 ${currentDays} 天 · 共 ${st.total || 0} 次请求`;
+    document.getElementById('foot-updated').textContent =
+      '更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  } catch (err) {
+    meta.textContent = '加载失败：' + err.message;
+  }
+}
+
+// ── 名单读取 ────────────────────────────────────
+async function loadRoster() {
+  try {
+    const r = await (await fetch('/api/roster')).json();
+    savedValue = r.allow_list || '';
+    document.getElementById('allow-input').value = savedValue;
+    document.getElementById('roster-src').textContent = T.rosterSummary(r);
+    document.getElementById('roster-updated').textContent =
+      r.updated_at
+        ? '改于 ' + new Date(r.updated_at).toLocaleString('zh-CN', { hour12:false })
+          + (r.updated_by ? ' · ' + r.updated_by : '')
+        : '未修改过（用环境变量初值）';
+    if (r.last_error) {
+      document.getElementById('roster-src').textContent = '⚠ 名单获取失败：' + r.last_error;
+    }
+  } catch (err) { /* 忽略 */ }
+}
+
+// ── 解锁 ────────────────────────────────────────
+function unlock() {
+  const v = document.getElementById('pw-input').value;
+  if (!v) { setMsg('unlock-msg', '请输入密码', 'err'); return; }
+  password = v;
+  document.getElementById('unlock-panel').hidden = true;
+  document.getElementById('editor-panel').hidden = false;
+  document.getElementById('allow-input').disabled = false;
+  setMsg('edit-msg', '已解锁，可编辑后保存', 'dim');
+}
+document.getElementById('btn-unlock').addEventListener('click', unlock);
+document.getElementById('pw-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') unlock();
+});
+
+// ── 快捷插入 ────────────────────────────────────
+const SHORTCUTS = ['@maintainer', '@committer', '@committer:tools'];
+document.getElementById('legend').innerHTML = SHORTCUTS
+  .map(s => `<span class="chip" data-ins="${s}">+ ${T.esc(s)}</span>`).join('');
+document.getElementById('legend').addEventListener('click', e => {
+  const ins = e.target.dataset.ins;
+  if (!ins) return;
+  const ta = document.getElementById('allow-input');
+  if (ta.disabled) return;
+  const v = ta.value.trim().replace(/,\s*$/, '');
+  ta.value = v ? (v + ', ' + ins) : ins;
+  ta.focus();
+});
+
+// ── 还原 / 保存 ─────────────────────────────────
+document.getElementById('btn-revert').addEventListener('click', () => {
+  document.getElementById('allow-input').value = savedValue;
+  setMsg('edit-msg', '已还原到上次保存的值', 'dim');
+});
+
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const value = document.getElementById('allow-input').value.trim();
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/roster', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Token': password || '' },
+      body: JSON.stringify({ allow_list: value }),
+    });
+    const d = await res.json();
+    if (res.ok && d.ok) {
+      savedValue = value;
+      setMsg('edit-msg', '已保存：' + d.rules, 'ok');
+      if (window.Smartisan && Smartisan.toast) Smartisan.toast('名单已保存');
+      loadRoster();
+    } else if (res.status === 401) {
+      setMsg('edit-msg', '密码错误，请重新解锁', 'err');
+      document.getElementById('editor-panel').hidden = true;
+      document.getElementById('unlock-panel').hidden = false;
+      password = null;
+    } else {
+      setMsg('edit-msg', '保存失败：' + (d.detail || d.error || res.status), 'err');
+    }
+  } catch (err) {
+    setMsg('edit-msg', '请求失败：' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── 刷新与切档 ──────────────────────────────────
+document.getElementById('btn-refresh').addEventListener('click', () => {
+  load(); loadRoster();
+  if (window.Smartisan && Smartisan.toast) Smartisan.toast('已刷新');
+});
+document.querySelectorAll('#range-tabs [data-days]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#range-tabs [data-days]').forEach(b =>
+      b.setAttribute('aria-selected', 'false'));
+    btn.setAttribute('aria-selected', 'true');
+    currentDays = parseInt(btn.dataset.days, 10);
+    load();
+  });
+});
+
+document.getElementById('allow-input').disabled = true;
+load();
+loadRoster();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
