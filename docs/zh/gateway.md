@@ -94,7 +94,7 @@ REPOS=cann/catlass:catlass,cann/ops-nn:ops-nn,cann/ops-basic:ops-basic:develop
 | `REPOS` | | 受管仓库表，格式 `owner/repo:sig[:branch]`，逗号分隔；单个仓库时可省略 |
 | `TARGET_BRANCH` | | `rdvcompile` 要求的目标分支 |
 | `CI_PASSED_LABEL` | | 触发 CI 提醒的标签名 |
-| `ATOMGIT_WEB` | | 生成来源链接用的网页域名 |
+| `ATOMGIT_WEB` | | AtomGit 网页域名，默认 `atomgit.com`；用于来源链接与传给 workflow 的 Issue URL |
 | `DATA_DIR` | | 数据目录，存事件库与名单配置 |
 
 ## 本地运行
