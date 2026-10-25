@@ -109,6 +109,17 @@
   .foot { text-align:center; padding:20px 0 0; font-size:11.5px; color:var(--s-grey-500); }
   .empty { padding:56px; text-align:center; color:var(--s-grey-600); font-size:13px; }
 
+  /* 顶部控件：仓库选择与显示开关 */
+  .ctl { display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--s-title-list); }
+  .ctl__label { color:var(--s-subtitle-list); font-size:12px; }
+  .ctl__select { height:30px; padding:0 26px 0 10px; font-size:13px; color:var(--s-title-list);
+                 background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239d9d9d'/></svg>") no-repeat right 10px center;
+                 border:0.8px solid var(--s-grey-400); border-radius:6px; cursor:pointer;
+                 box-shadow:inset 0 1px 2px rgba(0,0,0,.04); appearance:none; }
+  .ctl__select:focus { outline:none; border-color:var(--s-blue-500); }
+  .ctl--check { cursor:pointer; user-select:none; }
+  .ctl--check input { width:15px; height:15px; accent-color:var(--s-blue-500); cursor:pointer; }
+
   .s-btn { height:32px; font-size:13px; padding:0 16px; border-radius:6px; }
   input.pw { width:100%; box-sizing:border-box; height:32px; padding:0 10px; font-size:13px;
              border:0.8px solid var(--s-grey-400); border-radius:6px;
@@ -135,11 +146,18 @@
 
 <div class="shell">
 
-  <div style="display:flex;align-items:baseline;gap:14px;padding:20px 0 14px">
-    <span id="hero-meta" class="dim" style="font-size:13px">加载中…</span>
-    <span class="dim" style="font-size:12px">
-      测试模式：请求头 <code>X-Dry-Run: 1</code> 只走判断链并记录，不真实触发 GitHub
-    </span>
+  <div style="display:flex;align-items:center;gap:14px;padding:18px 0 14px;flex-wrap:wrap">
+    <label class="ctl">
+      <span class="ctl__label">仓库</span>
+      <select id="repo-select" class="ctl__select"></select>
+    </label>
+
+    <label class="ctl ctl--check">
+      <input type="checkbox" id="show-ignored">
+      <span>显示忽略请求</span>
+    </label>
+
+    <span id="hero-meta" class="dim" style="font-size:13px;margin-left:auto">加载中…</span>
   </div>
 
   <!-- ── 上排：概览 + 允许名单 ───────────────────── -->
@@ -203,10 +221,21 @@
 </div>
 
 <script src="/assets/smartisan.js?v=3"></script>
-<script src="/assets/templates.js?v=4"></script>
+<script src="/assets/templates.js?v=5"></script>
 <script>
 const T = window.STemplate;
 let currentDays = 1;
+let currentRepo = null;      // 受管仓库，来自下拉框
+let showIgnored = false;     // 是否显示忽略请求（默认隐藏）
+
+/** 拼查询参数，统一带上仓库与忽略开关。 */
+function qs(extra) {
+  const p = new URLSearchParams({ days: String(currentDays),
+                                  show_ignored: String(showIgnored) });
+  if (currentRepo) p.set('repo', currentRepo);
+  for (const k in (extra || {})) p.set(k, extra[k]);
+  return p.toString();
+}
 let password = null;      // 解锁后暂存，仅本次会话
 let savedValue = '';      // 用于「还原」
 
@@ -226,8 +255,8 @@ async function load() {
   const meta = document.getElementById('hero-meta');
   try {
     const [evRes, stRes] = await Promise.all([
-      fetch(`/api/events?days=${currentDays}&limit=300`),
-      fetch(`/api/stats?days=${currentDays}`),
+      fetch(`/api/events?${qs({ limit: '300' })}`),
+      fetch(`/api/stats?${qs()}`),
     ]);
     const ev = await evRes.json();
     const st = await stRes.json();
@@ -244,7 +273,7 @@ async function load() {
 // ── 名单读取 ────────────────────────────────────
 async function loadRoster() {
   try {
-    const r = await (await fetch('/api/roster')).json();
+    const r = await (await fetch('/api/roster' + (currentRepo ? '?repo=' + encodeURIComponent(currentRepo) : ''))).json();
     savedValue = r.allow_list || '';
     document.getElementById('allow-input').value = savedValue;
     document.getElementById('roster-src').textContent = T.rosterSummary(r);
@@ -302,7 +331,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     const res = await fetch('/api/roster', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Webhook-Token': password || '' },
-      body: JSON.stringify({ allow_list: value }),
+      body: JSON.stringify({ allow_list: value, repo: currentRepo }),
     });
     const d = await res.json();
     if (res.ok && d.ok) {
@@ -340,9 +369,37 @@ document.querySelectorAll('#range-tabs [data-days]').forEach(btn => {
   });
 });
 
+/** 拉取受管仓库，填充下拉框。 */
+async function loadRepos() {
+  try {
+    const d = await (await fetch('/api/repos')).json();
+    const list = d.repos || [];
+    const sel = document.getElementById('repo-select');
+    sel.innerHTML = list.map(r =>
+      `<option value="${T.esc(r.path)}">${T.esc(r.path)}　·　${T.esc(r.sig)}</option>`
+    ).join('');
+    if (list.length) {
+      currentRepo = list[0].path;
+      sel.value = currentRepo;
+    }
+    // 只有一个仓库时没必要让用户选
+    if (list.length <= 1) sel.closest('.ctl').style.display = 'none';
+  } catch (err) { /* 忽略 */ }
+}
+
+document.getElementById('repo-select').addEventListener('change', e => {
+  currentRepo = e.target.value;
+  load();
+  loadRoster();
+});
+
+document.getElementById('show-ignored').addEventListener('change', e => {
+  showIgnored = e.target.checked;
+  load();
+});
+
 document.getElementById('allow-input').disabled = true;
-load();
-loadRoster();
+loadRepos().then(() => { load(); loadRoster(); });
 setInterval(load, 30000);
 </script>
 </body>

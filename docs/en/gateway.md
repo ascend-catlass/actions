@@ -29,6 +29,18 @@ Rejection happens in the gateway, so requests off the allow list consume no Acti
 | PR gains the `ci-pipeline-passed` label, PR open | `reply-atomgit-ci-passed.yml` | `pr_number` |
 | Issue opened or reopened, not confidential | `reply-atomgit-issue.yml` | `issue_url`, `publish` |
 
+## Multiple repositories
+
+One gateway can serve several repositories, declared through `REPOS`:
+
+```
+REPOS=cann/catlass:catlass,cann/ops-nn:ops-nn,cann/ops-basic:ops-basic:develop
+```
+
+Each entry is `path:SIG[:branch]`. The branch falls back to `TARGET_BRANCH` when omitted. Rosters are fetched per SIG, and each repository keeps its own allow list.
+
+The console has a repository selector at the top and shows only that repository's events and allow list. With a single managed repository the selector is hidden.
+
 ## Allow list
 
 The list mixes role references and explicit names, comma separated:
@@ -67,7 +79,7 @@ A long-lived service listening on `8000` inside the container, mapped to `127.0.
 | `SIG_NAME` | | Which SIG roster to use, default `catlass` |
 | `GITHUB_REPO` | | Target repository |
 | `GITHUB_REF_BRANCH` | | Ref for the workflows |
-| `TARGET_REPOSITORY` | | Accepted source repository |
+| `REPOS` | | Managed repositories, `owner/repo:sig[:branch]`, comma separated; optional for a single repo |
 | `TARGET_BRANCH` | | Target branch required by `rdvcompile` |
 | `CI_PASSED_LABEL` | | Label that triggers the CI reminder |
 | `ATOMGIT_WEB` | | Web domain used to build source links |

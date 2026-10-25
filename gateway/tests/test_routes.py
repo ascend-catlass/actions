@@ -71,6 +71,47 @@ def _install_fake_roster(allow_list="@maintainer, @committer"):
 
 _install_fake_roster()
 
+
+def test_multi_repo_registry():
+    """仓库表解析：路径、SIG、分支。"""
+    repos = gateway.parse_repos("cann/catlass:catlass,cann/ops-nn:ops-nn:develop", "master")
+    assert set(repos) == {"cann/catlass", "cann/ops-nn"}
+    assert repos["cann/catlass"]["sig"] == "catlass"
+    assert repos["cann/catlass"]["branch"] == "master"
+    assert repos["cann/ops-nn"]["sig"] == "ops-nn"
+    assert repos["cann/ops-nn"]["branch"] == "develop"
+
+
+def test_multi_repo_falls_back():
+    """仓库表为空或格式非法时回落，保证服务可用。"""
+    repos = gateway.parse_repos("", "master")
+    assert "cann/catlass" in repos
+    repos2 = gateway.parse_repos("invalid-without-slash", "master")
+    assert "cann/catlass" in repos2
+
+
+def test_unmanaged_repo_ignored():
+    """不在受管表内的仓库不触发任何路由。"""
+    gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+    try:
+        p = note_payload()
+        p["project"] = {"path_with_namespace": "other/repo"}
+        assert call(p)[1].get("ignored") is True
+    finally:
+        gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_show_ignored_default_hidden():
+    """默认查询不返回忽略请求。"""
+    gateway.record_event(kind="push", outcome="ignored", reason="no_route",
+                         repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    hidden = gateway.query_events(days=1, repo="cann/catlass", include_ignored=False)
+    shown = gateway.query_events(days=1, repo="cann/catlass", include_ignored=True)
+    assert all(e["outcome"] != "ignored" for e in hidden)
+    assert any(e["outcome"] == "ignored" for e in shown)
+    assert len(shown) >= len(hidden)
+
 # 记录转发调用，避免真实请求。
 sent = []
 gateway.dispatch = lambda workflow, inputs: (sent.append((workflow, inputs)), 204, "1", "https://example/run/1")[1:]
@@ -201,6 +242,47 @@ def test_maintainer_only_mode():
         _install_fake_roster()
 
 
+def test_multi_repo_registry():
+    """仓库表解析：路径、SIG、分支。"""
+    repos = gateway.parse_repos("cann/catlass:catlass,cann/ops-nn:ops-nn:develop", "master")
+    assert set(repos) == {"cann/catlass", "cann/ops-nn"}
+    assert repos["cann/catlass"]["sig"] == "catlass"
+    assert repos["cann/catlass"]["branch"] == "master"
+    assert repos["cann/ops-nn"]["sig"] == "ops-nn"
+    assert repos["cann/ops-nn"]["branch"] == "develop"
+
+
+def test_multi_repo_falls_back():
+    """仓库表为空或格式非法时回落，保证服务可用。"""
+    repos = gateway.parse_repos("", "master")
+    assert "cann/catlass" in repos
+    repos2 = gateway.parse_repos("invalid-without-slash", "master")
+    assert "cann/catlass" in repos2
+
+
+def test_unmanaged_repo_ignored():
+    """不在受管表内的仓库不触发任何路由。"""
+    gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+    try:
+        p = note_payload()
+        p["project"] = {"path_with_namespace": "other/repo"}
+        assert call(p)[1].get("ignored") is True
+    finally:
+        gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_show_ignored_default_hidden():
+    """默认查询不返回忽略请求。"""
+    gateway.record_event(kind="push", outcome="ignored", reason="no_route",
+                         repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    hidden = gateway.query_events(days=1, repo="cann/catlass", include_ignored=False)
+    shown = gateway.query_events(days=1, repo="cann/catlass", include_ignored=True)
+    assert all(e["outcome"] != "ignored" for e in hidden)
+    assert any(e["outcome"] == "ignored" for e in shown)
+    assert len(shown) >= len(hidden)
+
+
 def test_explicit_user_mode():
     """显式用户名可与角色混用。"""
     _install_fake_roster("@maintainer, internal_dev")
@@ -214,6 +296,47 @@ def test_explicit_user_mode():
         assert call(p2)[1].get("denied") == "not_in_allow_list"
     finally:
         _install_fake_roster()
+
+
+def test_multi_repo_registry():
+    """仓库表解析：路径、SIG、分支。"""
+    repos = gateway.parse_repos("cann/catlass:catlass,cann/ops-nn:ops-nn:develop", "master")
+    assert set(repos) == {"cann/catlass", "cann/ops-nn"}
+    assert repos["cann/catlass"]["sig"] == "catlass"
+    assert repos["cann/catlass"]["branch"] == "master"
+    assert repos["cann/ops-nn"]["sig"] == "ops-nn"
+    assert repos["cann/ops-nn"]["branch"] == "develop"
+
+
+def test_multi_repo_falls_back():
+    """仓库表为空或格式非法时回落，保证服务可用。"""
+    repos = gateway.parse_repos("", "master")
+    assert "cann/catlass" in repos
+    repos2 = gateway.parse_repos("invalid-without-slash", "master")
+    assert "cann/catlass" in repos2
+
+
+def test_unmanaged_repo_ignored():
+    """不在受管表内的仓库不触发任何路由。"""
+    gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+    try:
+        p = note_payload()
+        p["project"] = {"path_with_namespace": "other/repo"}
+        assert call(p)[1].get("ignored") is True
+    finally:
+        gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_show_ignored_default_hidden():
+    """默认查询不返回忽略请求。"""
+    gateway.record_event(kind="push", outcome="ignored", reason="no_route",
+                         repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    hidden = gateway.query_events(days=1, repo="cann/catlass", include_ignored=False)
+    shown = gateway.query_events(days=1, repo="cann/catlass", include_ignored=True)
+    assert all(e["outcome"] != "ignored" for e in hidden)
+    assert any(e["outcome"] == "ignored" for e in shown)
+    assert len(shown) >= len(hidden)
 
 
 def test_path_scoped_mode_uses_roster_source():
@@ -236,6 +359,47 @@ def test_path_scoped_mode_uses_roster_source():
         _install_fake_roster()
 
 
+def test_multi_repo_registry():
+    """仓库表解析：路径、SIG、分支。"""
+    repos = gateway.parse_repos("cann/catlass:catlass,cann/ops-nn:ops-nn:develop", "master")
+    assert set(repos) == {"cann/catlass", "cann/ops-nn"}
+    assert repos["cann/catlass"]["sig"] == "catlass"
+    assert repos["cann/catlass"]["branch"] == "master"
+    assert repos["cann/ops-nn"]["sig"] == "ops-nn"
+    assert repos["cann/ops-nn"]["branch"] == "develop"
+
+
+def test_multi_repo_falls_back():
+    """仓库表为空或格式非法时回落，保证服务可用。"""
+    repos = gateway.parse_repos("", "master")
+    assert "cann/catlass" in repos
+    repos2 = gateway.parse_repos("invalid-without-slash", "master")
+    assert "cann/catlass" in repos2
+
+
+def test_unmanaged_repo_ignored():
+    """不在受管表内的仓库不触发任何路由。"""
+    gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+    try:
+        p = note_payload()
+        p["project"] = {"path_with_namespace": "other/repo"}
+        assert call(p)[1].get("ignored") is True
+    finally:
+        gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_show_ignored_default_hidden():
+    """默认查询不返回忽略请求。"""
+    gateway.record_event(kind="push", outcome="ignored", reason="no_route",
+                         repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    hidden = gateway.query_events(days=1, repo="cann/catlass", include_ignored=False)
+    shown = gateway.query_events(days=1, repo="cann/catlass", include_ignored=True)
+    assert all(e["outcome"] != "ignored" for e in hidden)
+    assert any(e["outcome"] == "ignored" for e in shown)
+    assert len(shown) >= len(hidden)
+
+
 def test_files_param_ignored_when_rule_has_path():
     """规则带 :path 时，files 参数不影响判定结果。"""
     _install_fake_roster("@committer:tools")
@@ -250,6 +414,47 @@ def test_files_param_ignored_when_rule_has_path():
         _install_fake_roster()
 
 
+def test_multi_repo_registry():
+    """仓库表解析：路径、SIG、分支。"""
+    repos = gateway.parse_repos("cann/catlass:catlass,cann/ops-nn:ops-nn:develop", "master")
+    assert set(repos) == {"cann/catlass", "cann/ops-nn"}
+    assert repos["cann/catlass"]["sig"] == "catlass"
+    assert repos["cann/catlass"]["branch"] == "master"
+    assert repos["cann/ops-nn"]["sig"] == "ops-nn"
+    assert repos["cann/ops-nn"]["branch"] == "develop"
+
+
+def test_multi_repo_falls_back():
+    """仓库表为空或格式非法时回落，保证服务可用。"""
+    repos = gateway.parse_repos("", "master")
+    assert "cann/catlass" in repos
+    repos2 = gateway.parse_repos("invalid-without-slash", "master")
+    assert "cann/catlass" in repos2
+
+
+def test_unmanaged_repo_ignored():
+    """不在受管表内的仓库不触发任何路由。"""
+    gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+    try:
+        p = note_payload()
+        p["project"] = {"path_with_namespace": "other/repo"}
+        assert call(p)[1].get("ignored") is True
+    finally:
+        gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_show_ignored_default_hidden():
+    """默认查询不返回忽略请求。"""
+    gateway.record_event(kind="push", outcome="ignored", reason="no_route",
+                         repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    hidden = gateway.query_events(days=1, repo="cann/catlass", include_ignored=False)
+    shown = gateway.query_events(days=1, repo="cann/catlass", include_ignored=True)
+    assert all(e["outcome"] != "ignored" for e in hidden)
+    assert any(e["outcome"] == "ignored" for e in shown)
+    assert len(shown) >= len(hidden)
+
+
 def test_files_param_accepted_when_no_path():
     """规则不带 :path 时，files 参数被接受（当前不影响主名单判定，为将来预留）。"""
     _install_fake_roster("@committer")
@@ -262,6 +467,47 @@ def test_files_param_accepted_when_no_path():
         _install_fake_roster()
 
 
+def test_multi_repo_registry():
+    """仓库表解析：路径、SIG、分支。"""
+    repos = gateway.parse_repos("cann/catlass:catlass,cann/ops-nn:ops-nn:develop", "master")
+    assert set(repos) == {"cann/catlass", "cann/ops-nn"}
+    assert repos["cann/catlass"]["sig"] == "catlass"
+    assert repos["cann/catlass"]["branch"] == "master"
+    assert repos["cann/ops-nn"]["sig"] == "ops-nn"
+    assert repos["cann/ops-nn"]["branch"] == "develop"
+
+
+def test_multi_repo_falls_back():
+    """仓库表为空或格式非法时回落，保证服务可用。"""
+    repos = gateway.parse_repos("", "master")
+    assert "cann/catlass" in repos
+    repos2 = gateway.parse_repos("invalid-without-slash", "master")
+    assert "cann/catlass" in repos2
+
+
+def test_unmanaged_repo_ignored():
+    """不在受管表内的仓库不触发任何路由。"""
+    gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+    try:
+        p = note_payload()
+        p["project"] = {"path_with_namespace": "other/repo"}
+        assert call(p)[1].get("ignored") is True
+    finally:
+        gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_show_ignored_default_hidden():
+    """默认查询不返回忽略请求。"""
+    gateway.record_event(kind="push", outcome="ignored", reason="no_route",
+                         repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    hidden = gateway.query_events(days=1, repo="cann/catlass", include_ignored=False)
+    shown = gateway.query_events(days=1, repo="cann/catlass", include_ignored=True)
+    assert all(e["outcome"] != "ignored" for e in hidden)
+    assert any(e["outcome"] == "ignored" for e in shown)
+    assert len(shown) >= len(hidden)
+
+
 def test_empty_allow_list_allows_all():
     """名单为空 = 不限制。"""
     _install_fake_roster("")
@@ -271,6 +517,47 @@ def test_empty_allow_list_allows_all():
         assert call(p)[1].get("dispatched") is True
     finally:
         _install_fake_roster()
+
+
+def test_multi_repo_registry():
+    """仓库表解析：路径、SIG、分支。"""
+    repos = gateway.parse_repos("cann/catlass:catlass,cann/ops-nn:ops-nn:develop", "master")
+    assert set(repos) == {"cann/catlass", "cann/ops-nn"}
+    assert repos["cann/catlass"]["sig"] == "catlass"
+    assert repos["cann/catlass"]["branch"] == "master"
+    assert repos["cann/ops-nn"]["sig"] == "ops-nn"
+    assert repos["cann/ops-nn"]["branch"] == "develop"
+
+
+def test_multi_repo_falls_back():
+    """仓库表为空或格式非法时回落，保证服务可用。"""
+    repos = gateway.parse_repos("", "master")
+    assert "cann/catlass" in repos
+    repos2 = gateway.parse_repos("invalid-without-slash", "master")
+    assert "cann/catlass" in repos2
+
+
+def test_unmanaged_repo_ignored():
+    """不在受管表内的仓库不触发任何路由。"""
+    gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+    try:
+        p = note_payload()
+        p["project"] = {"path_with_namespace": "other/repo"}
+        assert call(p)[1].get("ignored") is True
+    finally:
+        gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_show_ignored_default_hidden():
+    """默认查询不返回忽略请求。"""
+    gateway.record_event(kind="push", outcome="ignored", reason="no_route",
+                         repo="cann/catlass")
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    hidden = gateway.query_events(days=1, repo="cann/catlass", include_ignored=False)
+    shown = gateway.query_events(days=1, repo="cann/catlass", include_ignored=True)
+    assert all(e["outcome"] != "ignored" for e in hidden)
+    assert any(e["outcome"] == "ignored" for e in shown)
+    assert len(shown) >= len(hidden)
 
 
 def test_ci_passed_dispatches():
@@ -306,7 +593,7 @@ def test_issue_dispatches():
     assert status == 200
     assert body["action"] == "issue_analysis"
     assert sent[-1][0] == "reply-atomgit-issue.yml"
-    assert sent[-1][1]["issue_url"] == "https://atomgit.com/cann/catlass/issues/740"
+    assert sent[-1][1]["issue_url"] == f"{gateway.ATOMGIT_WEB}/cann/catlass/issues/740"
     assert sent[-1][1]["publish"] == "true"
 
 

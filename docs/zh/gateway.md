@@ -29,6 +29,18 @@ AtomGit 项目需要自动触发本仓 workflow 时。网关常驻运行，不�
 | PR 新增 `ci-pipeline-passed` 标签、PR 开启 | `reply-atomgit-ci-passed.yml` | `pr_number` |
 | Issue 新建或重开、非机密 | `reply-atomgit-issue.yml` | `issue_url`、`publish` |
 
+## 多个仓库
+
+一个网关可以同时服务多个仓库，用 `REPOS` 声明：
+
+```
+REPOS=cann/catlass:catlass,cann/ops-nn:ops-nn,cann/ops-basic:ops-basic:develop
+```
+
+每项是 `仓库路径:SIG[:目标分支]`。目标分支省略时用 `TARGET_BRANCH`。名单按仓库所属 SIG 分别获取，各仓的允许名单也分开保存。
+
+控制台顶部有仓库选择框，只显示当前仓库的触发记录与名单。只有一个受管仓库时不显示选择框。
+
 ## 允许名单
 
 名单支持角色引用与显式用户名混用，逗号分隔：
@@ -67,7 +79,7 @@ AtomGit 项目需要自动触发本仓 workflow 时。网关常驻运行，不�
 | `SIG_NAME` | | 取哪个 SIG 的名单，默认 `catlass` |
 | `GITHUB_REPO` | | 目标仓库 |
 | `GITHUB_REF_BRANCH` | | workflow 的 ref |
-| `TARGET_REPOSITORY` | | 接受的来源仓库 |
+| `REPOS` | | 受管仓库表，格式 `owner/repo:sig[:branch]`，逗号分隔；单个仓库时可省略 |
 | `TARGET_BRANCH` | | `rdvcompile` 要求的目标分支 |
 | `CI_PASSED_LABEL` | | 触发 CI 提醒的标签名 |
 | `ATOMGIT_WEB` | | 生成来源链接用的网页域名 |
