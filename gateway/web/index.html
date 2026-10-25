@@ -299,9 +299,13 @@
 </div>
 
 <script src="/assets/smartisan.js?v=3"></script>
-<script src="/assets/templates.js?v=8"></script>
+<script src="/assets/templates.js?v=9"></script>
 <script>
 const T = window.STemplate;
+// 让模板知道 AtomGit 网页根，用于拼用户主页
+fetch('/api/config').then(r => r.json())
+  .then(d => T.setWebBase(d.atomgit_web))
+  .catch(() => {});
 let currentDays = 1;
 let currentRepo = null;      // 受管仓库，来自下拉框
 let showIgnored = false;     // 是否显示忽略请求（默认隐藏）

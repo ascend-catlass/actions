@@ -101,6 +101,22 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_events_carry_user_profile_url():
+    """记录里带上触发者主页链接，便于界面跳转。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
+                         user="zhouhao176",
+                         user_url=gateway.profile_url_for("zhouhao176"))
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass")
+    hit = [e for e in rows if e.get("user") == "zhouhao176"]
+    assert hit, "应找到刚写入的记录"
+    assert hit[0]["user_url"] == f"{gateway.ATOMGIT_WEB}/zhouhao176"
+
+
+def test_profile_url_handles_missing_user():
+    assert gateway.profile_url_for(None) is None
+    assert gateway.profile_url_for("") is None
+
+
 def test_hide_dry_run_excludes_tests():
     """屏蔽测试记录：dry_run 不返回，其他照常。"""
     gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
@@ -298,6 +314,22 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_events_carry_user_profile_url():
+    """记录里带上触发者主页链接，便于界面跳转。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
+                         user="zhouhao176",
+                         user_url=gateway.profile_url_for("zhouhao176"))
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass")
+    hit = [e for e in rows if e.get("user") == "zhouhao176"]
+    assert hit, "应找到刚写入的记录"
+    assert hit[0]["user_url"] == f"{gateway.ATOMGIT_WEB}/zhouhao176"
+
+
+def test_profile_url_handles_missing_user():
+    assert gateway.profile_url_for(None) is None
+    assert gateway.profile_url_for("") is None
+
+
 def test_hide_dry_run_excludes_tests():
     """屏蔽测试记录：dry_run 不返回，其他照常。"""
     gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
@@ -379,6 +411,22 @@ def test_unmanaged_repo_ignored():
         assert call(p)[1].get("ignored") is True
     finally:
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_events_carry_user_profile_url():
+    """记录里带上触发者主页链接，便于界面跳转。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
+                         user="zhouhao176",
+                         user_url=gateway.profile_url_for("zhouhao176"))
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass")
+    hit = [e for e in rows if e.get("user") == "zhouhao176"]
+    assert hit, "应找到刚写入的记录"
+    assert hit[0]["user_url"] == f"{gateway.ATOMGIT_WEB}/zhouhao176"
+
+
+def test_profile_url_handles_missing_user():
+    assert gateway.profile_url_for(None) is None
+    assert gateway.profile_url_for("") is None
 
 
 def test_hide_dry_run_excludes_tests():
@@ -469,6 +517,22 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_events_carry_user_profile_url():
+    """记录里带上触发者主页链接，便于界面跳转。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
+                         user="zhouhao176",
+                         user_url=gateway.profile_url_for("zhouhao176"))
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass")
+    hit = [e for e in rows if e.get("user") == "zhouhao176"]
+    assert hit, "应找到刚写入的记录"
+    assert hit[0]["user_url"] == f"{gateway.ATOMGIT_WEB}/zhouhao176"
+
+
+def test_profile_url_handles_missing_user():
+    assert gateway.profile_url_for(None) is None
+    assert gateway.profile_url_for("") is None
+
+
 def test_hide_dry_run_excludes_tests():
     """屏蔽测试记录：dry_run 不返回，其他照常。"""
     gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
@@ -551,6 +615,22 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_events_carry_user_profile_url():
+    """记录里带上触发者主页链接，便于界面跳转。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
+                         user="zhouhao176",
+                         user_url=gateway.profile_url_for("zhouhao176"))
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass")
+    hit = [e for e in rows if e.get("user") == "zhouhao176"]
+    assert hit, "应找到刚写入的记录"
+    assert hit[0]["user_url"] == f"{gateway.ATOMGIT_WEB}/zhouhao176"
+
+
+def test_profile_url_handles_missing_user():
+    assert gateway.profile_url_for(None) is None
+    assert gateway.profile_url_for("") is None
+
+
 def test_hide_dry_run_excludes_tests():
     """屏蔽测试记录：dry_run 不返回，其他照常。"""
     gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
@@ -631,6 +711,22 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_events_carry_user_profile_url():
+    """记录里带上触发者主页链接，便于界面跳转。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
+                         user="zhouhao176",
+                         user_url=gateway.profile_url_for("zhouhao176"))
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass")
+    hit = [e for e in rows if e.get("user") == "zhouhao176"]
+    assert hit, "应找到刚写入的记录"
+    assert hit[0]["user_url"] == f"{gateway.ATOMGIT_WEB}/zhouhao176"
+
+
+def test_profile_url_handles_missing_user():
+    assert gateway.profile_url_for(None) is None
+    assert gateway.profile_url_for("") is None
+
+
 def test_hide_dry_run_excludes_tests():
     """屏蔽测试记录：dry_run 不返回，其他照常。"""
     gateway.record_event(kind="note", outcome="dry_run", repo="cann/catlass")
@@ -708,6 +804,22 @@ def test_unmanaged_repo_ignored():
         assert call(p)[1].get("ignored") is True
     finally:
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_events_carry_user_profile_url():
+    """记录里带上触发者主页链接，便于界面跳转。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
+                         user="zhouhao176",
+                         user_url=gateway.profile_url_for("zhouhao176"))
+    rows = gateway.query_events(days=1, limit=2000, repo="cann/catlass")
+    hit = [e for e in rows if e.get("user") == "zhouhao176"]
+    assert hit, "应找到刚写入的记录"
+    assert hit[0]["user_url"] == f"{gateway.ATOMGIT_WEB}/zhouhao176"
+
+
+def test_profile_url_handles_missing_user():
+    assert gateway.profile_url_for(None) is None
+    assert gateway.profile_url_for("") is None
 
 
 def test_hide_dry_run_excludes_tests():

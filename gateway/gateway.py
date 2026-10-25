@@ -285,7 +285,9 @@ def init_db() -> None:
                 source_url   TEXT,
                 -- 目标运行（GitHub Actions）
                 run_id       TEXT,
-                run_url      TEXT
+                run_url      TEXT,
+                -- 触发者主页
+                user_url     TEXT
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts)")
@@ -296,6 +298,7 @@ def init_db() -> None:
         for col, decl in [
             ("category", "TEXT"), ("subtype", "TEXT"),
             ("source_url", "TEXT"), ("run_id", "TEXT"), ("run_url", "TEXT"),
+            ("user_url", "TEXT"),
         ]:
             if col not in existing:
                 conn.execute(f"ALTER TABLE events ADD COLUMN {col} {decl}")
@@ -404,8 +407,9 @@ def record_event(**fields: Any) -> None:
             conn.execute(
                 """INSERT INTO events
                    (ts, action, outcome, reason, repo, user, iid, kind, workflow,
-                    http_status, detail, category, subtype, source_url, run_id, run_url)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    http_status, detail, category, subtype, source_url, run_id, run_url,
+                    user_url)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     fields.get("action"), fields.get("outcome", "unknown"),
@@ -414,6 +418,7 @@ def record_event(**fields: Any) -> None:
                     fields.get("http_status"), fields.get("detail"),
                     fields.get("category"), fields.get("subtype"),
                     fields.get("source_url"), fields.get("run_id"), fields.get("run_url"),
+                    fields.get("user_url"),
                 ),
             )
     except Exception as exc:  # noqa: BLE001
@@ -675,14 +680,23 @@ def find_latest_run(
 # HTTP 处理
 # ---------------------------------------------------------------------------
 
+def profile_url_for(user: str | None) -> str | None:
+    """AtomGit 用户主页链接。"""
+    if not user:
+        return None
+    return f"{ATOMGIT_WEB}/{user}"
+
+
 def _payload_facts(payload: dict[str, Any]) -> dict[str, Any]:
     """从 payload 提取用于记录与名单判断的字段。"""
     note = payload.get("object_attributes") or {}
     mr = payload.get("merge_request") or {}
+    user = (payload.get("user") or {}).get("username")
     return {
         "kind": payload.get("object_kind"),
         "repo": (payload.get("project") or {}).get("path_with_namespace"),
-        "user": (payload.get("user") or {}).get("username"),
+        "user": user,
+        "user_url": profile_url_for(user),
         "iid": mr.get("iid") or note.get("iid"),
         "files": _changed_files(payload),   # 预留：细粒度路径判断用
     }
@@ -999,6 +1013,12 @@ async def api_roster_update(request: Request):
     log.info("allow_list updated by=%s rules=%s", who, describe_rules(parse_allow_list(value)))
     return {"ok": True, "rules": describe_rules(parse_allow_list(value)),
             "detail": detail, "updated_by": who}
+
+
+@api.get("/api/config")
+async def api_config():
+    """前端需要的少量配置。"""
+    return {"atomgit_web": ATOMGIT_WEB, "repos": list(REPOS)}
 
 
 @api.get("/api/repos")
