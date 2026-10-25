@@ -66,6 +66,22 @@
            '</span>';
   }
 
+  /** AtomGit 网页根，由页面注入；缺失时退回默认。 */
+  var ATOMGIT_WEB = 'https://atomgit.com';
+  function setWebBase(base) {
+    if (typeof base === 'string' && base) ATOMGIT_WEB = base.replace(/\/+$/, '');
+  }
+
+  /** 触发者单元格：链到 AtomGit 主页。 */
+  function userCell(e) {
+    var who = e.user;
+    if (!who) return '<span class="dim">—</span>';
+    // 历史记录可能没有 user_url，按用户名拼
+    var url = e.user_url || (ATOMGIT_WEB + '/' + encodeURIComponent(who));
+    return '<a class="link" href="' + esc(url) + '" target="_blank" rel="noopener">'
+           + esc(who) + '</a>';
+  }
+
   /** 来源单元格：有链接就做成可点击。 */
   function sourceCell(e) {
     var repo = e.repo || '';
@@ -113,7 +129,7 @@
              '<td class="col-result" data-label="结果"><span class="badge ' + o.cls + '">' +
                esc(o.label) + '</span></td>' +
              '<td data-label="事件类型">' + categoryCell(e) + '</td>' +
-             '<td class="mono" data-label="触发者">' + esc(who) + '</td>' +
+             '<td class="mono" data-label="触发者">' + userCell(e) + '</td>' +
              '<td data-label="来源">' + sourceCell(e) + '</td>' +
              '<td class="dim" data-label="原因">' + reason + '</td>' +
              '<td data-label="目标">' + targetCell(e) + '</td>' +
@@ -153,6 +169,8 @@
     OUTCOME: OUTCOME,
     statsGrid: statsGrid,
     eventTable: eventTable,
+    userCell: userCell,
+    setWebBase: setWebBase,
     categoryCell: categoryCell,
     rosterSummary: rosterSummary,
   };
