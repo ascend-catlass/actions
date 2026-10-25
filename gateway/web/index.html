@@ -107,6 +107,76 @@
   .chip:hover { background:#ededed; }
 
   .foot { text-align:center; padding:20px 0 0; font-size:11.5px; color:var(--s-grey-500); }
+
+  /* ============================================================
+     移动端：单列堆叠。表格改卡片式（每条记录一张卡），
+     避免 7 列在窄屏横向溢出。
+     ============================================================ */
+  @media (max-width: 760px) {
+    .shell { padding: 0 12px 32px; }
+    .cols { grid-template-columns: minmax(0,1fr); gap: 14px; }
+    .s-appbar { padding: 8px 12px; }
+
+    /* 顶部控件换行排布，避免挤压 */
+    .toolbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 0; }
+    .toolbar__meta { margin-left: 0 !important; text-align: left; }
+
+    .ctl { width: 100%; }
+    .ctl__select { flex: 1; width: 100%; }
+
+    /* 概览两列：允许换行，不撑破卡片 */
+    .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .stats > div { padding: 12px 6px; min-width: 0; overflow: hidden; }
+    .stats > div:nth-child(3n) { border-right: 0.8px solid var(--s-divider-color); }
+    .stats > div:nth-child(2n) { border-right: 0; }
+    .stats > div:nth-child(n+3) { border-bottom: 0.8px solid var(--s-divider-color); }
+    .stats > div:nth-child(n+5) { border-bottom: 0; }
+
+    /* 表格转卡片：隐藏表头，每条记录独立成块 */
+    table.ev thead { display: none; }
+    table.ev, table.ev tbody, table.ev tr, table.ev td { display: block; width: 100%; }
+    table.ev tr { padding: 12px 14px; border-bottom: 0.8px solid var(--s-divider-color); }
+    table.ev tr:last-child { border-bottom: 0; }
+    table.ev tr:hover td { background: transparent; }
+
+    /* 每个单元格右侧补标签，让人知道这行是什么 */
+    table.ev td {
+      border: 0; padding: 3px 0; font-size: 13px;
+      display: flex; gap: 10px; align-items: baseline;
+    }
+    table.ev td::before {
+      content: attr(data-label);
+      flex: 0 0 62px; color: var(--s-subtitle-list); font-size: 11.5px;
+      font-family: var(--s-font); white-space: nowrap;
+    }
+    /* 时间与结果并排在卡片顶部；结果过宽时换行而不是叠字 */
+    table.ev tr { position: relative; padding: 12px 14px; }
+    table.ev td[data-label="时间"] {
+      padding: 0 0 8px; font-weight: 500; display: flex;
+      align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    table.ev td[data-label="时间"]::before { content: none; }
+    /* 结果已在首行，这一列在移动端不显示 */
+    table.ev td.col-result { display: none !important; }
+
+    /* 目标列：标签在上、内容在下，避免被拉成两端对齐 */
+    table.ev td[data-label="目标"] {
+      flex-direction: column; align-items: flex-start; gap: 4px;
+    }
+    table.ev td[data-label="目标"]::before { flex-basis: auto; margin-bottom: 1px; }
+    .detail { max-width: none; overflow-wrap: anywhere; word-break: break-all; }
+    table.ev td[data-label="目标"] > span { max-width: 100%; }
+    /* 表格整体不许撑破容器 */
+    table.ev { table-layout: fixed; }
+    table.ev tr, table.ev td { box-sizing: border-box; max-width: 100%; }
+    /* 页面级兜底，避免任何元素横向溢出 */
+    html, body { max-width: 100%; overflow-x: hidden; }
+    .shell, .cols, .card { max-width: 100%; box-sizing: border-box; }
+    /* 概览两列时数字不换行，标签可换行且不溢出 */
+    .stat-num { white-space: nowrap; font-size: 20px; }
+    .stat-label { white-space: normal; line-height: 1.35; font-size: 11.5px;
+                  overflow-wrap: anywhere; }
+  }
   .empty { padding:56px; text-align:center; color:var(--s-grey-600); font-size:13px; }
 
   /* 顶部控件：仓库选择与显示开关 */
@@ -146,7 +216,7 @@
 
 <div class="shell">
 
-  <div style="display:flex;align-items:center;gap:14px;padding:18px 0 14px;flex-wrap:wrap">
+  <div class="toolbar" style="display:flex;align-items:center;gap:14px;padding:18px 0 14px;flex-wrap:wrap">
     <label class="ctl">
       <span class="ctl__label">仓库</span>
       <select id="repo-select" class="ctl__select"></select>
@@ -157,7 +227,7 @@
       <span>显示忽略请求</span>
     </label>
 
-    <span id="hero-meta" class="dim" style="font-size:13px;margin-left:auto">加载中…</span>
+    <span id="hero-meta" class="toolbar__meta dim" style="font-size:13px;margin-left:auto">加载中…</span>
   </div>
 
   <!-- ── 上排：概览 + 允许名单 ───────────────────── -->
@@ -221,7 +291,7 @@
 </div>
 
 <script src="/assets/smartisan.js?v=3"></script>
-<script src="/assets/templates.js?v=5"></script>
+<script src="/assets/templates.js?v=6"></script>
 <script>
 const T = window.STemplate;
 let currentDays = 1;

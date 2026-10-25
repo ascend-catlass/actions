@@ -105,14 +105,18 @@
     var who = e.user || '—';
     var reason = e.reason ? esc(e.reason) : '—';
 
+    // data-label 供移动端卡片式布局显示字段名
     return '<tr>' +
-             '<td class="mono dim">' + esc(time) + '</td>' +
-             '<td><span class="badge ' + o.cls + '">' + esc(o.label) + '</span></td>' +
-             '<td>' + categoryCell(e) + '</td>' +
-             '<td class="mono">' + esc(who) + '</td>' +
-             '<td>' + sourceCell(e) + '</td>' +
-             '<td class="dim">' + reason + '</td>' +
-             '<td>' + targetCell(e) + '</td>' +
+             '<td class="mono dim" data-label="时间">' +
+               '<span class="badge ' + o.cls + '">' + esc(o.label) + '</span>' +
+               '<span>' + esc(time) + '</span></td>' +
+             '<td class="col-result" data-label="结果"><span class="badge ' + o.cls + '">' +
+               esc(o.label) + '</span></td>' +
+             '<td data-label="事件类型">' + categoryCell(e) + '</td>' +
+             '<td class="mono" data-label="触发者">' + esc(who) + '</td>' +
+             '<td data-label="来源">' + sourceCell(e) + '</td>' +
+             '<td class="dim" data-label="原因">' + reason + '</td>' +
+             '<td data-label="目标">' + targetCell(e) + '</td>' +
            '</tr>';
   }
 
