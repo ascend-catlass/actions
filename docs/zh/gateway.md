@@ -1,0 +1,88 @@
+# Webhook 网关
+
+[中文](gateway.md) · [English](../en/gateway.md)
+
+`gateway/`
+
+## 做什么
+
+接收 AtomGit（GitCode）的 webhook 事件，校验触发者权限，按事件类型分派给对应的 workflow。它是社区流水线的入口：AtomGit 侧只配一个 webhook 地址，具体走哪条流程由网关判断。
+
+## 什么时候用
+
+AtomGit 项目需要自动触发本仓 workflow 时。网关常驻运行，不随 workflow 启动。
+
+## 处理过程
+
+1. 校验 `X-GitCode-Token`，与 `WEBHOOK_PASSWORD` 不符返回 401。
+2. 按 `object_kind` 与事件字段匹配路由；未命中返回 `{"ok":true,"ignored":true}`。
+3. 校验触发者是否在允许名单内；不在名单直接拦下，不触发下游。
+4. 用 GitHub token 调度目标 workflow，并查询本次运行记录，存入事件日志。
+
+拦截发生在网关层，不在名单的请求不消耗 Actions 分钟数。
+
+## 路由
+
+| 事件条件 | 目标 workflow | 传入参数 |
+| --- | --- | --- |
+| 评论内容为 `rdvcompile`、目标分支 `master`、PR 开启 | `test-atomgit-pr.yml` | `pr_number` |
+| PR 新增 `ci-pipeline-passed` 标签、PR 开启 | `reply-atomgit-ci-passed.yml` | `pr_number` |
+| Issue 新建或重开、非机密 | `reply-atomgit-issue.yml` | `issue_url`、`publish` |
+
+## 允许名单
+
+名单支持角色引用与显式用户名混用，逗号分隔：
+
+| 写法 | 含义 |
+| --- | --- |
+| `@maintainer` | SIG maintainer，对该 SIG 名下所有仓库生效 |
+| `@committer` | 该仓库的 committer，只对本仓库生效 |
+| `@committer:<子目录>` | 仅该子目录的 committer |
+| `alice` | 显式用户名，用于未获 committer 权限但需要触发的人 |
+
+角色名单取自 `cann/community` 仓库的 `CANN/org-info.yaml`（maintainer）与 `CANN/sigs/<sig>/sig-info.yaml`（committer），按 TTL 刷新并本地缓存。获取失败时降级到缓存；缓存也不可用时放行，交由下游复核。
+
+名单在管理界面可直接编辑，保存在配置文件里，改完立即生效。
+
+## 测试模式
+
+请求头加 `X-Dry-Run: 1` 时走完整的鉴权、路由与名单判断，但不调用 GitHub，记录为 `dry_run`。响应用 `would_dispatch` 与 `inputs` 说明将要执行什么。
+
+## 管理界面
+
+概览、触发记录与名单编辑。记录表里来源可直接跳到 AtomGit 的 PR 或 Issue，目标列给出本次 GitHub Actions 运行链接。
+
+## 部署
+
+常驻服务，容器内监听 `8000`，宿主映射到 `127.0.0.1:1109`，由 cloudflared 对外暴露。数据目录放在挂载卷内，容器重建不丢。
+
+## 配置
+
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `WEBHOOK_PASSWORD` | 是 | 入站密码，需与 AtomGit webhook 配置一致；也用于解锁名单编辑 |
+| `GITHUB_ACTIONS_TOKEN` | 是 | 可调度本仓 workflow 的 GitHub 凭据 |
+| `ALLOW_LIST` | | 名单初始值；首次启动写入配置文件后以配置文件为准 |
+| `ALLOW_FILE` | | 名单配置文件路径 |
+| `SIG_NAME` | | 取哪个 SIG 的名单，默认 `catlass` |
+| `GITHUB_REPO` | | 目标仓库 |
+| `GITHUB_REF_BRANCH` | | workflow 的 ref |
+| `TARGET_REPOSITORY` | | 接受的来源仓库 |
+| `TARGET_BRANCH` | | `rdvcompile` 要求的目标分支 |
+| `CI_PASSED_LABEL` | | 触发 CI 提醒的标签名 |
+| `ATOMGIT_WEB` | | 生成来源链接用的网页域名 |
+| `DATA_DIR` | | 数据目录，存事件库与名单配置 |
+
+## 本地运行
+
+```text
+python -m pip install -r gateway/requirements.txt
+WEBHOOK_PASSWORD=dev GITHUB_ACTIONS_TOKEN=... python -m uvicorn gateway.gateway:api --port 1109
+```
+
+测试不联网，用固定样本注入名单：
+
+```text
+python gateway/tests/test_routes.py
+python gateway/tests/test_roster.py
+```
