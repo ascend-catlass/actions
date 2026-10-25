@@ -425,6 +425,29 @@ def record_event(**fields: Any) -> None:
         log.warning("写事件记录失败: %s", exc)
 
 
+def clear_events(outcomes: list[str] | None = None,
+                  repo: str | None = None) -> int:
+    """删除指定结果的记录。outcomes 为空时删全部。返回删除行数。"""
+    where = []
+    args: list[Any] = []
+    if outcomes:
+        where.append("outcome IN (" + ",".join("?" * len(outcomes)) + ")")
+        args.extend(outcomes)
+    if repo:
+        where.append("repo = ?")
+        args.append(repo)
+    clause = (" WHERE " + " AND ".join(where)) if where else ""
+    try:
+        with _db_lock, _db() as conn:
+            cur = conn.execute(f"DELETE FROM events{clause}", tuple(args))
+            n = cur.rowcount
+        log.info("清空记录 outcomes=%s repo=%s 删除 %d 行", outcomes, repo, n)
+        return n
+    except Exception as exc:  # noqa: BLE001
+        log.warning("清空记录失败: %s", exc)
+        return -1
+
+
 def query_events(days: int = 7, limit: int = 500, repo: str | None = None,
                  include_ignored: bool = True,
                  include_dry_run: bool = True) -> list[dict[str, Any]]:
@@ -1013,6 +1036,37 @@ async def api_roster_update(request: Request):
     log.info("allow_list updated by=%s rules=%s", who, describe_rules(parse_allow_list(value)))
     return {"ok": True, "rules": describe_rules(parse_allow_list(value)),
             "detail": detail, "updated_by": who}
+
+
+@api.post("/api/events/clear")
+async def api_events_clear(request: Request):
+    """清空记录。需 X-Webhook-Token；默认只删测试记录。
+
+    body: {"outcomes": ["dry_run"]} 或 {"outcomes": ["all"]}
+    """
+    token = (request.headers.get("x-webhook-token") or "").strip()
+    if not token:
+        auth = request.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
+    if not check_token(token):
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+
+    outcomes = (body or {}).get("outcomes") or ["dry_run"]
+    if isinstance(outcomes, str):
+        outcomes = [outcomes]
+    if "all" in outcomes:
+        outcomes = None
+
+    n = clear_events(outcomes, (body or {}).get("repo"))
+    if n < 0:
+        return JSONResponse({"ok": False, "error": "clear_failed"}, status_code=500)
+    return {"ok": True, "deleted": n, "outcomes": outcomes or "all"}
 
 
 @api.get("/api/config")

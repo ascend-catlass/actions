@@ -101,6 +101,42 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_clear_only_dry_run():
+    """清空只删测试记录，真实转发与拦截保留。"""
+    for outcome in ("dry_run", "dispatched", "denied"):
+        gateway.record_event(kind="note", outcome=outcome, repo="cann/catlass")
+    deleted = gateway.clear_events(["dry_run"], repo="cann/catlass")
+    assert deleted >= 1
+    left = {e["outcome"] for e in
+            gateway.query_events(days=1, limit=2000, repo="cann/catlass")}
+    assert "dry_run" not in left
+    assert "dispatched" in left
+    assert "denied" in left
+
+
+def test_clear_all():
+    """outcomes=None 时清空全部。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    gateway.clear_events(None, repo="cann/catlass")
+    assert gateway.query_events(days=1, limit=2000, repo="cann/catlass") == []
+
+
+def test_clear_scoped_to_repo():
+    """限定仓库时只删该仓库的记录，别的仓库不受影响。"""
+    def dry(repo):
+        return len([e for e in gateway.query_events(days=1, limit=2000, repo=repo)
+                    if e["outcome"] == "dry_run"])
+
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/a")
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/b")
+    before_a, before_b = dry("scope/a"), dry("scope/b")
+    assert before_a >= 1 and before_b >= 1
+
+    gateway.clear_events(["dry_run"], repo="scope/a")
+    assert dry("scope/a") == 0, "目标仓库应被清空"
+    assert dry("scope/b") == before_b, "别的仓库不应受影响"
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -314,6 +350,42 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_clear_only_dry_run():
+    """清空只删测试记录，真实转发与拦截保留。"""
+    for outcome in ("dry_run", "dispatched", "denied"):
+        gateway.record_event(kind="note", outcome=outcome, repo="cann/catlass")
+    deleted = gateway.clear_events(["dry_run"], repo="cann/catlass")
+    assert deleted >= 1
+    left = {e["outcome"] for e in
+            gateway.query_events(days=1, limit=2000, repo="cann/catlass")}
+    assert "dry_run" not in left
+    assert "dispatched" in left
+    assert "denied" in left
+
+
+def test_clear_all():
+    """outcomes=None 时清空全部。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    gateway.clear_events(None, repo="cann/catlass")
+    assert gateway.query_events(days=1, limit=2000, repo="cann/catlass") == []
+
+
+def test_clear_scoped_to_repo():
+    """限定仓库时只删该仓库的记录，别的仓库不受影响。"""
+    def dry(repo):
+        return len([e for e in gateway.query_events(days=1, limit=2000, repo=repo)
+                    if e["outcome"] == "dry_run"])
+
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/a")
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/b")
+    before_a, before_b = dry("scope/a"), dry("scope/b")
+    assert before_a >= 1 and before_b >= 1
+
+    gateway.clear_events(["dry_run"], repo="scope/a")
+    assert dry("scope/a") == 0, "目标仓库应被清空"
+    assert dry("scope/b") == before_b, "别的仓库不应受影响"
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -411,6 +483,42 @@ def test_unmanaged_repo_ignored():
         assert call(p)[1].get("ignored") is True
     finally:
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_clear_only_dry_run():
+    """清空只删测试记录，真实转发与拦截保留。"""
+    for outcome in ("dry_run", "dispatched", "denied"):
+        gateway.record_event(kind="note", outcome=outcome, repo="cann/catlass")
+    deleted = gateway.clear_events(["dry_run"], repo="cann/catlass")
+    assert deleted >= 1
+    left = {e["outcome"] for e in
+            gateway.query_events(days=1, limit=2000, repo="cann/catlass")}
+    assert "dry_run" not in left
+    assert "dispatched" in left
+    assert "denied" in left
+
+
+def test_clear_all():
+    """outcomes=None 时清空全部。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    gateway.clear_events(None, repo="cann/catlass")
+    assert gateway.query_events(days=1, limit=2000, repo="cann/catlass") == []
+
+
+def test_clear_scoped_to_repo():
+    """限定仓库时只删该仓库的记录，别的仓库不受影响。"""
+    def dry(repo):
+        return len([e for e in gateway.query_events(days=1, limit=2000, repo=repo)
+                    if e["outcome"] == "dry_run"])
+
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/a")
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/b")
+    before_a, before_b = dry("scope/a"), dry("scope/b")
+    assert before_a >= 1 and before_b >= 1
+
+    gateway.clear_events(["dry_run"], repo="scope/a")
+    assert dry("scope/a") == 0, "目标仓库应被清空"
+    assert dry("scope/b") == before_b, "别的仓库不应受影响"
 
 
 def test_events_carry_user_profile_url():
@@ -517,6 +625,42 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_clear_only_dry_run():
+    """清空只删测试记录，真实转发与拦截保留。"""
+    for outcome in ("dry_run", "dispatched", "denied"):
+        gateway.record_event(kind="note", outcome=outcome, repo="cann/catlass")
+    deleted = gateway.clear_events(["dry_run"], repo="cann/catlass")
+    assert deleted >= 1
+    left = {e["outcome"] for e in
+            gateway.query_events(days=1, limit=2000, repo="cann/catlass")}
+    assert "dry_run" not in left
+    assert "dispatched" in left
+    assert "denied" in left
+
+
+def test_clear_all():
+    """outcomes=None 时清空全部。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    gateway.clear_events(None, repo="cann/catlass")
+    assert gateway.query_events(days=1, limit=2000, repo="cann/catlass") == []
+
+
+def test_clear_scoped_to_repo():
+    """限定仓库时只删该仓库的记录，别的仓库不受影响。"""
+    def dry(repo):
+        return len([e for e in gateway.query_events(days=1, limit=2000, repo=repo)
+                    if e["outcome"] == "dry_run"])
+
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/a")
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/b")
+    before_a, before_b = dry("scope/a"), dry("scope/b")
+    assert before_a >= 1 and before_b >= 1
+
+    gateway.clear_events(["dry_run"], repo="scope/a")
+    assert dry("scope/a") == 0, "目标仓库应被清空"
+    assert dry("scope/b") == before_b, "别的仓库不应受影响"
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -615,6 +759,42 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_clear_only_dry_run():
+    """清空只删测试记录，真实转发与拦截保留。"""
+    for outcome in ("dry_run", "dispatched", "denied"):
+        gateway.record_event(kind="note", outcome=outcome, repo="cann/catlass")
+    deleted = gateway.clear_events(["dry_run"], repo="cann/catlass")
+    assert deleted >= 1
+    left = {e["outcome"] for e in
+            gateway.query_events(days=1, limit=2000, repo="cann/catlass")}
+    assert "dry_run" not in left
+    assert "dispatched" in left
+    assert "denied" in left
+
+
+def test_clear_all():
+    """outcomes=None 时清空全部。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    gateway.clear_events(None, repo="cann/catlass")
+    assert gateway.query_events(days=1, limit=2000, repo="cann/catlass") == []
+
+
+def test_clear_scoped_to_repo():
+    """限定仓库时只删该仓库的记录，别的仓库不受影响。"""
+    def dry(repo):
+        return len([e for e in gateway.query_events(days=1, limit=2000, repo=repo)
+                    if e["outcome"] == "dry_run"])
+
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/a")
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/b")
+    before_a, before_b = dry("scope/a"), dry("scope/b")
+    assert before_a >= 1 and before_b >= 1
+
+    gateway.clear_events(["dry_run"], repo="scope/a")
+    assert dry("scope/a") == 0, "目标仓库应被清空"
+    assert dry("scope/b") == before_b, "别的仓库不应受影响"
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -711,6 +891,42 @@ def test_unmanaged_repo_ignored():
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
 
 
+def test_clear_only_dry_run():
+    """清空只删测试记录，真实转发与拦截保留。"""
+    for outcome in ("dry_run", "dispatched", "denied"):
+        gateway.record_event(kind="note", outcome=outcome, repo="cann/catlass")
+    deleted = gateway.clear_events(["dry_run"], repo="cann/catlass")
+    assert deleted >= 1
+    left = {e["outcome"] for e in
+            gateway.query_events(days=1, limit=2000, repo="cann/catlass")}
+    assert "dry_run" not in left
+    assert "dispatched" in left
+    assert "denied" in left
+
+
+def test_clear_all():
+    """outcomes=None 时清空全部。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    gateway.clear_events(None, repo="cann/catlass")
+    assert gateway.query_events(days=1, limit=2000, repo="cann/catlass") == []
+
+
+def test_clear_scoped_to_repo():
+    """限定仓库时只删该仓库的记录，别的仓库不受影响。"""
+    def dry(repo):
+        return len([e for e in gateway.query_events(days=1, limit=2000, repo=repo)
+                    if e["outcome"] == "dry_run"])
+
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/a")
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/b")
+    before_a, before_b = dry("scope/a"), dry("scope/b")
+    assert before_a >= 1 and before_b >= 1
+
+    gateway.clear_events(["dry_run"], repo="scope/a")
+    assert dry("scope/a") == 0, "目标仓库应被清空"
+    assert dry("scope/b") == before_b, "别的仓库不应受影响"
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -804,6 +1020,42 @@ def test_unmanaged_repo_ignored():
         assert call(p)[1].get("ignored") is True
     finally:
         gateway.REPOS = {"cann/catlass": {"sig": "catlass", "branch": "master"}}
+
+
+def test_clear_only_dry_run():
+    """清空只删测试记录，真实转发与拦截保留。"""
+    for outcome in ("dry_run", "dispatched", "denied"):
+        gateway.record_event(kind="note", outcome=outcome, repo="cann/catlass")
+    deleted = gateway.clear_events(["dry_run"], repo="cann/catlass")
+    assert deleted >= 1
+    left = {e["outcome"] for e in
+            gateway.query_events(days=1, limit=2000, repo="cann/catlass")}
+    assert "dry_run" not in left
+    assert "dispatched" in left
+    assert "denied" in left
+
+
+def test_clear_all():
+    """outcomes=None 时清空全部。"""
+    gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass")
+    gateway.clear_events(None, repo="cann/catlass")
+    assert gateway.query_events(days=1, limit=2000, repo="cann/catlass") == []
+
+
+def test_clear_scoped_to_repo():
+    """限定仓库时只删该仓库的记录，别的仓库不受影响。"""
+    def dry(repo):
+        return len([e for e in gateway.query_events(days=1, limit=2000, repo=repo)
+                    if e["outcome"] == "dry_run"])
+
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/a")
+    gateway.record_event(kind="note", outcome="dry_run", repo="scope/b")
+    before_a, before_b = dry("scope/a"), dry("scope/b")
+    assert before_a >= 1 and before_b >= 1
+
+    gateway.clear_events(["dry_run"], repo="scope/a")
+    assert dry("scope/a") == 0, "目标仓库应被清空"
+    assert dry("scope/b") == before_b, "别的仓库不应受影响"
 
 
 def test_events_carry_user_profile_url():
