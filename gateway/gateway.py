@@ -671,7 +671,9 @@ def _payload_facts(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 # AtomGit 网页地址（可通过配置覆盖，便于换域名或测试环境）
-ATOMGIT_WEB = env("ATOMGIT_WEB", "https://gitcode.com")
+# AtomGit 网页域名。gitcode.com 与 atomgit.com 是同一个站；
+# 下游 parse_url 只接受 atomgit.com，所以统一用它。
+ATOMGIT_WEB = env("ATOMGIT_WEB", "https://atomgit.com")
 
 
 def source_url_for(payload: dict[str, Any], kind: str | None = None) -> str | None:

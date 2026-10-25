@@ -94,7 +94,7 @@ A long-lived service listening on `8000` inside the container, mapped to `127.0.
 | `REPOS` | | Managed repositories, `owner/repo:sig[:branch]`, comma separated; optional for a single repo |
 | `TARGET_BRANCH` | | Target branch required by `rdvcompile` |
 | `CI_PASSED_LABEL` | | Label that triggers the CI reminder |
-| `ATOMGIT_WEB` | | Web domain used to build source links |
+| `ATOMGIT_WEB` | | AtomGit web domain, default `atomgit.com`; used for source links and the Issue URL passed to workflows |
 | `DATA_DIR` | | Data directory holding the event DB and allow-list config |
 
 ## Running locally

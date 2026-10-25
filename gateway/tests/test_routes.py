@@ -588,6 +588,27 @@ def test_ci_passed_other_labels():
         assert call(p)[1].get("ignored") is True, str(labels)
 
 
+def test_issue_url_matches_downstream_parser():
+    """传给 workflow 的 issue_url 必须能被下游 parse_url 接受。
+
+    下游 scripts/atomgit_issue_reply.py 的正则是：
+        https://atomgit\.com/<owner>/<repo>/issues/<number>
+    域名一旦用错，workflow 在「Resolve Issue repository」步骤就失败。
+    """
+    import re
+    status, body = call(issue_payload())
+    assert status == 200
+    url = sent[-1][1]["issue_url"]
+    pattern = r"https://atomgit\.com/([\w.-]+)/([\w.-]+)/issues/([1-9][0-9]*)/?"
+    assert re.fullmatch(pattern, url), f"下游无法解析: {url}"
+
+
+def test_source_url_uses_same_domain():
+    """来源链接与传给 workflow 的 URL 用同一个域名。"""
+    p = issue_payload()
+    assert gateway.source_url_for(p, "issue").startswith(gateway.ATOMGIT_WEB)
+
+
 def test_issue_open_to_non_members():
     """Issue 分析面向所有作者，外部用户也能触发。"""
     p = issue_payload()
