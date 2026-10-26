@@ -11,7 +11,10 @@
   Manual `runner_label` and `target_arch` inputs select one managed host, or
   an existing runner for a local installation. Managed host architecture must match.
   Each executor has its own `~/.ssh/cann_weekly_dispatch` key and pinned
-  `~/.ssh/cann_weekly_known_hosts`; target authorized keys use `restrict` and
+  `~/.ssh/cann_weekly_known_hosts`. Dedicated `~/.ssh/cann_weekly_ssh_config`
+  routes isolated targets through `179.182.2.2` and their data-network addresses,
+  retaining the management IP as `HostKeyAlias`. The jump key permits only
+  TCP forwarding to the listed target SSH ports; target keys use `restrict` and
   the root-owned `/usr/local/libexec/cann-weekly/ssh-entry.py` forced command.
   It accepts only validated `install-weekly BUILD VERSION ARCH` requests and
   invokes the deployed root-owned installer. No GitHub token is sent to targets.

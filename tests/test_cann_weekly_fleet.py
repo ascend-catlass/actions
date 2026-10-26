@@ -54,6 +54,9 @@ class WeeklyFleetTests(unittest.TestCase):
         artifact = next(s for s in worker["steps"] if s.get("uses", "").startswith("actions/upload-artifact@"))
         self.assertIn("matrix.host_id", artifact["with"]["name"])
         self.assertFalse(worker["strategy"]["fail-fast"])
+        install = next(s for s in worker["steps"] if s.get("name") == "Install only if this build is missing on the host")
+        self.assertIn('ssh -T -F "$HOME/.ssh/cann_weekly_ssh_config"', install["run"])
+        self.assertIn('StrictHostKeyChecking=yes', install["run"])
         self.assertEqual(worker["if"], "${{ github.ref == 'refs/heads/main' }}")
 
     @unittest.skipUnless(shutil.which("bash"), "bash required for storage behavior checks")
