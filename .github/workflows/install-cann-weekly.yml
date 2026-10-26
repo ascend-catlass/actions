@@ -95,7 +95,7 @@ jobs:
           mkdir -p weekly-logs
           args=(scripts/install-cann-weekly.sh "$WEEKLY_BUILD" "$WEEKLY_VERSION" "$EXPECTED_CPU")
           if [[ -n "$SSH_HOST" ]]; then
-            ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+            ssh -T -F "$HOME/.ssh/cann_weekly_ssh_config" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
               -o UserKnownHostsFile="$HOME/.ssh/cann_weekly_known_hosts" \
               -i "$HOME/.ssh/cann_weekly_dispatch" \
               "yuantao@$SSH_HOST" "install-weekly $WEEKLY_BUILD $WEEKLY_VERSION $EXPECTED_CPU" \
