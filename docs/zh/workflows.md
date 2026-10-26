@@ -18,7 +18,7 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | 构建 x86_64、aarch64 的 DSL wheel 并保存产物 | 手动或被 nightly/release 调用 |
 | [nightly-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/nightly-dsl-wheel.yml) | 构建开发版本并发布到 GitHub Release 支撑的包索引 | 每日北京时间 01:00，或手动 |
 | [release-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/release-dsl-wheel.yml) | 校验稳定 tag，构建并发布到 PyPI 与 AtomGit Release | 手动 |
-| [install-cann-weekly.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/install-cann-weekly.yml) | 安装同一构建版本的 CANN weekly 到两种 CPU 架构主机 | 每日北京时间 02:00，或手动 |
+| [install-cann-weekly.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/install-cann-weekly.yml) | 安装同一构建版本的 CANN weekly 到全部 11 台主机 | 每日北京时间 02:00，或手动 |
 | [sync-atomgit.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/sync-atomgit.yml) | 把 AtomGit `master` 与 tags 镜像同步到 GitHub | 每日北京时间 02:00，或手动 |
 
 定时表达式使用 UTC；表格已换算为北京时间。定时任务的实际启动可能排队。业务 job 均要求 `main` 分支，手动选择其他分支不会执行业务任务。PR 检查只测试和构建文档，不发布评论。
@@ -83,7 +83,7 @@ wheel 工作流在 x86_64 和 aarch64 主机上构建，无需主机安装或挂
 
 ## 环境安装与镜像同步
 
-CANN weekly 流程先锁定同一官方构建，再分别在 X64 和 ARM64 `bz` 主机安装 Toolkit 与对应芯片的 ops。安装路径为 `/opt/cann_weekly/YYYYMMDD`；已成功的日期安装会跳过，`latest` 指向完成目录。安装不会更新驱动或固件，日志保存 30 天。
+CANN weekly 流程先锁定同一官方构建，再按唯一 `host-<IP中的点替换为连字符>` runner 标签逐台覆盖 11 台主机：原来的两台 X64 与新增的九台 ARM64，安装 Toolkit 与对应芯片的 ops。两台在线 X64 `bz` runner 在本机安装或通过 SSH 调度九台 ARM64，后者无需连接 GitHub。手动输入 `runner_label` 和 `target_arch` 可只安装一台；已管理主机的架构必须匹配。每个执行机使用自己的 `~/.ssh/cann_weekly_dispatch` 专用密钥及固定主机公钥的 `~/.ssh/cann_weekly_known_hosts`；目标机授权密钥带 `restrict` 和 root 所有的 `/usr/local/libexec/cann-weekly/ssh-entry.py` 强制入口，只接受校验后的 `install-weekly BUILD VERSION ARCH`，调用同目录 root 所有的 `install.sh`，不向目标发送 GitHub token。这些基础设施文件须在首次调度前部署。单台失败不会取消其他主机，日志产物按主机区分。安装路径为 `/opt/cann_weekly/YYYYMMDD`；`/opt` 链接到 `/home/opt`，安装器强制检查真实目录位于独立挂载的 LVM `/home` 下的 `/home/opt/cann_weekly`，下载包和解压临时文件也放在这里，避免写满系统盘。已成功的日期安装会跳过，`latest` 指向完成目录。安装不会更新驱动或固件，日志保存 30 天。
 
 镜像同步从 `cann/catlass` 的 AtomGit 仓库拉取 `master` 和 tags，然后强制更新 GitHub `ascend-catlass/catlass` 对应分支与标签，包括清理不再存在的 tag。因此应把目标仓库作为镜像使用。
 

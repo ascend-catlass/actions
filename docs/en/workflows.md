@@ -51,7 +51,7 @@ Publication uses AtomGit's [inline comment endpoint](https://docs.atomgit.com/en
 | `build-dsl-wheel.yml` | Shared build, called by nightly/release or manually |
 | `build-ascendnpu-ir-20261013.yml` | Current NPUIR preparation/archive baseline |
 | `build-ascendnpu-ir-20260720.yml` | Legacy NPUIR preparation retained for diagnosis |
-| `install-cann-weekly.yml` | Daily 02:00: install the same official build on both CPU architectures |
+| `install-cann-weekly.yml` | Daily 02:00: install the same official build on all 11 managed hosts |
 | `sync-atomgit.yml` | Daily 02:00: mirror AtomGit master and tags to GitHub |
 
 See [build and runner operations](operations.md) and individual [Action guides](index.md). Schedules may queue. Production jobs execute from main; the documentation PR check only tests and builds the site.
