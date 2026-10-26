@@ -4,8 +4,18 @@
 
 - `install-cann-weekly.yml` scans the official CANN `software/master/` mirror
   daily at 02:00 Asia/Shanghai (18:00 UTC), or on manual dispatch. One pinned
-  build and version are used by the two host workers selected with `self-hosted`, `Linux`,
-  `bz`, and `X64`/`ARM64`. The worker detects its actual CPU and NPU chip family
+  build and version are used by all 11 managed hosts: the two X64 hosts
+  `179.223.2.2` and `179.228.2.2`, plus nine ARM64 hosts. Each job identifies one host with
+  `host-<IP-with-hyphens>`. The two online X64 `bz` runners install locally or
+  use SSH to install on the nine ARM64 hosts, which do not need GitHub access.
+  Manual `runner_label` and `target_arch` inputs select one managed host, or
+  an existing runner for a local installation. Managed host architecture must match.
+  Each executor has its own `~/.ssh/cann_weekly_dispatch` key and pinned
+  `~/.ssh/cann_weekly_known_hosts`; target authorized keys use `restrict` and
+  the root-owned `/usr/local/libexec/cann-weekly/ssh-entry.py` forced command.
+  It accepts only validated `install-weekly BUILD VERSION ARCH` requests and
+  invokes the deployed root-owned installer. No GitHub token is sent to targets.
+  These infrastructure files must be provisioned before the first dispatch. The worker detects its actual CPU and NPU chip family
   using `uname -m` and `lspci`: `d802` selects 910b, `d803` selects A3 and
   `d806` selects 950. It installs Toolkit plus matching ops into `/opt/cann_weekly/YYYYMMDD`, where
   the date comes from the mirror and package version. Root or passwordless
@@ -16,10 +26,12 @@
   `installed-version.txt` records a successful installation.
   `/opt/cann_weekly/latest` points to the completed date directory and is
   refreshed after installation or when an already-installed build is reused.
-  Existing host `/opt` symlinks are supported; installation arguments and the
-  `latest` link retain the `/opt/cann_weekly` path.
-  Conflicting builds on the same date and unknown PCI IDs fail explicitly. One worker's failure
-  does not cancel the other. Installation logs are kept as
+  `/opt` links to `/home/opt`; the installer requires the real installation
+  root to be `/home/opt/cann_weekly` on the separately mounted LVM `/home`.
+  Packages and extraction files also stay on that filesystem. Installation
+  arguments and the `latest` link retain the `/opt/cann_weekly` path.
+  Conflicting builds on the same date and unknown PCI IDs fail explicitly. One host's failure
+  does not cancel the other hosts; log artifacts have unique host names. Installation logs are kept as
   workflow artifacts for 30 days. Historical installations and downloaded
   packages are retained locally. See the
   [design and operational limits](https://github.com/ascend-catlass/actions/blob/main/docs/plans/2026-10-13-cann-weekly-design.md).

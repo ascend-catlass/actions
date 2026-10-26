@@ -23,6 +23,10 @@ stamp="$build $version $cpu $pci"
 echo "Host $(hostname): CPU=$cpu NPU=$chip PCI=$pci CANN=$version path=$target"
 [[ ! -L "$root" && ! -L "$target" ]]
 mkdir -p "$root"
+# All managed hosts store /opt on their LVM /home filesystem.
+[[ $(readlink -f "$root") == /home/opt/cann_weekly && $(findmnt -n -T "$root" -o TARGET) == /home ]] || {
+  echo 'CANN weekly must use /home/opt/cann_weekly on the /home mount' >&2; exit 1;
+}
 if [[ -f "$target/installed-version.txt" ]]; then
   [[ $(cat "$target/installed-version.txt") == "$stamp" ]] || { echo 'Conflicting build in this date directory' >&2; exit 1; }
   [[ -f "$target/cann/set_env.sh" || -f "$target/ascend-toolkit/set_env.sh" ]]
