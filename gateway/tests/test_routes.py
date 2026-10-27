@@ -137,6 +137,81 @@ def test_clear_scoped_to_repo():
     assert dry("scope/b") == before_b, "别的仓库不应受影响"
 
 
+def test_bridge_route_dispatches_to_command():
+    """桥接路由：评论正文交给外部命令，不走 workflow。"""
+    import os, tempfile, json as _json
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": true, "added": 2}\'\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 200, body
+        assert body.get("bridge") is True
+        assert body["result"]["ok"] is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_failure_returns_502():
+    """桥接命令失败时返回 502，不掩盖错误。"""
+    import os, tempfile
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": false, "error": "session_expired"}\'\nexit 1\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "session_expired"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_dry_run_skips_command():
+    """测试模式不真正调用命令。"""
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = "/nonexistent/should-not-run"
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = gateway.handle(
+            p, {"x-gitcode-token": PASSWORD, "x-dry-run": "1"}, b"")
+        assert status == 200
+        assert body.get("dry_run") is True and body.get("bridge") is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_not_configured():
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = ""
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "bridge_not_configured"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -386,6 +461,81 @@ def test_clear_scoped_to_repo():
     assert dry("scope/b") == before_b, "别的仓库不应受影响"
 
 
+def test_bridge_route_dispatches_to_command():
+    """桥接路由：评论正文交给外部命令，不走 workflow。"""
+    import os, tempfile, json as _json
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": true, "added": 2}\'\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 200, body
+        assert body.get("bridge") is True
+        assert body["result"]["ok"] is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_failure_returns_502():
+    """桥接命令失败时返回 502，不掩盖错误。"""
+    import os, tempfile
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": false, "error": "session_expired"}\'\nexit 1\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "session_expired"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_dry_run_skips_command():
+    """测试模式不真正调用命令。"""
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = "/nonexistent/should-not-run"
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = gateway.handle(
+            p, {"x-gitcode-token": PASSWORD, "x-dry-run": "1"}, b"")
+        assert status == 200
+        assert body.get("dry_run") is True and body.get("bridge") is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_not_configured():
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = ""
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "bridge_not_configured"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -519,6 +669,81 @@ def test_clear_scoped_to_repo():
     gateway.clear_events(["dry_run"], repo="scope/a")
     assert dry("scope/a") == 0, "目标仓库应被清空"
     assert dry("scope/b") == before_b, "别的仓库不应受影响"
+
+
+def test_bridge_route_dispatches_to_command():
+    """桥接路由：评论正文交给外部命令，不走 workflow。"""
+    import os, tempfile, json as _json
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": true, "added": 2}\'\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 200, body
+        assert body.get("bridge") is True
+        assert body["result"]["ok"] is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_failure_returns_502():
+    """桥接命令失败时返回 502，不掩盖错误。"""
+    import os, tempfile
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": false, "error": "session_expired"}\'\nexit 1\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "session_expired"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_dry_run_skips_command():
+    """测试模式不真正调用命令。"""
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = "/nonexistent/should-not-run"
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = gateway.handle(
+            p, {"x-gitcode-token": PASSWORD, "x-dry-run": "1"}, b"")
+        assert status == 200
+        assert body.get("dry_run") is True and body.get("bridge") is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_not_configured():
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = ""
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "bridge_not_configured"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
 
 
 def test_events_carry_user_profile_url():
@@ -661,6 +886,81 @@ def test_clear_scoped_to_repo():
     assert dry("scope/b") == before_b, "别的仓库不应受影响"
 
 
+def test_bridge_route_dispatches_to_command():
+    """桥接路由：评论正文交给外部命令，不走 workflow。"""
+    import os, tempfile, json as _json
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": true, "added": 2}\'\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 200, body
+        assert body.get("bridge") is True
+        assert body["result"]["ok"] is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_failure_returns_502():
+    """桥接命令失败时返回 502，不掩盖错误。"""
+    import os, tempfile
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": false, "error": "session_expired"}\'\nexit 1\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "session_expired"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_dry_run_skips_command():
+    """测试模式不真正调用命令。"""
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = "/nonexistent/should-not-run"
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = gateway.handle(
+            p, {"x-gitcode-token": PASSWORD, "x-dry-run": "1"}, b"")
+        assert status == 200
+        assert body.get("dry_run") is True and body.get("bridge") is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_not_configured():
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = ""
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "bridge_not_configured"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -795,6 +1095,81 @@ def test_clear_scoped_to_repo():
     assert dry("scope/b") == before_b, "别的仓库不应受影响"
 
 
+def test_bridge_route_dispatches_to_command():
+    """桥接路由：评论正文交给外部命令，不走 workflow。"""
+    import os, tempfile, json as _json
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": true, "added": 2}\'\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 200, body
+        assert body.get("bridge") is True
+        assert body["result"]["ok"] is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_failure_returns_502():
+    """桥接命令失败时返回 502，不掩盖错误。"""
+    import os, tempfile
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": false, "error": "session_expired"}\'\nexit 1\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "session_expired"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_dry_run_skips_command():
+    """测试模式不真正调用命令。"""
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = "/nonexistent/should-not-run"
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = gateway.handle(
+            p, {"x-gitcode-token": PASSWORD, "x-dry-run": "1"}, b"")
+        assert status == 200
+        assert body.get("dry_run") is True and body.get("bridge") is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_not_configured():
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = ""
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "bridge_not_configured"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -927,6 +1302,81 @@ def test_clear_scoped_to_repo():
     assert dry("scope/b") == before_b, "别的仓库不应受影响"
 
 
+def test_bridge_route_dispatches_to_command():
+    """桥接路由：评论正文交给外部命令，不走 workflow。"""
+    import os, tempfile, json as _json
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": true, "added": 2}\'\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 200, body
+        assert body.get("bridge") is True
+        assert body["result"]["ok"] is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_failure_returns_502():
+    """桥接命令失败时返回 502，不掩盖错误。"""
+    import os, tempfile
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": false, "error": "session_expired"}\'\nexit 1\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "session_expired"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_dry_run_skips_command():
+    """测试模式不真正调用命令。"""
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = "/nonexistent/should-not-run"
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = gateway.handle(
+            p, {"x-gitcode-token": PASSWORD, "x-dry-run": "1"}, b"")
+        assert status == 200
+        assert body.get("dry_run") is True and body.get("bridge") is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_not_configured():
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = ""
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "bridge_not_configured"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
 def test_events_carry_user_profile_url():
     """记录里带上触发者主页链接，便于界面跳转。"""
     gateway.record_event(kind="note", outcome="dispatched", repo="cann/catlass",
@@ -1056,6 +1506,81 @@ def test_clear_scoped_to_repo():
     gateway.clear_events(["dry_run"], repo="scope/a")
     assert dry("scope/a") == 0, "目标仓库应被清空"
     assert dry("scope/b") == before_b, "别的仓库不应受影响"
+
+
+def test_bridge_route_dispatches_to_command():
+    """桥接路由：评论正文交给外部命令，不走 workflow。"""
+    import os, tempfile, json as _json
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": true, "added": 2}\'\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 200, body
+        assert body.get("bridge") is True
+        assert body["result"]["ok"] is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_failure_returns_502():
+    """桥接命令失败时返回 502，不掩盖错误。"""
+    import os, tempfile
+    script = os.path.join(tempfile.mkdtemp(), "b.sh")
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\ncat >/dev/null\n"
+                'printf \'{"ok": false, "error": "session_expired"}\'\nexit 1\n')
+    os.chmod(script, 0o755)
+
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = script
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "session_expired"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_dry_run_skips_command():
+    """测试模式不真正调用命令。"""
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = "/nonexistent/should-not-run"
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = gateway.handle(
+            p, {"x-gitcode-token": PASSWORD, "x-dry-run": "1"}, b"")
+        assert status == 200
+        assert body.get("dry_run") is True and body.get("bridge") is True
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
+
+
+def test_bridge_not_configured():
+    old_cmd, old_trig = gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER
+    gateway.BRIDGE_CMD = ""
+    gateway.BRIDGE_TRIGGER = "hidevlab-members"
+    try:
+        p = note_payload()
+        p["object_attributes"]["note"] = "hidevlab-members\n张三 13145678912"
+        status, body = call(p)
+        assert status == 502
+        assert body["error"] == "bridge_not_configured"
+    finally:
+        gateway.BRIDGE_CMD, gateway.BRIDGE_TRIGGER = old_cmd, old_trig
 
 
 def test_events_carry_user_profile_url():
