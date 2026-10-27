@@ -23,9 +23,7 @@ import json
 import logging
 import os
 import re
-import shlex
 import sqlite3
-import subprocess
 import threading
 import time
 import urllib.error
@@ -75,11 +73,6 @@ EVENTS_DB = env("EVENTS_DB", os.path.join(DATA_DIR, "events.db"))
 
 # 允许名单配置文件（界面可编辑，容器重建不丢）
 ALLOW_FILE = env("ALLOW_FILE", os.path.join(DATA_DIR, "allow_list.txt"))
-
-# 外部命令桥接：网关不含业务逻辑，只把文本交给命令处理。
-BRIDGE_CMD = env("BRIDGE_CMD", "")          # 空 = 未启用
-BRIDGE_TRIGGER = env("BRIDGE_TRIGGER", "hidevlab-members")  # 评论触发词
-BRIDGE_TIMEOUT = float(env("BRIDGE_TIMEOUT", "180"))
 
 # 测试模式：请求头带此开关时，只做完整判断与记录，不真实调用 GitHub
 # 请求头名固定为 X-Dry-Run，值需等于 DRY_RUN_SECRET（默认 "1"）
@@ -177,18 +170,6 @@ def _note_is_mr(p: dict[str, Any], c: Ctx) -> bool:
     """评论是针对 MergeRequest 的，且非系统评论。"""
     note = p.get("object_attributes") or {}
     return note.get("noteable_type") == "MergeRequest" and note.get("system") is not True
-
-
-def _note_first_line_is(text: str) -> Predicate:
-    """评论首行（去空白）恰好等于 text。用于「触发词 + 多行数据」的注释。"""
-    def check(p: dict[str, Any], c: Ctx) -> bool:
-        note = p.get("object_attributes") or {}
-        value = note.get("note")
-        if not isinstance(value, str):
-            return False
-        lines = [l for l in value.splitlines() if l.strip()]
-        return bool(lines) and lines[0].strip() == text
-    return check
 
 
 def _note_text_is(text: str) -> Predicate:
@@ -586,24 +567,6 @@ ROUTES: list[dict[str, Any]] = [
         "inputs": lambda p: {"pr_number": str((p.get("object_attributes") or {}).get("iid"))},
     },
     {
-        # 把评论正文交给外部命令处理（例如注册账号）。
-        # 网关只负责取出正文并调用，不含任何业务逻辑。
-        "action": "bridge_members",
-        "category": "pr",
-        "subtype": "comment/bridge",
-        "bridge": True,
-        "requires_allow_list": True,
-        "when": [
-            _kind_is("note"),
-            _project_managed,
-            _note_is_mr,
-            _note_first_line_is(BRIDGE_TRIGGER),
-            _iid_positive("merge_request", "iid"),
-        ],
-        # 传给桥接的是评论正文原文，由命令自行解析
-        "bridge_text": lambda p: (p.get("object_attributes") or {}).get("note") or "",
-    },
-    {
         "action": "issue_analysis",
         "category": "issue",
         "subtype": "open",
@@ -858,41 +821,6 @@ def _changed_files(payload: dict[str, Any]) -> list[str]:
     return files
 
 
-def run_bridge(text: str, timeout: float | None = None) -> tuple[bool, dict[str, Any]]:
-    """把文本交给外部命令，返回 (是否成功, 结果)。
-
-    命令从 stdin 读文本，向 stdout 写单行 JSON。
-    网关不解析业务细节，只透传结果。
-    """
-    if not BRIDGE_CMD:
-        return False, {"error": "bridge_not_configured"}
-
-    try:
-        proc = subprocess.run(
-            shlex.split(BRIDGE_CMD),
-            input=text, text=True, capture_output=True,
-            timeout=timeout or BRIDGE_TIMEOUT,
-        )
-    except subprocess.TimeoutExpired:
-        log.warning("bridge timeout after %ss", timeout or BRIDGE_TIMEOUT)
-        return False, {"error": "bridge_timeout"}
-    except Exception as exc:  # noqa: BLE001
-        log.warning("bridge failed to start: %s", exc)
-        return False, {"error": "bridge_start_failed", "detail": str(exc)[:200]}
-
-    out = (proc.stdout or "").strip().splitlines()
-    if not out:
-        return False, {"error": "bridge_no_output",
-                       "stderr": (proc.stderr or "")[-300:]}
-    try:
-        result = json.loads(out[-1])
-    except ValueError:
-        return False, {"error": "bridge_bad_output", "raw": out[-1][:200]}
-
-    ok = bool(result.get("ok")) and proc.returncode == 0
-    return ok, result
-
-
 def is_dry_run(headers: dict[str, str]) -> bool:
     """判断是否为测试模式请求。
 
@@ -941,30 +869,6 @@ def handle(payload: dict[str, Any], headers: dict[str, str], raw: bytes) -> tupl
             record_event(**facts, action=route["action"], outcome="denied",
                          reason="not_in_allow_list", workflow=route["workflow"], http_status=200)
             return 200, {"ok": True, "ignored": True, "denied": "not_in_allow_list"}
-
-    # 桥接路由：把文本交给外部命令，不走 workflow
-    if route.get("bridge"):
-        text = route["bridge_text"](payload)
-        if is_dry_run(headers):
-            log.info("dry-run bridge action=%s chars=%d", route["action"], len(text))
-            record_event(**facts, action=route["action"], outcome="dry_run",
-                         http_status=None, detail=f"{len(text)} chars")
-            return 200, {"ok": True, "action": route["action"], "dry_run": True,
-                         "bridge": True, "chars": len(text)}
-
-        ok, result = run_bridge(text)
-        outcome = "dispatched" if ok else "failed"
-        record_event(**facts, action=route["action"], outcome=outcome,
-                     workflow="bridge" if not ok else None,
-                     http_status=200 if ok else 500,
-                     detail=json.dumps(result, ensure_ascii=False)[:500])
-        if ok:
-            log.info("bridge ok action=%s user=%s", route["action"], user)
-            return 200, {"ok": True, "action": route["action"], "bridge": True,
-                         "result": result}
-        log.warning("bridge failed action=%s result=%s", route["action"], result)
-        return 502, {"ok": False, "action": route["action"], "bridge": True,
-                     "error": result.get("error"), "detail": result.get("detail")}
 
     inputs = route["inputs"](payload)
 
