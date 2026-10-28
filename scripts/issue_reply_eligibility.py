@@ -77,7 +77,8 @@ def _looks_like_feedback(issue):
     return False
 
 
-def eligibility(issue, roles, repository, developers=None):
+def eligibility(issue, roles, repository, developers=None,
+                author_is_member=False):
     """判定 Issue 该收到哪种处理。
 
     规则（按顺序）：
@@ -113,7 +114,9 @@ def eligibility(issue, roles, repository, developers=None):
         return {"analyze": False, "assign": False, "remind": False,
                 "reason": f"issue-is-not-open ({state})"}
 
-    is_member = author.casefold() in members
+    # 网关传的标记优先：它认得允许名单里手写的内部人，
+    # 而那部分人不在 committer/maintainer 列表里。
+    is_member = bool(author_is_member) or author.casefold() in members
 
     # 反馈类：说这个仓库有问题的，就分析并回复。
     # 作者是 committer/maintainer 时不发 AI 回复（他们自己判断即可），
@@ -139,6 +142,8 @@ def main():
     parser.add_argument("--repository", required=True)
     parser.add_argument("--developers-file", type=Path, default=None,
                         help="可选。内部开发者名单，每行一个 AtomGit ID。")
+    parser.add_argument("--author-is-member", default="false",
+                        help="网关判断作者是否自己人（true/false）")
     args = parser.parse_args()
 
     developers = []
@@ -149,7 +154,8 @@ def main():
 
     result = eligibility(json.loads(args.issue_file.read_text(encoding="utf-8")),
                          json.loads(args.roles_file.read_text(encoding="utf-8")),
-                         args.repository, developers)
+                         args.repository, developers,
+                         str(args.author_is_member).strip().lower() in ("true", "1", "yes"))
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
         handle.write(f"analyze={str(result['analyze']).lower()}\n")
         handle.write(f"assign={str(result['assign']).lower()}\n")

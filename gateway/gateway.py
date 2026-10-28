@@ -608,8 +608,9 @@ ROUTES: list[dict[str, Any]] = [
         "category": "issue",
         "subtype": "open",
         "workflow": "reply-atomgit-issue.yml",
-        # Issue 分析面向所有作者：任何人都可以提 Issue 并得到分析，
-        # 因此不校验名单。角色相关的回复策略由下游 workflow 处理。
+        # 不在网关拦名单：名单内的人也要收到「请闭环」的固定提示。
+        # 是否自己人通过 author_is_member 参数告诉下游，由下游决定
+        # 跑 AI 分析还是只发固定文案。
         "requires_allow_list": False,
         "when": [
             _kind_is("issue"),
@@ -623,6 +624,10 @@ ROUTES: list[dict[str, Any]] = [
                          f"{(p.get('project') or {}).get('path_with_namespace')}/issues/"
                          f"{(p.get('object_attributes') or {}).get('iid')}",
             "publish": "true",
+            # 自己人 -> 下游只发固定文案，不跑 AI
+            "author_is_member": "true" if author_is_member(
+                (p.get("project") or {}).get("path_with_namespace") or "",
+                (p.get("user") or {}).get("username") or "") else "false",
         },
     },
 ]
@@ -891,6 +896,18 @@ def run_bridge(text: str, timeout: float | None = None) -> tuple[bool, dict[str,
 
     ok = bool(result.get("ok")) and proc.returncode == 0
     return ok, result
+
+
+def author_is_member(repo: str, user: str) -> bool:
+    """该用户是否在允许名单内（committer/maintainer/手写用户名）。"""
+    if not user:
+        return False
+    rules = current_rules(repo)
+    try:
+        return roster_for(repo).allows(repo, user, rules)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("名单判断失败（按外部处理）: %s", exc)
+        return False
 
 
 def is_dry_run(headers: dict[str, str]) -> bool:
