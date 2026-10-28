@@ -56,6 +56,8 @@ GITHUB_REF = env("GITHUB_REF_BRANCH", "main")
 REPOS_SPEC = env("REPOS", "cann/catlass:catlass")
 TARGET_BRANCH = env("TARGET_BRANCH", "master")
 CI_PASSED_LABEL = env("CI_PASSED_LABEL", "ci-pipeline-passed")
+# 只认这些账号打的 CI 通过标签，防止作者自己打标签骗过提醒。
+CI_PASSED_ACTORS = env("CI_PASSED_ACTORS", "cann-robot")
 
 MAX_BODY_BYTES = int(env("MAX_BODY_BYTES", str(64 * 1024)))
 HTTP_TIMEOUT = float(env("HTTP_TIMEOUT", "10"))
@@ -217,7 +219,11 @@ def _pr_open(p: dict[str, Any], c: Ctx) -> bool:
 
 
 def _label_added(label: str) -> Predicate:
-    """changes.labels 新增了 label（previous 里没有，current 里有）。"""
+    """MR 更新事件里新增了 label（previous 里没有，current 里有）。
+
+    GitCode 的字段名是 changes.enterprise_labels，不是 changes.labels；
+    顶层 labels 在这些事件里通常是空数组。两者都试，取第一个有效的。
+    """
     def extract(items: Any) -> set[str]:
         if not isinstance(items, list):
             return set()
@@ -232,13 +238,20 @@ def _label_added(label: str) -> Predicate:
         return out
 
     def check(p: dict[str, Any], c: Ctx) -> bool:
-        change = (p.get("changes") or {}).get("labels") or {}
-        previous = extract(change.get("previous"))
-        current = change.get("current")
-        if current is None:
-            current = p.get("labels")
-        current_set = extract(current)
-        return label in current_set and label not in previous
+        changes = p.get("changes") or {}
+
+        # 优先用 GitCode 实际字段，回落到标准命名
+        change = changes.get("enterprise_labels") or changes.get("labels") or {}
+        if change:
+            previous = extract(change.get("previous"))
+            current = extract(change.get("current"))
+            # 只有确实发生了新增才触发
+            if current:
+                return label in current and label not in previous
+            return False
+
+        # 没有 changes 信息时无法判断「新增」，不触发，避免每次 update 都误触发
+        return False
     return check
 
 
@@ -551,6 +564,16 @@ def event_stats(days: int = 7, repo: str | None = None,
 # 每条规则 = 一组判断 + 转发目标。
 # 内置判断不够用时，可在 predicates.py 里加函数，然后在此引用。
 
+def _actor_in(allowed: str) -> Predicate:
+    """触发者必须在允许列表里（逗号分隔）。"""
+    names = {a.strip().casefold() for a in (allowed or "").split(",") if a.strip()}
+
+    def check(p: dict[str, Any], c: Ctx) -> bool:
+        who = ((p.get("user") or {}).get("username") or "").casefold()
+        return bool(names) and who in names
+    return check
+
+
 ROUTES: list[dict[str, Any]] = [
     {
         "action": "rdv_compile",
@@ -575,11 +598,15 @@ ROUTES: list[dict[str, Any]] = [
         "category": "pr",
         "subtype": "label/cipassed",
         "workflow": "reply-atomgit-ci-passed.yml",
-        "requires_allow_list": True,
+        # CI 通过提醒面向所有 PR 作者（含外部贡献者），不校验名单。
+        # 防滥用靠下面的 _actor_in：标签必须是 CI 机器人打的。
+        "requires_allow_list": False,
         "when": [
             _kind_is("merge_request"),
             _project_managed,
             _pr_open,
+            # 必须是 CI 机器人打的标签：作者自己打 CI 通过标签不算
+            _actor_in(CI_PASSED_ACTORS),
             _label_added(CI_PASSED_LABEL),
             _iid_positive("object_attributes", "iid"),
         ],
@@ -898,6 +925,19 @@ def run_bridge(text: str, timeout: float | None = None) -> tuple[bool, dict[str,
     return ok, result
 
 
+def subject_user(payload: dict[str, Any]) -> str:
+    """事件里的「主体」用户。
+
+    打标签这类事件由机器人触发，但名单该看 PR/Issue 的作者。
+    """
+    oa = payload.get("object_attributes") or {}
+    author = oa.get("author") or {}
+    name = author.get("username")
+    if isinstance(name, str) and name:
+        return name
+    return ((payload.get("user") or {}).get("username")) or ""
+
+
 def author_is_member(repo: str, user: str) -> bool:
     """该用户是否在允许名单内（committer/maintainer/手写用户名）。"""
     if not user:
@@ -949,12 +989,15 @@ def handle(payload: dict[str, Any], headers: dict[str, str], raw: bytes) -> tupl
     user = facts.get("user") or ""
     repo_path = facts.get("repo") or ""
 
-    # 只有声明需要名单的路由才校验。Issue 分析对所有作者开放。
+    # 名单校验看「事件主体」而不是触发者：
+    # 打标签的是 CI 机器人，但该看 PR 作者是谁。
     if route.get("requires_allow_list", True):
         rules = current_rules(repo_path)
-        if not roster_for(repo_path).allows(repo_path, user, rules,
+        subject = subject_user(payload) or user
+        if not roster_for(repo_path).allows(repo_path, subject, rules,
                                             files=facts.get("files") or None):
-            log.info("denied action=%s user=%s repo=%s", route["action"], user, facts.get("repo"))
+            log.info("denied action=%s subject=%s repo=%s",
+                     route["action"], subject, facts.get("repo"))
             record_event(**facts, action=route["action"], outcome="denied",
                          reason="not_in_allow_list", workflow=route["workflow"], http_status=200)
             return 200, {"ok": True, "ignored": True, "denied": "not_in_allow_list"}
