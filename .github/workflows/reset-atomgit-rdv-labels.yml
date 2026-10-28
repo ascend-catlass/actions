@@ -1,0 +1,29 @@
+name: "Community 5 · PR updated, reset RDV labels"
+run-name: "PR #${{ inputs.pr_number }} reset RDV labels"
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number in cann/catlass on AtomGit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One run per PR: a burst of updates must not interleave label removals.
+concurrency:
+  group: reset-atomgit-rdv-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: ascend-catlass/actions/.github/actions/atomgit-rdv-reset@main
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
