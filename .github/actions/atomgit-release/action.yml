@@ -33,7 +33,7 @@ runs:
         python3 -m scripts.prepare_atomgit_assets --repository "$RELEASE_REPOSITORY" \
           --tag "$RELEASE_TAG" --bundle "$RELEASE_BUNDLE" --output "$RELEASE_BUNDLE/assets.json"
     - name: Publish validated assets through the public AtomGit Action
-      uses: yuantao313/actions/atomgit-release@02defff4ec04b38b33adfaec06bcb1406f5a2150
+      uses: yuantao313/actions/atomgit-release@451e2bce3a3049ef0e5777b4e2579e1d6918080c
       with:
         token: ${{ inputs.token }}
         repository: ${{ inputs.owner }}/${{ inputs.repo }}

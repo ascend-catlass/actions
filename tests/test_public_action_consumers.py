@@ -6,6 +6,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = '02defff4ec04b38b33adfaec06bcb1406f5a2150'
+RELEASE_SHA = '451e2bce3a3049ef0e5777b4e2579e1d6918080c'
 
 
 class PublicActionConsumers(unittest.TestCase):
@@ -21,7 +22,7 @@ class PublicActionConsumers(unittest.TestCase):
                         continue
                     name, ref = use.removeprefix('yuantao313/actions/').split('@')
                     names.add(name)
-                    self.assertEqual(ref, SHA, path)
+                    self.assertEqual(ref, RELEASE_SHA if name == 'atomgit-release' else SHA, path)
                     metadata = yaml.safe_load((ROOT / 'shared_actions' / name / 'action.yml').read_text(encoding='utf-8'))
                     inputs = metadata.get('inputs', {})
                     supplied = step.get('with', {})

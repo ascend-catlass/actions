@@ -83,6 +83,8 @@ wheel 工作流在 x86_64 和 aarch64 主机上构建，无需主机安装或挂
 
 AtomGit Release 上传 job 使用 `ubuntu-latest`，确保能检出 GitHub 发布工具并下载已校验的发布包；上传不需要 NPU 或本地编译器。发布失败后，使用原运行编号填写 `artifact_run_id`，即可复用已校验的发布包，无需重新编译 wheel。已有相同 PyPI 文件会跳过。
 
+公共 AtomGit Release Action 固定到 `451e2bce3a3049ef0e5777b4e2579e1d6918080c`，按 tag 更新发行版，兼容不含 Release ID 的实际接口响应；未传入新正文时保留原有说明。
+
 ## 环境安装与镜像同步
 
 CANN weekly 流程先锁定同一官方构建，再按唯一 `host-<IP中的点替换为连字符>` runner 标签逐台覆盖 11 台主机：原来的两台 X64 与新增的九台 ARM64，安装 Toolkit 与对应芯片的 ops。两台在线 X64 `bz` runner 在本机安装或通过 SSH 调度九台 ARM64，后者无需连接 GitHub。手动输入 `runner_label` 和 `target_arch` 可只安装一台；已管理主机的架构必须匹配。每个执行机使用自己的 `~/.ssh/cann_weekly_dispatch` 专用密钥及固定主机公钥的 `~/.ssh/cann_weekly_known_hosts`；专用 `~/.ssh/cann_weekly_ssh_config` 将隔离目标通过 `179.182.2.2` 和数据网地址中转，仍以管理 IP 的 `HostKeyAlias` 校验主机公钥；跳板密钥仅允许转发到列出的目标 SSH 端口。目标机授权密钥带 `restrict` 和 root 所有的 `/usr/local/libexec/cann-weekly/ssh-entry.py` 强制入口，只接受校验后的 `install-weekly BUILD VERSION ARCH`，调用同目录 root 所有的 `install.sh`，不向目标发送 GitHub token。这些基础设施文件须在首次调度前部署。单台失败不会取消其他主机，日志产物按主机区分。安装路径为 `/opt/cann_weekly/YYYYMMDD`；`/opt` 链接到 `/home/opt`，安装器强制检查真实目录位于独立挂载的 LVM `/home` 下的 `/home/opt/cann_weekly`，下载包和解压临时文件也放在这里，避免写满系统盘。已成功的日期安装会跳过，`latest` 指向完成目录。安装不会更新驱动或固件，日志保存 30 天。
