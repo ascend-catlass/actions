@@ -13,6 +13,13 @@ on:
         description: Publish the label and eligible short analysis reply
         type: boolean
         default: true
+      author_is_member:
+        description: >-
+          Whether the author is a maintainer, committer or listed internal
+          developer. When true the run only posts the close-the-loop reminder
+          and skips model analysis.
+        type: string
+        default: "false"
 
 env:
   TRAE_CN_HOST: ${{ vars.TRAE_CN_HOST }}
@@ -92,7 +99,8 @@ jobs:
           REPOSITORY: ${{ steps.issue_repository.outputs.repository }}
         run: |
           python3 -m scripts.issue_reply_eligibility \
-            --issue-file "$ISSUE_FILE" --roles-file "$ROLES_FILE" --repository "$REPOSITORY"
+            --issue-file "$ISSUE_FILE" --roles-file "$ROLES_FILE" --repository "$REPOSITORY" \
+            --author-is-member "${{ inputs.author_is_member }}"
       - name: Checkout Issue repository and prepare prompt
         if: ${{ steps.eligibility.outputs.analyze == 'true' }}
         uses: ./.github/actions/atomgit-issue

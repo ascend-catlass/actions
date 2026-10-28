@@ -51,6 +51,24 @@ class EligibilityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             eligibility(self.issue, self.roles, "cann/catlass")
 
+    def test_gateway_member_flag_skips_analysis(self):
+        """网关标记自己人时，即使不在 committer 名单也跳过 AI。
+
+        这是 astronaut_yyy 那类情况：网关允许名单里有她，
+        但她不是 committer/maintainer，下游只看 roles 会误判成外部人。
+        """
+        result = eligibility(self.issue, self.roles, "cann/catlass",
+                             author_is_member=True)
+        self.assertFalse(result["analyze"])
+        self.assertTrue(result["remind"])
+        self.assertTrue(result["assign"])
+
+    def test_member_flag_ignored_when_false(self):
+        """标记为 false 时按原逻辑判断。"""
+        result = eligibility(self.issue, self.roles, "cann/catlass",
+                             author_is_member=False)
+        self.assertTrue(result["analyze"])
+
     def test_non_feedback_is_reminded_not_analyzed(self):
         """非反馈类不跑分析，发固定提示。"""
         self.issue["title"] = "weekly sync notes"
