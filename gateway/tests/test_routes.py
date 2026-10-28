@@ -289,12 +289,24 @@ def note_payload(**over):
 
 
 def pr_payload(**over):
+    # 结构取自 GitCode 真实 webhook：标签变化在 changes.enterprise_labels，
+    # 顶层 labels 在这些事件里是空数组；changes 里的其他字段只有 current。
     p = {
         "object_kind": "merge_request",
-        "user": {"username": "yuantao_"},
+        "event_type": "merge_request",
+        # 标签由 CI 机器人打；名单看 object_attributes.author
+        "user": {"username": "cann-robot"},
         "project": {"path_with_namespace": "cann/catlass"},
-        "object_attributes": {"iid": 55, "state": "opened", "action": "update"},
-        "changes": {"labels": {"previous": [], "current": [{"title": "ci-pipeline-passed"}]}},
+        "object_attributes": {"iid": 55, "state": "opened", "action": "update",
+                              "author": {"username": "yuantao_"}},
+        "labels": [],
+        "changes": {
+            "updated_at": {"current": "2026-10-26T10:00:00+08:00"},
+            "enterprise_labels": {
+                "previous": [{"title": "cann-cla/yes"}],
+                "current": [{"title": "ci-pipeline-passed"}, {"title": "cann-cla/yes"}],
+            },
+        },
     }
     p.update(over)
     return p
@@ -1649,9 +1661,9 @@ def test_ci_passed_ignores():
     cases = [
         (lambda p: p["project"].update(path_with_namespace="other/repo"), "错仓库"),
         (lambda p: p["object_attributes"].update(state="closed"), "PR 已关"),
-        (lambda p: p["changes"]["labels"].update(
+        (lambda p: p["changes"]["enterprise_labels"].update(
             previous=[{"title": "ci-pipeline-passed"}]), "标签未新增"),
-        (lambda p: p["changes"]["labels"].update(current=[]), "标签被移除"),
+        (lambda p: p["changes"]["enterprise_labels"].update(current=[]), "标签被移除"),
     ]
     for mutate, label in cases:
         p = pr_payload()
@@ -1659,10 +1671,86 @@ def test_ci_passed_ignores():
         assert call(p)[1].get("ignored") is True, label
 
 
+def test_ci_passed_rejects_self_applied_label():
+    """PR 作者自己打 ci-pipeline-passed 不算，必须 CI 机器人打。"""
+    p = pr_payload()
+    p["object_attributes"]["author"] = {"username": "yuantao_"}
+    p["user"] = {"username": "yuantao_"}          # 作者自己打标签
+    body = call(p)[1]
+    assert body.get("ignored") is True, body
+    assert body.get("action") is None
+
+
+def test_ci_passed_accepts_robot_label():
+    """CI 机器人打标签才处理。"""
+    p = pr_payload()
+    p["object_attributes"]["author"] = {"username": "yuantao_"}
+    p["user"] = {"username": "cann-robot"}
+    assert call(p)[1].get("action") == "ci_passed"
+
+
+def test_ci_passed_rejects_other_bot():
+    """不在允许列表的账号打标签也不算。"""
+    p = pr_payload()
+    p["object_attributes"]["author"] = {"username": "yuantao_"}
+    p["user"] = {"username": "some-other-bot"}
+    assert call(p)[1].get("ignored") is True
+
+
+def test_ci_passed_judges_by_pr_author_not_trigger():
+    """标签是 CI 机器人打的，名单要看 PR 作者。
+
+    真实场景：cann-robot 给 wsnidie1 的 PR 打 ci-pipeline-passed。
+    原先按触发者判定，机器人不在名单里，请求被永久拦住。
+    """
+    p = pr_payload()
+    p["object_attributes"]["author"] = {"username": "yuantao_"}
+    p["user"] = {"username": "cann-robot"}      # 触发者是机器人
+    status, body = call(p)
+    assert body.get("action") == "ci_passed", body
+
+
+def test_ci_passed_any_pr_author():
+    """外部贡献者的 PR 通过 CI 也要提醒，不看名单。"""
+    p = pr_payload()
+    p["object_attributes"]["author"] = {"username": "outside_author"}
+    p["user"] = {"username": "cann-robot"}
+    assert call(p)[1].get("action") == "ci_passed"
+
+
+def test_ci_passed_without_author_field():
+    """payload 没有 author 字段也能处理，不因缺字段被拦。"""
+    p = pr_payload()
+    p["object_attributes"].pop("author", None)
+    p["user"] = {"username": "cann-robot"}
+    assert call(p)[1].get("action") == "ci_passed"
+
+
+def test_ci_passed_uses_enterprise_labels():
+    """标签变化在 changes.enterprise_labels，不是 changes.labels。"""
+    p = pr_payload()
+    assert p["changes"]["enterprise_labels"]["current"]
+    assert call(p)[1].get("action") == "ci_passed"
+
+
+def test_ci_passed_ignores_when_label_unchanged():
+    """previous 里已有该标签 = 没新增，不触发。"""
+    p = pr_payload()
+    p["changes"]["enterprise_labels"]["previous"] = [{"title": "ci-pipeline-passed"}]
+    assert call(p)[1].get("ignored") is True
+
+
+def test_ci_passed_ignores_plain_update():
+    """没有标签变化的普通 update 不触发（避免每次改动都误发）。"""
+    p = pr_payload()
+    p["changes"] = {"updated_at": {"current": "2026-10-26T10:00:00+08:00"}}
+    assert call(p)[1].get("ignored") is True
+
+
 def test_ci_passed_other_labels():
     for labels in [[], [{"title": "other"}], [{"name": "different"}]]:
         p = pr_payload()
-        p["changes"]["labels"]["current"] = labels
+        p["changes"]["enterprise_labels"]["current"] = labels
         assert call(p)[1].get("ignored") is True, str(labels)
 
 
