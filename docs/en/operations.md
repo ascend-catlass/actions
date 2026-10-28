@@ -89,7 +89,10 @@
   package index.
 - `release-dsl-wheel.yml` verifies that an exact AtomGit tag exists before it
   starts a build, then publishes the same validated wheels to PyPI and the
-  corresponding AtomGit Release.
+  corresponding AtomGit Release. AtomGit uploads run on `ubuntu-latest`, since
+  release transport needs no NPU or native compiler and must reach GitHub to
+  check out its tools and download the validated bundle. Use `artifact_run_id`
+  to retry publication with an existing bundle without rebuilding wheels.
 
 Composite actions and their scripts live under `.github/actions/`.
 The
@@ -113,7 +116,8 @@ same worker-local archives. Keep one eligible host per architecture; adding
 more requires shared archives or explicit worker affinity. Verify both runners
 are online and have Git, patch, Docker, Python >= 3.11 and archive access before merging the
 routing change. Nightly and release builds inherit this selection. The
-historical NPUIR 20260720 workflow and AtomGit publishing retain `publish`.
+historical NPUIR 20260720 workflow retains `publish`; AtomGit publishing uses
+GitHub-hosted runners.
 Build workers use the latest Git release to fetch sources and submodules.
 
 NPUIR builds on each worker share complete source/build/install trees at

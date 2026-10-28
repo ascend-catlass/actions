@@ -75,11 +75,13 @@ Action 查询当前状态、分页查重并发送检视提醒；同一 PR 串行
 
 ## 依赖归档与 wheel 分发
 
-DSL 构建池由 124（`dev-124-x64`）和 125（`dev-125-arm64`）组成，使用专用标签 `ascend-catlass-dsl-build`，配合 `self-hosted`、`Linux` 和实际架构 `X64`/`ARM64`。当前 NPUIR 准备和 wheel 构建使用同一构建池，nightly/release 沿用此设置。历史 NPUIR 20260720 和 AtomGit 发布仍使用 `publish`。每种架构保留一台符合标签的主机，扩容前需提供共享归档或显式绑定机器。构建机需要 Git、patch、Docker、Python >= 3.11，以及可写的依赖归档目录。
+DSL 构建池由 124（`dev-124-x64`）和 125（`dev-125-arm64`）组成，使用专用标签 `ascend-catlass-dsl-build`，配合 `self-hosted`、`Linux` 和实际架构 `X64`/`ARM64`。当前 NPUIR 准备和 wheel 构建使用同一构建池，nightly/release 沿用此设置。历史 NPUIR 20260720 仍使用 `publish`；AtomGit 发布使用 GitHub 托管 runner。每种架构保留一台符合标签的主机，扩容前需提供共享归档或显式绑定机器。构建机需要 Git、patch、Docker、Python >= 3.11，以及可写的依赖归档目录。
 
 NPUIR 在每台构建机上保留日期归档。[npuir-local-archive](actions/npuir-local-archive.md) 先检查源码提交、架构与构建约定；命中时直接复用，缺失时由工作流编译。`latest` 只前移，wheel 构建仍选择匹配 CATLASS gitlink 的准确依赖。构建机使用最新版 Git 获取源码和子模块。
 
 wheel 工作流在 x86_64 和 aarch64 主机上构建，无需主机安装或挂载 CANN。仅将遗留的 `ASCEND_HOME_PATH` 定义为空，以兼容上游 CMake 的变量存在性检查；依赖 CANN 的 bitcode 编译在运行时进行。nightly 发布开发版本到 GitHub 包索引；release 先检查 AtomGit 稳定 tag，再发布到 PyPI 和 AtomGit。AtomGit 分发使用 [atomgit-release](actions/atomgit-release.md)，已有相同附件可复用；`artifact_run_id` 可选择已有发布运行的验证产物，避免重新构建。
+
+AtomGit Release 上传 job 使用 `ubuntu-latest`，确保能检出 GitHub 发布工具并下载已校验的发布包；上传不需要 NPU 或本地编译器。发布失败后，使用原运行编号填写 `artifact_run_id`，即可复用已校验的发布包，无需重新编译 wheel。已有相同 PyPI 文件会跳过。
 
 ## 环境安装与镜像同步
 

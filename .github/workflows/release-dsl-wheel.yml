@@ -168,7 +168,7 @@ jobs:
     name: Publish wheels to AtomGit Release
     needs: [preflight, prepare]
     if: ${{ github.ref == 'refs/heads/main' && (always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '')) }}
-    runs-on: [self-hosted, publish, X64]
+    runs-on: ubuntu-latest
     environment:
       name: gitcode-release
       url: https://atomgit.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
