@@ -69,9 +69,9 @@ class BaselineTests(unittest.TestCase):
         self.assertEqual({row['target_arch']: row['runner_arch']
                           for row in wheel['strategy']['matrix']['include']},
                          {'x86_64': 'X64', 'aarch64': 'ARM64'})
-        # Release transport and historical diagnosis have separate routing.
+        # Release transport needs network access, while historical diagnosis keeps its workers.
         self.assertEqual(workflow('release-dsl-wheel.yml')['jobs']['publish-atomgit']['runs-on'],
-                         ['self-hosted', 'publish', 'X64'])
+                         'ubuntu-latest')
         self.assertEqual(workflow('build-ascendnpu-ir-20260720.yml')['jobs']['prepare']['runs-on'],
                          ['self-hosted', 'publish', '${{ matrix.runner_arch }}'])
 
