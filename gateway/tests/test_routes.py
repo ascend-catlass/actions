@@ -1671,6 +1671,55 @@ def test_ci_passed_ignores():
         assert call(p)[1].get("ignored") is True, label
 
 
+def rdv_payload(**over):
+    """PR 有实际更新、且带 RDV 结果标签。"""
+    p = {
+        "object_kind": "merge_request",
+        "event_type": "merge_request",
+        "user": {"username": "yuantao_"},
+        "project": {"path_with_namespace": "cann/catlass"},
+        "object_attributes": {"iid": 100, "state": "opened", "action": "update",
+                              "author": {"username": "yuantao_"}},
+        "labels": [{"title": "RDV-SUCC"}, {"title": "cann-cla/yes"}],
+        "changes": {"updated_at": {"current": "2026-10-28T10:00:00+08:00"}},
+    }
+    p.update(over)
+    return p
+
+
+def test_rdv_reset_on_real_update():
+    """PR 有实际改动且带 RDV 标签 -> 派发清理。"""
+    assert call(rdv_payload())[1].get("action") == "rdv_reset"
+
+
+def test_rdv_reset_ignores_label_only_change():
+    """只改标签的事件不触发，否则删标签会自触发形成死循环。"""
+    p = rdv_payload(changes={
+        "enterprise_labels": {
+            "previous": [{"title": "RDV-SUCC"}, {"title": "cann-cla/yes"}],
+            "current": [{"title": "cann-cla/yes"}],
+        },
+    })
+    assert call(p)[1].get("ignored") is True
+
+
+def test_rdv_reset_ignores_without_rdv_label():
+    p = rdv_payload(labels=[{"title": "cann-cla/yes"}])
+    assert call(p)[1].get("ignored") is True
+
+
+def test_rdv_reset_ignores_open_and_closed():
+    for action, state in (("open", "opened"), ("update", "closed"), ("merge", "merged")):
+        p = rdv_payload(object_attributes={"iid": 100, "state": state, "action": action})
+        assert call(p)[1].get("ignored") is True, (action, state)
+
+
+def test_rdv_reset_matches_each_rdv_label():
+    for label in ("RDV-SUCC", "RDV-FAIL", "RDV-RUNNING"):
+        p = rdv_payload(labels=[{"title": label}])
+        assert call(p)[1].get("action") == "rdv_reset", label
+
+
 def test_ci_passed_rejects_self_applied_label():
     """PR 作者自己打 ci-pipeline-passed 不算，必须 CI 机器人打。"""
     p = pr_payload()

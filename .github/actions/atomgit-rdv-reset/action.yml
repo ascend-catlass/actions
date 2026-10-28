@@ -1,0 +1,33 @@
+name: Reset RDV labels on an AtomGit pull request
+description: Remove RDV-SUCC / RDV-FAIL / RDV-RUNNING after a PR is updated, then read the PR back to confirm
+inputs:
+  pr-number:
+    description: Pull request number in cann/catlass
+    required: true
+  token:
+    description: AtomGit token with PR label write permission
+    required: true
+outputs:
+  result:
+    description: removed:<labels>, no_rdv_label or pr_not_open
+    value: ${{ steps.reset.outputs.result }}
+runs:
+  using: composite
+  steps:
+    - name: Check out shared transport helpers
+      uses: actions/checkout@v4
+      with:
+        repository: yuantao313/actions
+        ref: 02defff4ec04b38b33adfaec06bcb1406f5a2150
+        path: shared_actions
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - id: reset
+      shell: bash
+      env:
+        PR_NUMBER: ${{ inputs.pr-number }}
+        ATOMGIT_TOKEN: ${{ inputs.token }}
+        PYTHONPATH: ${{ github.workspace }}
+      run: python "${GITHUB_ACTION_PATH}/../../../scripts/atomgit_rdv_reset.py"

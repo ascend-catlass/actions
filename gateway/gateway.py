@@ -58,6 +58,10 @@ TARGET_BRANCH = env("TARGET_BRANCH", "master")
 CI_PASSED_LABEL = env("CI_PASSED_LABEL", "ci-pipeline-passed")
 # 只认这些账号打的 CI 通过标签，防止作者自己打标签骗过提醒。
 CI_PASSED_ACTORS = env("CI_PASSED_ACTORS", "cann-robot")
+# PR 更新后要清掉的 RDV 标签（逗号分隔）
+RDV_LABELS = env("RDV_LABELS", "RDV-SUCC,RDV-FAIL,RDV-RUNNING")
+# 只有这些账号的 update 才触发清理；机器人改标签不算，避免自触发循环
+RDV_RESET_ACTORS = env("RDV_RESET_ACTORS", "")
 
 MAX_BODY_BYTES = int(env("MAX_BODY_BYTES", str(64 * 1024)))
 HTTP_TIMEOUT = float(env("HTTP_TIMEOUT", "10"))
@@ -564,6 +568,47 @@ def event_stats(days: int = 7, repo: str | None = None,
 # 每条规则 = 一组判断 + 转发目标。
 # 内置判断不够用时，可在 predicates.py 里加函数，然后在此引用。
 
+def _has_any_label(labels_csv: str) -> Predicate:
+    """PR 当前带其中任一标签（顶层 labels 数组）。"""
+    wanted = {x.strip() for x in (labels_csv or "").split(",") if x.strip()}
+
+    def names(p: dict[str, Any]) -> set[str]:
+        out = set()
+        for item in p.get("labels") or []:
+            name = item if isinstance(item, str) else (
+                item.get("title") or item.get("name")) if isinstance(item, dict) else None
+            if isinstance(name, str) and name:
+                out.add(name)
+        return out
+
+    def check(p: dict[str, Any], c: Ctx) -> bool:
+        return bool(wanted & names(p))
+    return check
+
+
+def _actor_not_in(excluded: str) -> Predicate:
+    """触发者不在排除列表里（允许为空）。"""
+    names = {a.strip().casefold() for a in (excluded or "").split(",") if a.strip()}
+
+    def check(p: dict[str, Any], c: Ctx) -> bool:
+        who = ((p.get("user") or {}).get("username") or "").casefold()
+        return who not in names
+    return check
+
+
+def _is_update_only(p: dict[str, Any], c: Ctx) -> bool:
+    """是 PR 的普通更新（不是 open/merge/close，也不是只改标签）。"""
+    oa = p.get("object_attributes") or {}
+    if oa.get("action") != "update":
+        return False
+    # 只改了标签的事件不触发：那种是自己删标签产生的回环
+    changes = p.get("changes") or {}
+    keys = set(changes)
+    if keys and keys <= {"enterprise_labels", "labels"}:
+        return False
+    return True
+
+
 def _actor_in(allowed: str) -> Predicate:
     """触发者必须在允许列表里（逗号分隔）。"""
     names = {a.strip().casefold() for a in (allowed or "").split(",") if a.strip()}
@@ -629,6 +674,24 @@ ROUTES: list[dict[str, Any]] = [
         ],
         # 传给桥接的是评论正文原文，由命令自行解析
         "bridge_text": lambda p: (p.get("object_attributes") or {}).get("note") or "",
+    },
+    {
+        # PR 有实际更新后清掉 RDV 结果标签：上一次测试结论已不适用。
+        # 只删标签不产生新的 update（_is_update_only 会滤掉纯标签变更），
+        # 因此不会自触发。
+        "action": "rdv_reset",
+        "category": "pr",
+        "subtype": "update/reset-rdv",
+        "workflow": "reset-atomgit-rdv-labels.yml",
+        "requires_allow_list": False,
+        "when": [
+            _kind_is("merge_request"),
+            _project_managed,
+            _pr_open,
+            _is_update_only,
+            _has_any_label(RDV_LABELS),
+        ],
+        "inputs": lambda p: {"pr_number": str((p.get("object_attributes") or {}).get("iid"))},
     },
     {
         "action": "issue_analysis",
