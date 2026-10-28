@@ -93,6 +93,9 @@
   release transport needs no NPU or native compiler and must reach GitHub to
   check out its tools and download the validated bundle. Use `artifact_run_id`
   to retry publication with an existing bundle without rebuilding wheels.
+  The public AtomGit Release Action is pinned to
+  `451e2bce3a3049ef0e5777b4e2579e1d6918080c`, which updates releases by tag
+  and preserves existing notes when no replacement body is supplied.
 
 Composite actions and their scripts live under `.github/actions/`.
 The
