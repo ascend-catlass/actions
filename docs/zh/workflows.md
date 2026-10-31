@@ -75,13 +75,13 @@ Action 查询当前状态、分页查重并发送检视提醒；同一 PR 串行
 
 ## 依赖归档与 wheel 分发
 
-DSL 构建池由 124（`dev-124-x64`）和 125（`dev-125-arm64`）组成，使用专用标签 `ascend-catlass-dsl-build`，配合 `self-hosted`、`Linux` 和实际架构 `X64`/`ARM64`。当前 NPUIR 准备和 wheel 构建使用同一构建池，nightly/release 沿用此设置。历史 NPUIR 20260720 仍使用 `publish`；AtomGit 发布使用同一构建池的 X64 主机。每种架构保留一台符合标签的主机，扩容前需提供共享归档或显式绑定机器。构建机需要 Git、patch、Docker、Python >= 3.11，以及可写的依赖归档目录。
+原 DSL 构建机 124、125 已迁移为 `179.214.4.3`（`ci-310p3-x64-214-4-3`）和 `179.214.4.2`（`ci-310p3-arm64-214-4-2`）。构建池使用专用标签 `ascend-catlass-dsl-build`，配合 `self-hosted`、`Linux` 和实际架构 `X64`/`ARM64`。当前 NPUIR 准备和 wheel 构建使用同一构建池，nightly/release 沿用此设置。历史 NPUIR 20260720 仍使用 `publish`；AtomGit 发布使用同一构建池的 X64 主机。每种架构保留一台符合标签的主机，扩容前需提供共享归档或显式绑定机器。构建机需要 Git、patch、Docker 和可运行归档脚本的 Python，以及可写的依赖归档目录；wheel 构建使用容器内的 Python 工具链。每台都有唯一的 `host-179-214-4-2` 或 `host-179-214-4-3` 标签，NPUIR 手动入口可通过 `runner_label` 配合 `target_arch` 选择其中一台。旧离线 runner 移除专用构建标签，避免恢复旧环境后意外加入构建池。
 
-NPUIR 在每台构建机上保留日期归档。[npuir-local-archive](actions/npuir-local-archive.md) 先检查源码提交、架构与构建约定；命中时直接复用，缺失时由工作流编译。`latest` 只前移，wheel 构建仍选择匹配 CATLASS gitlink 的准确依赖。构建机使用最新版 Git 获取源码和子模块。
+NPUIR 在每台构建机上保留日期归档。[npuir-local-archive](actions/npuir-local-archive.md) 先检查源码提交、架构与构建约定；命中时直接复用，缺失时由工作流编译。`latest` 只前移，wheel 构建仍选择匹配 CATLASS gitlink 的准确依赖。源码提交保持 CATLASS gitlink 指定的版本。GitCode 的 `llvm-project` 和 `torch-mlir` 镜像可能不提供可见引用，工作流先按各自的准确 gitlink 提交初始化，再递归更新其余子模块；不改用分支最新提交。
 
 wheel 工作流在 x86_64 和 aarch64 主机上构建，无需主机安装或挂载 CANN。仅将遗留的 `ASCEND_HOME_PATH` 定义为空，以兼容上游 CMake 的变量存在性检查；依赖 CANN 的 bitcode 编译在运行时进行。nightly 发布开发版本到 GitHub 包索引；release 先检查 AtomGit 稳定 tag，再发布到 PyPI 和 AtomGit。AtomGit 分发使用 [atomgit-release](actions/atomgit-release.md)，已有相同附件可复用；`artifact_run_id` 可选择已有发布运行的验证产物，避免重新构建。
 
-AtomGit Release 上传 job 使用专用 DSL 构建池的 X64 主机（124），同时访问 GitHub 和 AtomGit，避免调度到无 GitHub 连接的通用 `publish` 主机，也避免海外托管 runner 到附件存储的慢速上传。上传 job 最长运行 30 分钟。发布失败后，使用原运行编号填写 `artifact_run_id`，即可复用已校验的发布包，无需重新编译 wheel。已有相同 PyPI 文件会跳过。
+AtomGit Release 上传 job 使用专用 DSL 构建池的 X64 主机（`179.214.4.3`），同时访问 GitHub 和 AtomGit，避免调度到无 GitHub 连接的通用 `publish` 主机，也避免海外托管 runner 到附件存储的慢速上传。上传 job 最长运行 30 分钟。发布失败后，使用原运行编号填写 `artifact_run_id`，即可复用已校验的发布包，无需重新编译 wheel。已有相同 PyPI 文件会跳过。
 
 公共 AtomGit Release Action 固定到 `451e2bce3a3049ef0e5777b4e2579e1d6918080c`，按 tag 更新发行版，兼容不含 Release ID 的实际接口响应；未传入新正文时保留原有说明。
 

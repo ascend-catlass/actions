@@ -90,7 +90,7 @@
 - `release-dsl-wheel.yml` verifies that an exact AtomGit tag exists before it
   starts a build, then publishes the same validated wheels to PyPI and the
   corresponding AtomGit Release. AtomGit uploads use the dedicated X64 DSL
-  worker (machine 124), which can reach GitHub and AtomGit from the same host.
+  worker (`179.214.4.3`), which can reach GitHub and AtomGit from the same host.
   The job has a 30-minute timeout. Use `artifact_run_id`
   to retry publication with an existing bundle without rebuilding wheels.
   The public AtomGit Release Action is pinned to
@@ -110,18 +110,29 @@ releases. The existing `gitcode-release` environment and `CATLASS_DEPLOY_KEY`
 configuration remain in use. PyPI publishing also requires a Trusted Publisher bound to the `pypi`
 environment and `release-dsl-wheel.yml`.
 
-The DSL build pool consists of machines 124 and 125. Assign the custom
+The former DSL workers 124 and 125 have moved to `179.214.4.3`
+(`ci-310p3-x64-214-4-3`) and `179.214.4.2`
+(`ci-310p3-arm64-214-4-2`). Assign the custom
 `ascend-catlass-dsl-build` label only to their host runners, keeping the default
 `self-hosted`, `Linux` and native `X64`/`ARM64` labels. Both
 `build-dsl-wheel.yml` and `build-ascendnpu-ir-20261013.yml` select this pool by
 label and architecture, so dependency preparation and wheel compilation use the
 same worker-local archives. Keep one eligible host per architecture; adding
 more requires shared archives or explicit worker affinity. Verify both runners
-are online and have Git, patch, Docker, Python >= 3.11 and archive access before merging the
-routing change. Nightly and release builds inherit this selection. The
+are online and have Git, patch, Docker, a Python interpreter that runs the archive
+scripts, and archive access before merging the routing change. Wheel builds use
+the Python toolchains inside the build containers. Each worker also has a unique
+`host-179-214-4-2` or `host-179-214-4-3` label; the manual NPUIR entry point
+selects one through `runner_label` and `target_arch`. Remove the dedicated build
+label from the old offline runners so that restoring an old environment does
+not accidentally rejoin the pool. Nightly and release builds inherit this selection. The
 historical NPUIR 20260720 workflow retains `publish`; AtomGit publishing uses
 the dedicated X64 DSL worker.
-Build workers use the latest Git release to fetch sources and submodules.
+Source commits remain pinned to the CATLASS gitlink. The GitCode mirrors for
+`llvm-project` and `torch-mlir` can advertise no visible refs even though the
+required commits are fetchable. The workflow initializes both modules by their
+exact gitlink commits before recursively updating the remaining submodules; it
+does not substitute the latest branch commit.
 
 NPUIR builds on each worker share complete source/build/install trees at
 `/opt/AscendNPU-IR/<YYYYMMDD>/AscendNPU-IR`. The date is the workflow's
