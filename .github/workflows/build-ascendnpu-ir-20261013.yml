@@ -145,6 +145,7 @@ jobs:
       # use different checkout, patch, image, toolchain, and build commands,
       # while reusing only the local archive protocol above and below.
       - name: Check out AscendNPU-IR
+        timeout-minutes: 10
         id: source
         if: ${{ steps.archive.outputs.cache_hit != 'true' }}
         shell: bash
@@ -152,6 +153,8 @@ jobs:
           NPUIR_BRANCH: ${{ inputs.branch || 'feature/regbase' }}
           NPUIR_REF: ${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }}
           WORK_PATH: ${{ steps.archive.outputs.work_path }}
+          GIT_HTTP_LOW_SPEED_LIMIT: "1024"
+          GIT_HTTP_LOW_SPEED_TIME: "60"
         run: |
           set -euo pipefail
 
@@ -190,7 +193,9 @@ jobs:
             git -C "${submodule_path}" checkout --quiet --detach FETCH_HEAD
           done
 
-          git -C "${WORK_PATH}" submodule update --init --recursive --depth 1
+          # This build does not enable Torch-MLIR. Its nested LLVM/StableHLO
+          # repositories are unused and must not be recursively downloaded.
+          git -C "${WORK_PATH}" submodule update --init --depth 1
 
           source_sha=$(git -C "${WORK_PATH}" rev-parse HEAD)
           if [[ "${source_sha}" != "${NPUIR_REF}" ]]; then
