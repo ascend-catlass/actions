@@ -131,8 +131,11 @@ the dedicated X64 DSL worker.
 Source commits remain pinned to the CATLASS gitlink. The GitCode mirrors for
 `llvm-project` and `torch-mlir` can advertise no visible refs even though the
 required commits are fetchable. The workflow initializes both modules by their
-exact gitlink commits before recursively updating the remaining submodules; it
-does not substitute the latest branch commit.
+exact gitlink commits before initializing the remaining top-level submodules; it
+does not substitute the latest branch commit. This build does not enable
+Torch-MLIR, so its nested LLVM and StableHLO repositories are not recursively
+fetched. Source preparation has a 10-minute timeout; an HTTP transfer below
+1024 Byte/s for 60 consecutive seconds fails instead of occupying a worker for hours.
 
 NPUIR builds on each worker share complete source/build/install trees at
 `/opt/AscendNPU-IR/<YYYYMMDD>/AscendNPU-IR`. The date is the workflow's

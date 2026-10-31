@@ -34,11 +34,21 @@ class PinnedSubmoduleTests(unittest.TestCase):
                 git("init", "--bare", "-q", str(remote))
                 git("init", "-q", str(source))
                 (source / "content").write_text("pinned")
-                git("add", ".", cwd=source)
+                if name == "torch-mlir":
+                    # A recursive checkout would try an unavailable, unused remote.
+                    nested = "externals/llvm-project"
+                    (source / ".gitmodules").write_text(
+                        f'[submodule "{nested}"]\n path = {nested}\n'
+                        f' url = {(base / "unavailable-nested.git").as_uri()}\n')
+                    git("add", ".gitmodules", cwd=source)
+                    git("update-index", "--add", "--cacheinfo",
+                        "160000," + pins["third-party/llvm-project"] + "," + nested, cwd=source)
+                git("add", "content", cwd=source)
                 git("commit", "-qm", "pinned", cwd=source)
                 pin = git("rev-parse", "HEAD", cwd=source)
                 (source / "content").write_text("newer")
-                git("commit", "-qam", "newer", cwd=source)
+                git("add", "content", cwd=source)
+                git("commit", "-qm", "newer", cwd=source)
                 git("push", "-q", remote.as_uri(), "HEAD:refs/heads/hidden", cwd=source)
                 git("config", "uploadpack.hideRefs", "refs/heads", cwd=remote)
                 git("config", "uploadpack.allowAnySHA1InWant", "true", cwd=remote)
@@ -60,7 +70,12 @@ class PinnedSubmoduleTests(unittest.TestCase):
             result = subprocess.run(["bash", "-c", script], env=dict(env, WORK_PATH=str(work)),
                                     text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            git("submodule", "update", "--init", "--recursive", "--depth", "1", cwd=work)
+            update = next(line.strip() for line in lines
+                          if 'git -C "${WORK_PATH}" submodule update' in line)
+            result = subprocess.run(["bash", "-c", "set -euo pipefail\n" + update],
+                                    env=dict(env, WORK_PATH=str(work)), text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((work / "third-party/torch-mlir/externals/llvm-project/.git").exists())
             for path, pin in pins.items():
                 self.assertEqual(git("rev-parse", "HEAD", cwd=work / path), pin)
                 self.assertEqual((work / path / "content").read_text(), "pinned")
