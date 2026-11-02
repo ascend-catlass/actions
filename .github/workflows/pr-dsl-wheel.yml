@@ -86,4 +86,5 @@ jobs:
       pr_number: ${{ needs.prepare.outputs.pr_number }}
       python_versions: ${{ needs.prepare.outputs.python_versions }}
       target_arch: ${{ matrix.target_arch }}
+      artifact_retention_days: 7
     secrets: inherit

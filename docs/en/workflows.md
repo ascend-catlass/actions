@@ -15,7 +15,9 @@ selected architecture, without merging the target branch. It reuses the existing
 wheel and matching NPUIR preparation workflows, restricted to selected targets.
 The development version includes `+pr<PR>.g<12-character-source-SHA>` to identify
 the PR source. Download `dsl-wheels-x86_64` and/or `dsl-wheels-aarch64` from the
-run's Artifacts section; wheels and source/NPUIR metadata are retained for 30 days.
+run's Artifacts section; PR wheels and source/NPUIR metadata are retained for
+7 days and then automatically deleted. The per-run source directory, including
+its build outputs and wheelhouse, is cleaned up at job completion even on failure.
 Every selected Python must produce exactly one wheel per architecture. This
 entry does not publish releases, packages, PR comments or RDV statuses.
 Daily and release builds still default to all four Python versions and both CPUs.

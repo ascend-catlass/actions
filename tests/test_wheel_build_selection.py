@@ -82,8 +82,16 @@ class WheelSelectionTests(unittest.TestCase):
         self.assertEqual(builder['with']['catlass_ref'], '${{ needs.prepare.outputs.source_sha }}')
         self.assertEqual(builder['with']['target_arch'], '${{ matrix.target_arch }}')
         self.assertEqual(builder['with']['python_versions'], '${{ needs.prepare.outputs.python_versions }}')
+        self.assertEqual(builder['with']['artifact_retention_days'], 7)
         self.assertEqual(builder['uses'], './.github/workflows/build-dsl-wheel.yml')
         reusable = yaml.safe_load((ROOT / '.github/workflows/build-dsl-wheel.yml').read_text())
+        call = reusable.get('on', reusable.get(True))['workflow_call']
+        self.assertEqual(call['inputs']['artifact_retention_days']['default'], 30)
+        steps = reusable['jobs']['build']['steps']
+        upload = next(s for s in steps if s.get('uses') == 'actions/upload-artifact@v4')
+        self.assertEqual(upload['with']['retention-days'], '${{ inputs.artifact_retention_days || 30 }}')
+        cleanup = next(s for s in steps if s.get('name') == 'Clean up per-run wheel sources')
+        self.assertEqual(cleanup['if'], '${{ always() }}')
         prep = reusable['jobs']['npuir']['with']
         self.assertIn('inputs.target_arch', prep['runner_label'])
         self.assertIn('inputs.target_arch', prep['target_arch'])

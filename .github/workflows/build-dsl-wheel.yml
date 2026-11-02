@@ -25,6 +25,10 @@ on:
         description: x86_64 or aarch64; empty builds both architectures
         default: ''
         type: string
+      artifact_retention_days:
+        description: Days to retain uploaded wheels and build metadata
+        default: 30
+        type: number
     outputs:
       source_sha:
         description: Exact CATLASS commit used for the build
@@ -482,7 +486,7 @@ jobs:
             ${{ env.SOURCE_DIR }}/wheelhouse/release-metadata-${{ matrix.target_arch }}.json
             ${{ env.SOURCE_DIR }}/wheelhouse/npuir-metadata-${{ matrix.target_arch }}.md
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ inputs.artifact_retention_days || 30 }}
 
       - name: Clean up per-run wheel sources
         if: ${{ always() }}
