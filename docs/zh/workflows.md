@@ -16,8 +16,23 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | [build-ascendnpu-ir-20261013.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20261013.yml) | 准备当前日期基线的 NPUIR 依赖归档 | 手动或被其他工作流调用 |
 | [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | 保留旧 NPUIR 日期基线，供历史问题定位 | 手动或被其他工作流调用 |
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | 构建 x86_64、aarch64 的 DSL wheel 并保存产物 | 手动或被 nightly/release 调用 |
+| [pr-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/pr-dsl-wheel.yml) | 按 PR 号和 Python、CPU 复选框构建 DSL wheel | 手动 |
 | [nightly-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/nightly-dsl-wheel.yml) | 构建开发版本并发布到 GitHub Release 支撑的包索引 | 每日北京时间 01:00，或手动 |
 | [release-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/release-dsl-wheel.yml) | 校验稳定 tag，构建并发布到 PyPI 与 AtomGit Release | 手动 |
+
+## PR 编包
+
+在 GitHub Actions 选择 **Build PR ascend-catlass-dsl wheels**（`pr-dsl-wheel.yml`），
+从 `main` 运行。输入 AtomGit `cann/catlass` 的 PR 号，勾选 Python 3.10、3.11、3.12、
+3.13，以及 x86_64、aarch64（ARM64）。默认全部勾选，Python 和 CPU 各至少选择一项；
+GitHub 不支持多选下拉框，因此每个选项使用独立复选框。
+
+流水线只解析一次 PR head，各架构均构建同一份提交，不合并目标分支；复用现有 wheel 和
+匹配 NPUIR 的准备流程，只处理勾选的目标。开发版本后缀为 `+pr<PR号>.g<12位提交SHA>`，
+便于识别源码。在运行的 Artifacts 下载 `dsl-wheels-x86_64` 和/或 `dsl-wheels-aarch64`，
+包含 wheel 与源码、NPUIR 元数据，保留 30 天。每种架构必须恰好生成每个所选 Python 的
+一份 wheel。该入口不发布 Release、软件包、PR 评论或 RDV 状态；每日构建和正式发布仍
+默认构建原来的四个 Python 版本与两种 CPU 架构。
 | [install-cann-weekly.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/install-cann-weekly.yml) | 安装同一构建版本的 CANN weekly 到全部 11 台主机 | 每日北京时间 02:00，或手动 |
 | [sync-atomgit.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/sync-atomgit.yml) | 把 AtomGit `master` 与 tags 镜像同步到 GitHub | 每日北京时间 02:00，或手动 |
 

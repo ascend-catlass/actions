@@ -66,8 +66,11 @@ class BaselineTests(unittest.TestCase):
         self.assertEqual(npuir['runs-on'], '${{ matrix.runs_on }}')
         selector = workflow('build-ascendnpu-ir-20261013.yml')['jobs']['runners']
         self.assertEqual(selector['steps'][-1]['env']['DEFAULT_RUNNER_LABEL'], 'ascend-catlass-dsl-build')
-        self.assertEqual({row['target_arch']: row['runner_arch']
-                          for row in wheel['strategy']['matrix']['include']},
+        self.assertEqual(wheel['strategy']['matrix'], '${{ fromJSON(needs.resolve.outputs.build_matrix) }}')
+        from scripts.wheel_build_selection import build_selection
+        import json
+        default_matrix = json.loads(build_selection('["3.10","3.11","3.12","3.13"]', '')['build_matrix'])
+        self.assertEqual({row['target_arch']: row['runner_arch'] for row in default_matrix['include']},
                          {'x86_64': 'X64', 'aarch64': 'ARM64'})
         # Release transport needs network access, while historical diagnosis keeps its workers.
         self.assertEqual(workflow('release-dsl-wheel.yml')['jobs']['publish-atomgit']['runs-on'],

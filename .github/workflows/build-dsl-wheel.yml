@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       catlass_ref:
-        description: AtomGit CATLASS branch or tag to build
+        description: AtomGit CATLASS branch, tag, or exact commit to build
         required: false
         default: master
         type: string
@@ -12,6 +12,18 @@ on:
         description: Use dev to derive a nightly version, or pass the exact stable version from a release tag
         required: false
         default: dev
+        type: string
+      pr_number:
+        description: Optional PR number for an isolated PR development version
+        default: ''
+        type: string
+      python_versions:
+        description: JSON list of Python versions to build
+        default: '["3.10","3.11","3.12","3.13"]'
+        type: string
+      target_arch:
+        description: x86_64 or aarch64; empty builds both architectures
+        default: ''
         type: string
     outputs:
       source_sha:
@@ -56,7 +68,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: dsl-wheel-build-${{ inputs.catlass_ref || 'master' }}-${{ inputs.package_version || 'dev' }}
+  group: dsl-wheel-build-${{ inputs.catlass_ref || 'master' }}-${{ inputs.package_version || 'dev' }}-${{ inputs.target_arch || 'all' }}-${{ inputs.python_versions || 'default' }}
   cancel-in-progress: false
 
 jobs:
@@ -68,11 +80,24 @@ jobs:
       source_sha: ${{ steps.source.outputs.source_sha }}
       npuir_sha: ${{ steps.source.outputs.npuir_sha }}
       package_version: ${{ steps.source.outputs.package_version }}
+      build_matrix: ${{ steps.selection.outputs.build_matrix }}
+      cibw_build: ${{ steps.selection.outputs.cibw_build }}
+      python_versions: ${{ steps.selection.outputs.python_versions }}
     env:
       CATLASS_REF: ${{ inputs.catlass_ref || 'master' }}
       REQUESTED_VERSION: ${{ inputs.package_version || 'dev' }}
+      PR_NUMBER: ${{ inputs.pr_number }}
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate selected wheel targets
+        id: selection
+        env:
+          PYTHON_VERSIONS: ${{ inputs.python_versions || '["3.10","3.11","3.12","3.13"]' }}
+          TARGET_ARCH: ${{ inputs.target_arch }}
+        run: python3 scripts/wheel_build_selection.py build
       - name: Resolve exact source revisions and package version
         id: source
         shell: bash
@@ -93,11 +118,27 @@ jobs:
             'esac' > "${askpass}"
           chmod 700 "${askpass}"
 
+          if [[ -n "${PR_NUMBER}" ]]; then
+            [[ "${PR_NUMBER}" =~ ^[1-9][0-9]{0,9}$ && "${CATLASS_REF}" =~ ^[0-9a-f]{40}$ && "${REQUESTED_VERSION}" == dev ]] || {
+              echo '::error::PR builds require a positive PR number, exact source SHA, and dev version'
+              exit 1
+            }
+          fi
+
           case "${REQUESTED_VERSION}" in
             dev)
-              GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-                git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
-                  https://atomgit.com/cann/catlass.git "${source_dir}"
+              if [[ "${CATLASS_REF}" =~ ^[0-9a-f]{40}$ ]]; then
+                git init --quiet "${source_dir}"
+                git -C "${source_dir}" remote add origin https://atomgit.com/cann/catlass.git
+                GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                  git -C "${source_dir}" fetch --quiet --depth 1 origin "${CATLASS_REF}"
+                git -C "${source_dir}" checkout --quiet --detach FETCH_HEAD
+                [[ "$(git -C "${source_dir}" rev-parse HEAD)" == "${CATLASS_REF}" ]]
+              else
+                GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                  git clone --quiet --depth 1 --branch "${CATLASS_REF}" \
+                    https://atomgit.com/cann/catlass.git "${source_dir}"
+              fi
               latest_release_tag=$(
                 GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
                   git ls-remote --tags --refs https://atomgit.com/cann/catlass.git 'v*' |
@@ -139,6 +180,9 @@ jobs:
           esac
 
           source_sha=$(git -C "${source_dir}" rev-parse HEAD)
+          if [[ -n "${PR_NUMBER}" ]]; then
+            package_version="${package_version}+pr${PR_NUMBER}.g${source_sha:0:12}"
+          fi
           submodule_entry=$(git -C "${source_dir}" ls-tree HEAD python/tla_dsl/3rdparty/AscendNPU-IR)
           read -r submodule_mode submodule_type npuir_sha submodule_path <<< "${submodule_entry}"
           if [[ "${submodule_mode}" != 160000 || "${submodule_type}" != commit || \
@@ -164,6 +208,8 @@ jobs:
       branch: feature/regbase
       use_mirror: true
       build_jobs: 64
+      runner_label: ${{ inputs.target_arch != '' && 'ascend-catlass-dsl-build' || '' }}
+      target_arch: ${{ inputs.target_arch || 'x86_64' }}
 
   build:
     if: ${{ github.ref == 'refs/heads/main' }}
@@ -171,12 +217,7 @@ jobs:
     needs: [resolve, npuir]
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target_arch: x86_64
-            runner_arch: X64
-          - target_arch: aarch64
-            runner_arch: ARM64
+      matrix: ${{ fromJSON(needs.resolve.outputs.build_matrix) }}
     runs-on: [self-hosted, Linux, ascend-catlass-dsl-build, "${{ matrix.runner_arch }}"]
     timeout-minutes: 900
     env:
@@ -294,7 +335,7 @@ jobs:
       - name: Build wheels
         shell: bash
         env:
-          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
+          CIBW_BUILD: ${{ needs.resolve.outputs.cibw_build }}
           CIBW_ARCHS_LINUX: ${{ matrix.target_arch }}
           CIBW_ENVIRONMENT_PASS_LINUX: CMAKE_BUILD_PARALLEL_LEVEL
           CIBW_SKIP: "*-win32 *-i686 *-ppc64le *-s390x *-musllinux_*"
@@ -385,6 +426,7 @@ jobs:
           NPUIR_ARCHIVE_BASELINE_DATE: ${{ steps.npuir.outputs.baseline_date }}
           NPUIR_LEGACY_CACHE_HIT: ${{ steps.npuir.outputs.legacy_cache_hit }}
           NPUIR_CACHE_HIT: ${{ steps.npuir.outputs.cache_hit }}
+          PYTHON_VERSIONS: ${{ needs.resolve.outputs.python_versions }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -394,6 +436,7 @@ jobs:
             echo "::error::cibuildwheel completed without producing any wheels"
             exit 1
           fi
+          python3 scripts/wheel_build_selection.py verify "${wheels[@]}"
 
           wheel_names=()
           for wheel in "${wheels[@]}"; do
@@ -464,6 +507,8 @@ jobs:
       PACKAGE_VERSION: ${{ needs.resolve.outputs.package_version }}
       SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
       NPUIR_SHA: ${{ needs.resolve.outputs.npuir_sha }}
+      PYTHON_VERSIONS: ${{ needs.resolve.outputs.python_versions }}
+      TARGET_ARCH: ${{ inputs.target_arch || 'x86_64 + aarch64' }}
 
     steps:
       - name: Write build summary
@@ -480,7 +525,9 @@ jobs:
               echo "- Package version: ${PACKAGE_VERSION}"
               echo "- CATLASS commit: ${SOURCE_SHA}"
               echo "- AscendNPU-IR commit: ${NPUIR_SHA}"
-              echo "- Artifacts: dsl-wheels-x86_64, dsl-wheels-aarch64"
+              echo "- Python versions: ${PYTHON_VERSIONS}"
+              echo "- Architectures: ${TARGET_ARCH}"
+              echo "- Artifacts: dsl-wheels-<architecture> (selected architectures only)"
             else
               echo
               echo "> The build did not produce a complete wheel set."
