@@ -1,0 +1,90 @@
+name: Build PR ascend-catlass-dsl wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: AtomGit cann/catlass PR number
+        required: true
+        type: string
+      python_310:
+        description: Python 3.10
+        type: boolean
+        default: true
+      python_311:
+        description: Python 3.11
+        type: boolean
+        default: true
+      python_312:
+        description: Python 3.12
+        type: boolean
+        default: true
+      python_313:
+        description: Python 3.13
+        type: boolean
+        default: true
+      arch_x86_64:
+        description: CPU x86_64
+        type: boolean
+        default: true
+      arch_aarch64:
+        description: CPU aarch64 (ARM64)
+        type: boolean
+        default: true
+
+run-name: "PR #${{ inputs.pr_number }} wheels"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-dsl-wheel-${{ inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.selection.outputs.pr_number }}
+      python_versions: ${{ steps.selection.outputs.python_versions }}
+      matrix: ${{ steps.selection.outputs.matrix }}
+      source_sha: ${{ steps.pr.outputs.head-sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate PR number and checkbox selections
+        id: selection
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PYTHON_310: ${{ inputs.python_310 }}
+          PYTHON_311: ${{ inputs.python_311 }}
+          PYTHON_312: ${{ inputs.python_312 }}
+          PYTHON_313: ${{ inputs.python_313 }}
+          ARCH_X86_64: ${{ inputs.arch_x86_64 }}
+          ARCH_AARCH64: ${{ inputs.arch_aarch64 }}
+        run: python3 scripts/wheel_build_selection.py dispatch
+      - name: Resolve the current PR head once for all architectures
+        id: pr
+        uses: yuantao313/actions/atomgit-pr-metadata@02defff4ec04b38b33adfaec06bcb1406f5a2150
+        with:
+          repository: cann/catlass
+          pr-number: ${{ steps.selection.outputs.pr_number }}
+          token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
+
+  build:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/build-dsl-wheel.yml
+    with:
+      catlass_ref: ${{ needs.prepare.outputs.source_sha }}
+      package_version: dev
+      pr_number: ${{ needs.prepare.outputs.pr_number }}
+      python_versions: ${{ needs.prepare.outputs.python_versions }}
+      target_arch: ${{ matrix.target_arch }}
+      artifact_retention_days: 7
+    secrets: inherit

@@ -1,6 +1,7 @@
 self-hosted-runner:
   labels:
     - ascend950
+    - ascend-catlass-dsl-build
     - bz
     - nondocker
     - publish

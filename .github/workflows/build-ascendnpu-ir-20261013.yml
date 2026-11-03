@@ -78,7 +78,7 @@ env:
   NPUIR_LEGACY_POSTFIX: "20260930"
 
 concurrency:
-  group: local-npuir-${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }}-clang19-v1-${{ inputs.runner_label || 'default' }}
+  group: local-npuir-${{ inputs.ref || '693abf31f3d88d13d30d9578fcf6513b90c0ee33' }}-clang19-v1-${{ inputs.runner_label || 'default' }}-${{ inputs.target_arch || 'x86_64' }}
   cancel-in-progress: false
 
 jobs:
