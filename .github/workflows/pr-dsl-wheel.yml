@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: AtomGit cann/catlass PR number
-        required: true
+        description: Optional AtomGit cann/catlass PR number; empty builds the default branch HEAD
+        required: false
+        default: ''
         type: string
       python_310:
         description: Python 3.10
@@ -32,13 +33,13 @@ on:
         type: boolean
         default: true
 
-run-name: "PR #${{ inputs.pr_number }} wheels"
+run-name: "${{ inputs.pr_number != '' && format('PR #{0} wheels', inputs.pr_number) || 'CATLASS HEAD wheels' }}"
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr-dsl-wheel-${{ inputs.pr_number }}
+  group: pr-dsl-wheel-${{ inputs.pr_number || 'HEAD' }}
   cancel-in-progress: true
 
 jobs:
@@ -49,7 +50,7 @@ jobs:
       pr_number: ${{ steps.selection.outputs.pr_number }}
       python_versions: ${{ steps.selection.outputs.python_versions }}
       matrix: ${{ steps.selection.outputs.matrix }}
-      source_sha: ${{ steps.pr.outputs.head-sha }}
+      source_sha: ${{ steps.pr.outputs.head-sha || steps.head.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,12 +67,26 @@ jobs:
           ARCH_AARCH64: ${{ inputs.arch_aarch64 }}
         run: python3 scripts/wheel_build_selection.py dispatch
       - name: Resolve the current PR head once for all architectures
+        if: ${{ steps.selection.outputs.pr_number != '' }}
         id: pr
         uses: yuantao313/actions/atomgit-pr-metadata@02defff4ec04b38b33adfaec06bcb1406f5a2150
         with:
           repository: cann/catlass
           pr-number: ${{ steps.selection.outputs.pr_number }}
           token: ${{ secrets.ATOMGIT_TOKEN || secrets.GITCODE_TOKEN }}
+      - name: Resolve the default branch HEAD once for all architectures
+        if: ${{ steps.selection.outputs.pr_number == '' }}
+        id: head
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha=$(git ls-remote --exit-code https://atomgit.com/cann/catlass.git HEAD | cut -f1)
+          [[ "${source_sha}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo '::error::CATLASS HEAD did not resolve to one exact commit'
+            exit 1
+          }
+          echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
+          echo "CATLASS default branch HEAD: ${source_sha}"
 
   build:
     if: ${{ github.ref == 'refs/heads/main' }}
