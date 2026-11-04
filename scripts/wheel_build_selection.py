@@ -22,7 +22,9 @@ def checkbox(value):
 
 
 def dispatch_selection(env):
-    pr = validate_pr(env["PR_NUMBER"])
+    pr = env.get("PR_NUMBER", "")
+    if pr:
+        validate_pr(pr)
     versions = [v for v in PYTHONS if checkbox(env["PYTHON_" + v.replace(".", "")])]
     arches = [a for a in ARCHES if checkbox(env["ARCH_" + a.upper()])]
     if not versions or not arches:

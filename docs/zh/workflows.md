@@ -27,13 +27,15 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 ## PR 编包
 
 在 GitHub Actions 选择 **Build PR ascend-catlass-dsl wheels**（`pr-dsl-wheel.yml`），
-从 `main` 运行。输入 AtomGit `cann/catlass` 的 PR 号，勾选 Python 3.10、3.11、3.12、
+从 `main` 运行。输入 AtomGit `cann/catlass` 的 PR 号；留空则构建默认分支当前 HEAD。
+勾选 Python 3.10、3.11、3.12、
 3.13，以及 x86_64、aarch64（ARM64）。默认全部勾选，Python 和 CPU 各至少选择一项；
 GitHub 不支持多选下拉框，因此每个选项使用独立复选框。
 
-流水线只解析一次 PR head，各架构均构建同一份提交，不合并目标分支；复用现有 wheel 和
+流水线只解析一次 PR head 或默认分支 HEAD，各架构均构建同一份固定提交，不合并目标分支；复用现有 wheel 和
 匹配 NPUIR 的准备流程，只处理勾选的目标。开发版本后缀为 `+pr<PR号>.g<12位提交SHA>`，
-便于识别源码。在运行的 Artifacts 下载 `dsl-wheels-x86_64` 和/或 `dsl-wheels-aarch64`，
+便于识别源码；默认分支 HEAD 构建使用不带 PR 后缀的常规开发版本。
+在运行的 Artifacts 下载 `dsl-wheels-x86_64` 和/或 `dsl-wheels-aarch64`，
 包含 wheel 与源码、NPUIR 元数据，保留 7 天后自动删除。每轮的源码目录（含构建目录与
 wheelhouse）在任务结束时清理，失败也会执行清理。每种架构必须恰好生成每个所选 Python 的
 一份 wheel。该入口不发布 Release、软件包、PR 评论或 RDV 状态；每日构建和正式发布仍

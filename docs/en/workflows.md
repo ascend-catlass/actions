@@ -5,16 +5,18 @@
 ## PR wheel packages
 
 Run **Build PR ascend-catlass-dsl wheels** (`pr-dsl-wheel.yml`) from `main`.
-Enter the PR number in AtomGit `cann/catlass`, then check Python 3.10, 3.11,
+Enter the PR number in AtomGit `cann/catlass`, or leave it empty to build the
+default branch's current HEAD. Then check Python 3.10, 3.11,
 3.12 and/or 3.13 and CPU x86_64 and/or aarch64 (ARM64). All six boxes are
 checked by default; at least one Python and one architecture must be selected.
 GitHub has no multi-select dropdown, so each option uses its own checkbox.
 
-The entry resolves the PR head once and builds that exact commit on every
+The entry resolves the PR head or default branch HEAD once and builds that exact commit on every
 selected architecture, without merging the target branch. It reuses the existing
 wheel and matching NPUIR preparation workflows, restricted to selected targets.
 The development version includes `+pr<PR>.g<12-character-source-SHA>` to identify
-the PR source. Download `dsl-wheels-x86_64` and/or `dsl-wheels-aarch64` from the
+the PR source; a default branch HEAD build uses the regular development version
+without a PR suffix. Download `dsl-wheels-x86_64` and/or `dsl-wheels-aarch64` from the
 run's Artifacts section; PR wheels and source/NPUIR metadata are retained for
 7 days and then automatically deleted. The per-run source directory, including
 its build outputs and wheelhouse, is cleaned up at job completion even on failure.
