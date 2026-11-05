@@ -46,6 +46,10 @@ wheelhouse）在任务结束时清理，失败也会执行清理。每种架构�
 也复用此步骤，不再依赖操作系统预装的 Python 版本。勾选的 wheel Python 版本
 与运行构建工具所用的宿主 Python 相互独立。
 
+wheel 容器明确从 `quay.m.daocloud.io` 拉取镜像，固定为 cibuildwheel 4.2.1 自带的
+上游 manylinux 镜像摘要，覆盖两种架构。Docker Hub 的 `registry-mirrors` 设置不会
+重定向 Quay 镜像，因此在流水线中单独指定代理地址。升级 cibuildwheel 时需同步检查镜像摘要。
+
 ## Issue 自动分类
 
 [Issue 分类 Action](actions/atomgit-issue-label.md) 已合入 Community 1：一次 AI 同时生成分类和分析回复。

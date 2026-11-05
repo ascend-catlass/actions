@@ -30,6 +30,11 @@ This also covers daily and release builds and replacement workers; it does not
 depend on the operating system's preinstalled Python. The selected wheel Python
 versions remain independent of the host Python used to run the build tool.
 
+Wheel containers pull from `quay.m.daocloud.io` with the exact upstream
+manylinux digests bundled with cibuildwheel 4.2.1. Both architectures use this
+explicit Quay mirror; Docker Hub's `registry-mirrors` setting does not redirect
+Quay images. Keep the image digests and cibuildwheel version in sync when upgrading.
+
 ## Four community workflows
 
 | Entry | Trigger | Result |
