@@ -9,6 +9,17 @@ def workflow(name):
     return yaml.safe_load((ROOT / '.github/workflows' / name).read_text(encoding='utf-8'))
 
 class BaselineTests(unittest.TestCase):
+    def test_each_wheel_job_prepares_its_host_python_before_building(self):
+        steps = workflow('build-dsl-wheel.yml')['jobs']['build']['steps']
+        setup = next(s for s in steps if s.get('uses', '').startswith('astral-sh/setup-uv@'))
+        build = next(s for s in steps if s.get('name') == 'Build wheels')
+        self.assertLess(steps.index(setup), steps.index(build))
+        self.assertNotIn('if', setup)  # Required on both architectures, including replacement hosts.
+        self.assertEqual(setup['with']['python-version'], '3.12')
+        self.assertTrue(setup['with']['activate-environment'])
+        self.assertTrue(setup['with']['no-project'])
+        self.assertIn('${{ runner.temp }}', setup['with']['venv-path'])
+
     def test_hardware_jobs_download_tools_from_the_current_run(self):
         for filename, jobname in [('test-atomgit-pr.yml', 'merge-and-test'), ('validate-dsl-environment.yml', 'validate')]:
             config = workflow(filename)
