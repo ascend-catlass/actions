@@ -9,6 +9,17 @@ def workflow(name):
     return yaml.safe_load((ROOT / '.github/workflows' / name).read_text(encoding='utf-8'))
 
 class BaselineTests(unittest.TestCase):
+    def test_wheel_images_use_quay_mirror_with_fixed_upstream_digests(self):
+        steps = workflow('build-dsl-wheel.yml')['jobs']['build']['steps']
+        build = next(s for s in steps if s.get('name') == 'Build wheels')
+        for arch, digest in {
+            'X86_64': '53390351aeb4688114b02c36a23b3e6ce1166ee9b7afc5df1a4f776354fc764c',
+            'AARCH64': 'ad74e53b713f3b07d8c889c526dc0c6500da9827b45e38739570875fef52e28f',
+        }.items():
+            self.assertEqual(build['env']['CIBW_MANYLINUX_' + arch + '_IMAGE'],
+                             'quay.m.daocloud.io/pypa/manylinux_2_28_' + arch.lower() + '@sha256:' + digest)
+        self.assertIn('cibuildwheel==4.2.1', build['run'])
+
     def test_each_wheel_job_prepares_its_host_python_before_building(self):
         steps = workflow('build-dsl-wheel.yml')['jobs']['build']['steps']
         setup = next(s for s in steps if s.get('uses', '').startswith('astral-sh/setup-uv@'))
