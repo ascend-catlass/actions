@@ -41,6 +41,11 @@ wheelhouse）在任务结束时清理，失败也会执行清理。每种架构�
 一份 wheel。该入口不发布 Release、软件包、PR 评论或 RDV 状态；每日构建和正式发布仍
 默认构建原来的四个 Python 版本与两种 CPU 架构。
 
+每个 wheel 任务都会先通过 `astral-sh/setup-uv` 准备隔离的宿主 Python 3.12 环境，
+再运行 cibuildwheel，x86_64 和 ARM64 均执行。每日构建、正式发布和更换后的构建机
+也复用此步骤，不再依赖操作系统预装的 Python 版本。勾选的 wheel Python 版本
+与运行构建工具所用的宿主 Python 相互独立。
+
 ## Issue 自动分类
 
 [Issue 分类 Action](actions/atomgit-issue-label.md) 已合入 Community 1：一次 AI 同时生成分类和分析回复。

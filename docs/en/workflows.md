@@ -24,6 +24,12 @@ Every selected Python must produce exactly one wheel per architecture. This
 entry does not publish releases, packages, PR comments or RDV statuses.
 Daily and release builds still default to all four Python versions and both CPUs.
 
+Every wheel job prepares an isolated host Python 3.12 environment through
+`astral-sh/setup-uv` before running cibuildwheel, on both x86_64 and ARM64.
+This also covers daily and release builds and replacement workers; it does not
+depend on the operating system's preinstalled Python. The selected wheel Python
+versions remain independent of the host Python used to run the build tool.
+
 ## Four community workflows
 
 | Entry | Trigger | Result |

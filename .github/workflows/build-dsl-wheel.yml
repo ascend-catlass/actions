@@ -336,6 +336,16 @@ jobs:
           echo "CMAKE_BUILD_PARALLEL_LEVEL=${parallel_jobs}" >> "${GITHUB_ENV}"
           echo "${NPUIR_TARGET_ARCH} wheel build parallel jobs: ${parallel_jobs}"
 
+      - name: Prepare host Python for cibuildwheel
+        uses: astral-sh/setup-uv@0a73d6eb01c0201c8fc84847d0f4425b704ad66d
+        with:
+          version: '0.13.7'
+          python-version: '3.12'
+          activate-environment: true
+          venv-path: ${{ runner.temp }}/dsl-host-python-${{ github.run_id }}-${{ github.run_attempt }}
+          no-project: true
+          enable-cache: false
+
       - name: Build wheels
         shell: bash
         env:
