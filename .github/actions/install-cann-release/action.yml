@@ -1,0 +1,57 @@
+name: Install CANN release
+description: Resolve an official CANN release or install it on a CATLASS host using CPU and PCI ID
+inputs:
+  operation:
+    description: resolve on the coordinator or install on the host
+    required: true
+  version:
+    description: Pinned version from resolve; required for install
+    default: ''
+  expected-cpu:
+    description: Native x86_64 or aarch64 CPU; required for install
+    default: ''
+outputs:
+  version:
+    description: Latest semantic release version selected by resolve
+    value: ${{ steps.resolve.outputs.version }}
+runs:
+  using: composite
+  steps:
+    - name: Validate operation
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+      run: '[[ "$OPERATION" == resolve || "$OPERATION" == install ]]'
+    - name: Resolve and check release packages
+      if: ${{ inputs.operation == 'resolve' }}
+      id: resolve
+      shell: bash
+      run: |
+        set -euo pipefail
+        mirror=https://ascend.devcloud.huaweicloud.com/artifactory/cann-run/software
+        version=$(curl -fsSL --retry 3 --connect-timeout 30 --max-time 120 "$mirror/" |
+          python3 "$GITHUB_ACTION_PATH/versions.py" latest)
+        for cpu in x86_64 aarch64; do
+          packages=$(curl -fsSL --retry 3 --connect-timeout 30 --max-time 120 "$mirror/$version/$cpu/")
+          for package in toolkit 910b-ops 950-ops A3-ops; do
+            grep -Fq "href=\"Ascend-cann-${package}_${version}_linux-${cpu}.run\"" <<< "$packages"
+          done
+        done
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "CANN release: $version" >> "$GITHUB_STEP_SUMMARY"
+    - name: Install pinned release on host
+      if: ${{ inputs.operation == 'install' }}
+      shell: bash
+      env:
+        CANN_VERSION: ${{ inputs.version }}
+        EXPECTED_CPU: ${{ inputs.expected-cpu }}
+      run: |
+        set -euo pipefail
+        mkdir -p release-logs
+        args=("$GITHUB_ACTION_PATH/install.sh" "$CANN_VERSION" "$EXPECTED_CPU")
+        if [[ $(id -u) == 0 ]]; then
+          bash "${args[@]}" 2>&1 | tee release-logs/install.log
+        else
+          sudo -n bash "${args[@]}" 2>&1 | tee release-logs/install.log
+        fi
+        tail -n 1 release-logs/install.log >> "$GITHUB_STEP_SUMMARY"
