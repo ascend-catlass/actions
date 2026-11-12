@@ -56,6 +56,9 @@ PR 测试需要统一镜像环境，同时让同一套测试步骤兼容宿主�
 | `name` | 是 | — | 本次测试的唯一容器名称。 |
 | `worktree` | 是 | — | 要挂载的已存在源码目录。 |
 | `container-worktree` | 否 | `/workspace/catlass` | 新容器内的源码挂载位置。 |
+| `cpus` | 否 | `16` | 容器可用的 CPU 核数上限；留空表示不限制。 |
+| `memory` | 否 | `128g` | 容器内存上限，例如 `128g`、`65536m` 或字节数；留空表示不限制。 |
+| `memory-swap` | 否 | `128g` | 交换空间上限；与 `memory` 相同即禁用容器内换页。 |
 
 “必填”按 action.yml 标记；某些可选字段在特定操作下仍必须提供，见执行过程与说明。
 
@@ -69,6 +72,7 @@ PR 测试需要统一镜像环境，同时让同一套测试步骤兼容宿主�
 ## 说明与常见问题
 
 - 宿主机模式使用 --privileged 访问 NPU；驱动、weekly CANN 和 NPUIR 只读挂载，Python 3.12 和 CPU PyTorch 来自轻量镜像。每个测试 shell 都会激活 weekly CANN；容器启动后校验 NPUIR 与源码 gitlink，并验证 acl/TorchNPU 能否导入。
+- 容器默认限制为 16 核、128GB 内存，并禁用容器内换页，避免单个测试任务耗尽共享测试机资源。CPU 受限且调用方未指定 `CMAKE_BUILD_PARALLEL_LEVEL` 时，构建并行度自动对齐到 `cpus`，否则默认的 32 路并行会超过配额反而变慢。需要更多资源时显式传入 `cpus`、`memory`、`memory-swap`；留空表示不限制，但不再享受该保护。
 - 生产 PR 工作流使用实测过的 Ubuntu 镜像源，可通过 `base-image` 指定其他可信 Ubuntu 24.04 镜像或 digest。CANN 和 NPUIR 必须先通过各自流水线准备好；构建镜像不会重复编译或安装这两个依赖。
 - 使用 `validate-dsl-environment.yml` 可在任一替换主机或两台主机上自动构建缺失镜像并运行完整 DSL 测试。已有镜像直接复用；有意更新镜像依赖时应更换镜像标签。
 - Action 不自动删除容器。调用方应在 always() 清理步骤中删除非空 container-name；容器内模式返回空名称，不能删除原 runner。

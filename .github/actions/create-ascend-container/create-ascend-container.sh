@@ -25,6 +25,30 @@ if [[ ! -d "${HOST_WORKTREE}" || "${HOST_WORKTREE}" != /* ||
     exit 1
 fi
 
+# Resource limits keep one test job from starving the host. Empty disables a
+# limit; anything else must be a plain positive integer so a malformed value
+# cannot silently turn into an unlimited container.
+container_cpus=${CONTAINER_CPUS:-}
+container_memory=${CONTAINER_MEMORY:-}
+container_memory_swap=${CONTAINER_MEMORY_SWAP:-}
+if [[ -n "${container_cpus}" && ! "${container_cpus}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "::error::cpus must be a positive integer number of cores: ${container_cpus}"
+    exit 1
+fi
+memory_pattern='^[1-9][0-9]*[bkmg]?$'
+if [[ -n "${container_memory}" && ! "${container_memory}" =~ ${memory_pattern} ]]; then
+    echo "::error::memory must look like 128g, 65536m or a byte count: ${container_memory}"
+    exit 1
+fi
+if [[ -n "${container_memory_swap}" && ! "${container_memory_swap}" =~ ${memory_pattern} && "${container_memory_swap}" != "-1" ]]; then
+    echo "::error::memory-swap must look like 128g, -1, or a byte count: ${container_memory_swap}"
+    exit 1
+fi
+if [[ -n "${container_memory_swap}" && -z "${container_memory}" ]]; then
+    echo "::error::memory-swap requires memory to be set."
+    exit 1
+fi
+
 docker info >/dev/null
 if docker container inspect "${NAME}" >/dev/null 2>&1; then
     echo "::error::Container ${NAME} already exists; choose a unique name."
@@ -56,6 +80,20 @@ args=(
     --env "CATLASS_DSL_PREBUILT_ASCENDNPU_IR=$npuir"
     --env BASH_ENV=/opt/catlass-ci-env.sh
 )
+if [[ -n "${container_cpus}" ]]; then
+    args+=(--cpus "${container_cpus}")
+fi
+if [[ -n "${container_memory}" ]]; then
+    args+=(--memory "${container_memory}")
+fi
+if [[ -n "${container_memory_swap}" ]]; then
+    args+=(--memory-swap "${container_memory_swap}")
+fi
+# Parallel builds must follow the CPU cap, otherwise the default 32-way build
+# oversubscribes a 16-core container and runs slower than a matched one.
+if [[ -n "${container_cpus}" && -z "${CMAKE_BUILD_PARALLEL_LEVEL:-}" ]]; then
+    args+=(--env "CMAKE_BUILD_PARALLEL_LEVEL=${container_cpus}")
+fi
 for driver_path in \
     /usr/local/dcmi \
     /usr/local/bin/npu-smi \
