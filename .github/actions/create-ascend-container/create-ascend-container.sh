@@ -94,11 +94,10 @@ fi
 if [[ -n "${container_cpus}" && -z "${CMAKE_BUILD_PARALLEL_LEVEL:-}" ]]; then
     args+=(--env "CMAKE_BUILD_PARALLEL_LEVEL=${container_cpus}")
 fi
-for driver_path in \
-    /usr/local/dcmi \
-    /usr/local/bin/npu-smi \
-    /usr/local/Ascend/driver \
-    /etc/ascend_install.info; do
+# Driver paths are fixed on a real Ascend host. The override exists so the
+# argument-assembly behaviour can be exercised without those host paths.
+read -r -a driver_paths <<< "${DRIVER_PATHS:-/usr/local/dcmi /usr/local/bin/npu-smi /usr/local/Ascend/driver /etc/ascend_install.info}"
+for driver_path in "${driver_paths[@]}"; do
     if [[ ! -e "${driver_path}" ]]; then
         echo "::error::Required Ascend driver path is missing: ${driver_path}"
         exit 1

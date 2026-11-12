@@ -24,6 +24,12 @@ def run_script(tmpdir, env_overrides):
 
     output_file = Path(tmpdir) / "github-output"
     output_file.write_text("", encoding="utf-8")
+    # Stand-ins for the Ascend driver paths, which only exist on a real host.
+    driver_dirs = []
+    for name in ("dcmi", "driver", "install.info"):
+        path = Path(tmpdir) / "driver" / name
+        path.mkdir(parents=True, exist_ok=True)
+        driver_dirs.append(str(path))
     env = {
         **os.environ,
         "NAME": "catlass-rdv-test",
@@ -34,6 +40,7 @@ def run_script(tmpdir, env_overrides):
         "CANN_ROOT": str(cann / "ascend-toolkit"),
         "NPUIR_ROOT": str(npuir),
         "GITHUB_OUTPUT": str(output_file),
+        "DRIVER_PATHS": " ".join(driver_dirs),
         **env_overrides,
     }
     # Replace docker work with a stub so the test exercises argument assembly
