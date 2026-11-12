@@ -56,6 +56,9 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 | `name` | Yes | — | Unique container name (NAME) |
 | `worktree` | Yes | — | Existing host source directory to mount |
 | `container-worktree` | No | `/workspace/catlass` | Source directory inside the new container |
+| `cpus` | No | `16` | CPU core limit for the container; empty disables the limit |
+| `memory` | No | `128g` | Memory limit, for example `128g`, `65536m` or a byte count; empty disables the limit |
+| `memory-swap` | No | `128g` | Swap limit; equal to `memory` disables swapping inside the container |
 
 Required follows action.yml. Some optional fields become necessary for a particular operation; see the process and notes.
 
@@ -69,6 +72,7 @@ Required follows action.yml. Some optional fields become necessary for a particu
 ## Notes and common questions
 
 - Host mode uses --privileged for NPU access. Drivers, weekly CANN and NPUIR are mounted read-only; Python 3.12 and CPU PyTorch come from the lightweight image. Every test shell activates weekly CANN. Startup validates the source gitlink against the NPUIR archive and imports acl/TorchNPU before continuing.
+- Containers default to 16 cores, 128GB of memory and no swapping, so one test job cannot exhaust a shared test machine. When CPUs are limited and the caller does not set `CMAKE_BUILD_PARALLEL_LEVEL`, build parallelism follows `cpus`; the previous default of 32 ways oversubscribes that quota and runs slower. Pass `cpus`, `memory` and `memory-swap` explicitly when more is needed; leaving them empty disables the limit and the protection with it.
 - The production PR workflow uses the tested Ubuntu mirror. Override `base-image` with another trusted Ubuntu 24.04 image/digest as needed. Provision CANN and NPUIR first; the image build does not rebuild or install either dependency.
 - Use `validate-dsl-environment.yml` to build a missing image and run the complete DSL gate on either replacement machine or both. Existing images are reused; change the image tag when intentionally changing image dependencies.
 - The Action does not delete containers. The caller needs an always() cleanup step for a nonempty container-name. Container-runner mode returns an empty name and must leave the original runner alone.

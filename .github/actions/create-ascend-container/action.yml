@@ -29,6 +29,18 @@ inputs:
     description: Source directory inside the new container
     required: false
     default: /workspace/catlass
+  cpus:
+    description: CPU limit in cores for the managed container (empty disables the limit)
+    required: false
+    default: '16'
+  memory:
+    description: Memory limit for the managed container, for example 128g (empty disables the limit)
+    required: false
+    default: 128g
+  memory-swap:
+    description: Swap limit; equal to memory disables swapping inside the container
+    required: false
+    default: 128g
 
 outputs:
   container-name:
@@ -53,4 +65,7 @@ runs:
         CONTAINER_WORKTREE: ${{ inputs.container-worktree }}
         CANN_ROOT: ${{ inputs.cann-root }}
         NPUIR_ROOT: ${{ inputs.npuir-root }}
+        CONTAINER_CPUS: ${{ inputs.cpus }}
+        CONTAINER_MEMORY: ${{ inputs.memory }}
+        CONTAINER_MEMORY_SWAP: ${{ inputs.memory-swap }}
       run: bash "${GITHUB_ACTION_PATH}/create-ascend-container.sh"
