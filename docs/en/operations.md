@@ -86,7 +86,8 @@
   CATLASS commit's exact gitlink, including builds of older release tags.
 - `nightly-dsl-wheel.yml` runs the build workflow every day at 01:00
   Asia/Shanghai and publishes the validated wheels to the GitHub Release-backed
-  package index.
+  package index. Its independent Read the Docs matrix job also triggers Chinese
+  and English `latest` builds; see [secret setup and Jenkins cutover](workflows.md#read-the-docs-daily-builds).
 - `release-dsl-wheel.yml` verifies that an exact AtomGit tag exists before it
   starts a build, then publishes the same validated wheels to PyPI and the
   corresponding AtomGit Release. AtomGit uploads use the dedicated X64 DSL
