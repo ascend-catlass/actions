@@ -1,4 +1,4 @@
-name: Build and publish daily ascend-catlass-dsl wheels
+name: Daily CATLASS wheels and documentation
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
     - cron: "0 17 * * *"
   workflow_dispatch:
 
-run-name: Daily ascend-catlass-dsl wheels
+run-name: Daily CATLASS wheels and documentation
 
 permissions:
   contents: read
@@ -16,6 +16,49 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+
+  readthedocs:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    name: Trigger Read the Docs (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: catlass
+            integration_id: '331563'
+            token_secret: READTHEDOCS_ZH_WEBHOOK_TOKEN
+          - project: catlass-en
+            integration_id: '331564'
+            token_secret: READTHEDOCS_EN_WEBHOOK_TOKEN
+    steps:
+      - name: Trigger latest documentation build
+        env:
+          RTD_WEBHOOK_TOKEN: ${{ secrets[matrix.token_secret] }}
+          RTD_PROJECT: ${{ matrix.project }}
+          RTD_INTEGRATION_ID: ${{ matrix.integration_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${RTD_WEBHOOK_TOKEN}" ]]; then
+            echo "::error::Read the Docs webhook token is missing for ${RTD_PROJECT}."
+            exit 1
+          fi
+          status=$(curl --silent --show-error --fail \
+            --connect-timeout 10 --max-time 60 \
+            --output /dev/null --write-out '%{http_code}' \
+            --data-urlencode 'branches=latest' \
+            --data-urlencode "token=${RTD_WEBHOOK_TOKEN}" \
+            "https://app.readthedocs.org/api/v2/webhook/${RTD_PROJECT}/${RTD_INTEGRATION_ID}/")
+          if [[ "${status}" != 2?? ]]; then
+            echo "::error::Read the Docs rejected ${RTD_PROJECT} (HTTP ${status})."
+            exit 1
+          fi
+          echo "Read the Docs accepted ${RTD_PROJECT}/latest (HTTP ${status})."
+          echo "- Read the Docs accepted [${RTD_PROJECT}/latest](https://app.readthedocs.org/projects/${RTD_PROJECT}/builds/); check the build result there." >> "${GITHUB_STEP_SUMMARY}"
+
   build:
     if: ${{ github.ref == 'refs/heads/main' }}
     name: Build nightly wheels

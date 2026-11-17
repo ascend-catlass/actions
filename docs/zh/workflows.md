@@ -17,7 +17,7 @@ Action 完成一个可复用步骤，工作流把多个步骤排成完整流程�
 | [build-ascendnpu-ir-20260720.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-ascendnpu-ir-20260720.yml) | 保留旧 NPUIR 日期基线，供历史问题定位 | 手动或被其他工作流调用 |
 | [build-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/build-dsl-wheel.yml) | 构建 x86_64、aarch64 的 DSL wheel 并保存产物 | 手动或被 nightly/release 调用 |
 | [pr-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/pr-dsl-wheel.yml) | 按 PR 号和 Python、CPU 复选框构建 DSL wheel | 手动 |
-| [nightly-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/nightly-dsl-wheel.yml) | 构建开发版本并发布到 GitHub Release 支撑的包索引 | 每日北京时间 01:00，或手动 |
+| [nightly-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/nightly-dsl-wheel.yml) | 构建开发版本、发布包索引，并触发中英文 Read the Docs 构建 | 每日北京时间 01:00，或手动 |
 | [release-dsl-wheel.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/release-dsl-wheel.yml) | 校验稳定 tag，构建并发布到 PyPI 与 AtomGit Release | 手动 |
 | [install-cann-weekly.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/install-cann-weekly.yml) | 安装同一构建版本的 CANN weekly 到全部 11 台主机 | 每日北京时间 02:00，或手动 |
 | [sync-atomgit.yml](https://github.com/ascend-catlass/actions/blob/main/.github/workflows/sync-atomgit.yml) | 把 AtomGit `master` 与 tags 镜像同步到 GitHub | 每日北京时间 02:00，或手动 |
@@ -54,6 +54,27 @@ wheel 容器明确从 `quay.m.daocloud.io` 拉取镜像，固定为 cibuildwheel
 
 [Issue 分类 Action](actions/atomgit-issue-label.md) 已合入 Community 1：一次 AI 同时生成分类和分析回复。
 所有作者均可分类，只有非角色作者收到分析回复。只追加一个已有类型标签，保留人工分类；不触发手动修复或代码检视。
+
+## Read the Docs 每日构建
+
+`nightly-dsl-wheel.yml` 的 `readthedocs` 矩阵任务每天北京时间 01:00 触发
+中文项目 `catlass`（集成编号 `331563`）和英文项目 `catlass-en`（集成编号
+`331564`）的 `latest` 构建；也可在 `main` 手动运行每日流水线。
+文档任务使用 GitHub 托管 runner，独立于 wheel 构建执行。一种语言失败不会取消
+另一种语言；密钥缺失、网络错误和非 2xx 响应会使相应任务失败。任务成功只表示
+Webhook 已被接受，远端文档是否构建成功需打开任务摘要中的项目构建链接确认。
+
+在仓库 Actions Secrets 中配置 `READTHEDOCS_ZH_WEBHOOK_TOKEN` 和
+`READTHEDOCS_EN_WEBHOOK_TOKEN`，分别沿用 Jenkins 任务
+`catlass-readthedocs-build-nightly` 中两个项目的集成密钥。密钥不写入代码或日志。
+请求使用官方文档规定的
+[`branches=latest` 表单参数](https://docs.readthedocs.com/platform/latest/guides/setup/git-repo-manual.html#using-the-generic-api-integration)。
+
+切换顺序：配置两个 Secret，合入 PR，在 `main` 手动运行每日流水线（也会构建
+wheel），确认中英文远端构建均正常，再关闭 Jenkins 旧任务的定时触发。
+保留旧任务配置和历史记录供回退。迁移后文档跟随每日流水线于 01:00 触发，
+不保留 Jenkins 的独立定时。回退时先停用 Actions 中的文档任务，再恢复 Jenkins
+定时，确保只有一个调度入口。
 
 ## PR 测试
 
