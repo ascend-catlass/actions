@@ -79,7 +79,7 @@ Publication uses AtomGit's [inline comment endpoint](https://docs.atomgit.com/en
 | Workflow | Purpose / schedule (Asia/Shanghai) |
 | --- | --- |
 | `test-atomgit-pr.yml` | Manual PR number; selective Ascend 950 tests and RDV status |
-| `nightly-dsl-wheel.yml` | Daily 01:00: dual-architecture development wheels and GitHub package index |
+| `nightly-dsl-wheel.yml` | Daily 01:00: development wheels, GitHub package index and Chinese/English Read the Docs triggers |
 | `release-dsl-wheel.yml` | Manual stable-tag validation, wheel build, PyPI and AtomGit release |
 | `build-dsl-wheel.yml` | Shared build, called by nightly/release or manually |
 | `build-ascendnpu-ir-20261013.yml` | Current NPUIR preparation/archive baseline |
@@ -88,6 +88,31 @@ Publication uses AtomGit's [inline comment endpoint](https://docs.atomgit.com/en
 | `sync-atomgit.yml` | Daily 02:00: mirror AtomGit master and tags to GitHub |
 
 See [build and runner operations](operations.md) and individual [Action guides](index.md). Schedules may queue. Production jobs execute from main; the documentation PR check only tests and builds the site.
+
+## Read the Docs daily builds
+
+The `readthedocs` matrix job in `nightly-dsl-wheel.yml` triggers `latest` for
+`catlass` (Chinese, integration `331563`) and `catlass-en` (English, integration
+`331564`) at 01:00 Asia/Shanghai, or when the daily workflow is dispatched on
+`main`. It runs on GitHub-hosted runners independently of the wheel jobs.
+A failed language does not cancel the other language; missing tokens, transport
+errors and non-2xx responses fail the affected job. Success means the webhook
+was accepted, not that the remote documentation build passed. Follow the
+project build link in the job summary to inspect the final result.
+
+Configure repository Actions secrets `READTHEDOCS_ZH_WEBHOOK_TOKEN` and
+`READTHEDOCS_EN_WEBHOOK_TOKEN` with the respective integration tokens from the
+existing Jenkins job `catlass-readthedocs-build-nightly`. Tokens stay in secrets,
+not workflow source or logs. The generic webhook uses the documented
+[`branches=latest` form parameter](https://docs.readthedocs.com/platform/latest/guides/setup/git-repo-manual.html#using-the-generic-api-integration).
+
+For cutover: provision both secrets, merge the PR, dispatch the daily workflow
+on `main` (this also runs the wheel jobs), and verify both remote documentation
+builds. Then turn off the Jenkins job's scheduled trigger; retain its configuration
+and history for rollback. The migration moves documentation triggering to 01:00
+alongside the daily workflow; it does not retain Jenkins's separate cron.
+To roll back, remove/disable the Actions documentation job before restoring
+Jenkins scheduling so that only one scheduler triggers the builds.
 
 ## TestPR failure diagnosis
 
