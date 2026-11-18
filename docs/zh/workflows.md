@@ -131,7 +131,7 @@ wheel 工作流在 x86_64 和 aarch64 主机上构建，无需主机安装或挂
 
 AtomGit Release 上传 job 使用专用 DSL 构建池的 X64 主机（`179.214.4.3`），同时访问 GitHub 和 AtomGit，避免调度到无 GitHub 连接的通用 `publish` 主机，也避免海外托管 runner 到附件存储的慢速上传。上传 job 最长运行 30 分钟。发布失败后，使用原运行编号填写 `artifact_run_id`，即可复用已校验的发布包，无需重新编译 wheel。已有相同 PyPI 文件会跳过。
 
-公共 AtomGit Release Action 固定到 `451e2bce3a3049ef0e5777b4e2579e1d6918080c`，按 tag 更新发行版，兼容不含 Release ID 的实际接口响应；未传入新正文时保留原有说明。
+公共 AtomGit Release Action 固定到 `451e2bce3a3049ef0e5777b4e2579e1d6918080c`，按 tag 更新发行版，兼容不含 Release ID 的实际接口响应。本仓库只上传附件，不传正文，因此已有发行说明的正文不会被覆盖；wheel 哈希随 `SHA256SUMS` 附件一并上传。
 
 ## 环境安装与镜像同步
 

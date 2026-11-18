@@ -14,14 +14,14 @@
 
 ## 执行过程
 
-1. 检查 bundle 包含 8 个 wheel、SHA256SUMS 和 release-notes.md。
+1. 检查 bundle 包含 8 个 wheel 和 SHA256SUMS。
 2. 查询指定 tag 的 Release，必要时创建，再上传缺失附件。
 3. 对已存在附件校验 SHA-256，最后回查预期附件是否可见。
 
 ## 使用前准备
 
 - Linux runner，Python 3、curl；Token 需要 Release 写入权限。
-- bundle 指向 release 工作流准备好的目录，包含 wheels/、SHA256SUMS 和 release-notes.md。稳定 tag 的存在性由上层发布工作流先检查。
+- bundle 指向 release 工作流准备好的目录，包含 wheels/ 和 SHA256SUMS。稳定 tag 的存在性由上层发布工作流先检查。
 
 ## 调用示例
 
@@ -57,6 +57,7 @@
 ## 说明与常见问题
 
 - 没有 Action 输出字段；成功与否通过步骤退出状态和运行日志判断。
+- 只上传附件，不传入发行说明正文，因此已有 Release 的人工正文不会被覆盖。wheel 哈希通过 SHA256SUMS 附件提供，不写入正文。
 - 重跑可复用相同内容的远端附件，不会覆盖冲突文件。最终回查验证附件名称可见性，不表示逐个重新下载所有新附件校验。
 
 ## 实现与调用方
