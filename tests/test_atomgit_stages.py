@@ -49,6 +49,24 @@ class StageContracts(unittest.TestCase):
         self.assertTrue(any(s.get("uses") == "./.github/actions/atomgit-release"
                             for s in workflow["jobs"]["publish-atomgit"]["steps"]))
 
+    def test_release_publishes_assets_without_touching_the_release_body(self):
+        """Only assets are uploaded; a supplied body would replace existing notes."""
+        action = yaml.safe_load(
+            (ROOT / ".github/actions/atomgit-release/action.yml").read_text(encoding="utf-8")
+        )
+        publish = next(
+            step for step in action["runs"]["steps"]
+            if step.get("uses", "").startswith("yuantao313/actions/atomgit-release@")
+        )
+        self.assertNotIn("body-file", publish["with"])
+        # SHA256SUMS still travels as an asset, so dropping the body loses no
+        # published checksum data.
+        self.assertEqual(publish["with"]["assets-file"], "${{ inputs.bundle }}/assets.json")
+        prepared = next(
+            step for step in action["runs"]["steps"] if step.get("shell") == "bash"
+        )
+        self.assertIn("prepare_atomgit_assets", prepared["run"])
+
     def test_issue_role_gate_controls_replies_but_not_classification(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/reply-atomgit-issue.yml").read_text(encoding="utf-8"))
         steps = workflow["jobs"]["reply"]["steps"]

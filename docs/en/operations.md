@@ -95,8 +95,10 @@
   The job has a 30-minute timeout. Use `artifact_run_id`
   to retry publication with an existing bundle without rebuilding wheels.
   The public AtomGit Release Action is pinned to
-  `451e2bce3a3049ef0e5777b4e2579e1d6918080c`, which updates releases by tag
-  and preserves existing notes when no replacement body is supplied.
+  `451e2bce3a3049ef0e5777b4e2579e1d6918080c`, which updates releases by tag.
+  This repository uploads assets only and never supplies a body, so an existing
+  release body is left untouched; wheel hashes travel with the `SHA256SUMS`
+  asset.
 
 Composite actions and their scripts live under `.github/actions/`.
 The

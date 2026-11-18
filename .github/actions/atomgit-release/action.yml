@@ -39,5 +39,4 @@ runs:
         repository: ${{ inputs.owner }}/${{ inputs.repo }}
         tag: ${{ inputs.tag }}
         name: ascend-catlass-dsl ${{ inputs.version }}
-        body-file: ${{ inputs.bundle }}/release-notes.md
         assets-file: ${{ inputs.bundle }}/assets.json

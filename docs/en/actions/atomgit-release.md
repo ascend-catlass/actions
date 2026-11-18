@@ -14,14 +14,14 @@ Use it in the AtomGit distribution step of a stable release. It neither builds w
 
 ## What happens
 
-1. Check that the bundle contains eight wheels, SHA256SUMS and release-notes.md.
+1. Check that the bundle contains eight wheels and SHA256SUMS.
 2. Find the Release for the selected tag, create it if needed, and upload missing assets.
 3. Verify SHA-256 for existing assets and read back the Release to check expected asset visibility.
 
 ## Before you run it
 
 - A Linux runner with Python 3 and curl. The token needs Release write permissions.
-- bundle must point to a prepared directory containing wheels/, SHA256SUMS and release-notes.md. The parent release workflow first verifies that the stable tag exists.
+- bundle must point to a prepared directory containing wheels/ and SHA256SUMS. The parent release workflow first verifies that the stable tag exists.
 
 ## Example
 
@@ -57,6 +57,7 @@ No Action output fields are defined. Check the step status, logs or the external
 ## Notes and common questions
 
 - No Action output fields are defined. Use the step exit status and logs to determine success.
+- Assets only: no release body is supplied, so a curated body on an existing Release is never overwritten. Wheel hashes are published through the SHA256SUMS asset rather than the body.
 - A rerun reuses identical remote assets and does not overwrite conflicting files. Final verification checks asset-name visibility; it does not redownload every newly uploaded asset.
 
 ## Implementation and callers
