@@ -55,6 +55,27 @@ class RoutingTests(unittest.TestCase):
             self.assertIn("needs.prepare.outputs.head_sha != ''", JOBS[name]['if'])
             self.assertNotIn("needs.prepare.outputs.comment_id != ''", JOBS[name]['if'])
 
+    def test_first_failing_stage_stops_the_rest_and_goes_to_report(self):
+        """A failing test stage must stop later stages, not run them anyway."""
+        steps = JOBS['merge-and-test']['steps']
+        by_id = {s.get('id'): s for s in steps if s.get('id')}
+
+        # Each DSL stage waits for every earlier DSL stage to succeed.
+        self.assertIn('steps.dsl_dev.outcome == \'success\'', by_id['dsl_ir']['if'])
+        self.assertIn('steps.dsl_dev.outcome == \'success\'', by_id['dsl_lit']['if'])
+        self.assertIn('steps.dsl_ir.outcome == \'success\'', by_id['dsl_lit']['if'])
+        self.assertIn('steps.dsl_dev.outcome == \'success\'', by_id['dsl_device']['if'])
+        self.assertIn('steps.dsl_ir.outcome == \'success\'', by_id['dsl_device']['if'])
+        self.assertIn('steps.dsl_lit.outcome == \'success\'', by_id['dsl_device']['if'])
+
+        # The non-DSL stage must not run after any earlier step failed.
+        non_dsl = next(s for s in steps if s['name'] == 'Run non-DSL test stage')
+        self.assertIn('!failure()', non_dsl['if'])
+
+        # Reporting still runs on failure so the outcome reaches AtomGit.
+        for name in ('analyze-failure', 'report'):
+            self.assertIn('always()', JOBS[name]['if'])
+
     def test_runner_and_reporting_contract(self):
         self.assertEqual(JOBS['prepare']['runs-on'], 'ubuntu-latest')
         npu = JOBS['merge-and-test']
