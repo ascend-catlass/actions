@@ -230,7 +230,7 @@ jobs:
 
       - name: Run DSL Lit tests
         id: dsl_lit
-        if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' && steps.dsl_ir.outcome == 'success' }}
         uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl-lit
@@ -239,7 +239,8 @@ jobs:
           device-id: ${{ steps.prepare_tests.outputs.device-id }}
 
       - name: Build Release wheel and run DSL device tests
-        if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' }}
+        id: dsl_device
+        if: ${{ !cancelled() && steps.dsl_dev.outcome == 'success' && steps.dsl_ir.outcome == 'success' && steps.dsl_lit.outcome == 'success' }}
         uses: ./hardware-tools/.github/actions/run-ci-tests
         with:
           suite: dsl
@@ -249,10 +250,7 @@ jobs:
 
       - name: Run non-DSL test stage
         if: >-
-          ${{ !cancelled() &&
-              steps.merge.outcome == 'success' &&
-              steps.create_container.outcome == 'success' &&
-              steps.prepare_tests.outcome == 'success' &&
+          ${{ !cancelled() && !failure() &&
               needs.prepare.outputs.run_all == 'true' }}
         uses: ./hardware-tools/.github/actions/run-ci-tests
         with:

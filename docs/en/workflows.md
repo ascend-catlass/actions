@@ -78,7 +78,7 @@ Publication uses AtomGit's [inline comment endpoint](https://docs.atomgit.com/en
 
 | Workflow | Purpose / schedule (Asia/Shanghai) |
 | --- | --- |
-| `test-atomgit-pr.yml` | Manual PR number; selective Ascend 950 tests and RDV status |
+| `test-atomgit-pr.yml` | Manual PR number; selective Ascend 950 tests and RDV status. A failing test stage stops the remaining stages and goes straight to diagnosis and reporting |
 | `nightly-dsl-wheel.yml` | Daily 01:00: development wheels, GitHub package index and Chinese/English Read the Docs triggers |
 | `release-dsl-wheel.yml` | Manual stable-tag validation, wheel build, PyPI and AtomGit release |
 | `build-dsl-wheel.yml` | Shared build, called by nightly/release or manually |
