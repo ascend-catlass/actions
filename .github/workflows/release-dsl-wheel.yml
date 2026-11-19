@@ -169,7 +169,7 @@ jobs:
     needs: [preflight, prepare]
     if: ${{ github.ref == 'refs/heads/main' && (always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '')) }}
     runs-on: [self-hosted, Linux, ascend-catlass-dsl-build, X64]
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment:
       name: gitcode-release
       url: https://atomgit.com/cann/catlass/releases/${{ needs.preflight.outputs.tag }}
@@ -178,17 +178,37 @@ jobs:
       contents: read
 
     steps:
+      # This job runs on a self-hosted worker behind a slow cross-border link.
+      # A bare checkout has no retry and no slow-link tolerance, so a stall
+      # fails the publish after the wheels and the PyPI release already
+      # succeeded.
       - name: Check out release tooling
         uses: actions/checkout@v4
+        timeout-minutes: 20
         with:
           persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            .github
+            scripts
+        env:
+          GIT_HTTP_LOW_SPEED_LIMIT: "1024"
+          GIT_HTTP_LOW_SPEED_TIME: "120"
       - name: Check out shared Action helpers
         uses: actions/checkout@v4
+        timeout-minutes: 20
         with:
           repository: yuantao313/actions
           ref: 02defff4ec04b38b33adfaec06bcb1406f5a2150
           path: shared_actions
           persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            atomgit-release
+            _lib
+        env:
+          GIT_HTTP_LOW_SPEED_LIMIT: "1024"
+          GIT_HTTP_LOW_SPEED_TIME: "120"
 
       - name: Download validated release bundle
         uses: actions/download-artifact@v4
