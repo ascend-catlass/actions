@@ -61,11 +61,24 @@ function collect(evidence, contextLines) {
     }
     const found = excerpt(log, contextLines);
     if (!found) continue;
-    const header = `### ${job}` + (steps.length ? ` — 失败步骤：${steps.join(', ')}` : '');
-    const where = `日志第 ${found.start}–${found.end} 行（失败位置 ${found.marker} 行，共 ${contextLines} 行）`;
-    parts.push(`${header}\n\n${where}\n\n\`\`\`\n${redact(found.text)}\n\`\`\``);
+    // The summary stays visible so a reader can tell which job and step broke
+    // without expanding anything; only the log body is collapsed.
+    const failedStep = steps.length ? `失败步骤：${steps.join(', ')}` : '失败步骤：未知';
+    const summary = `${job} — ${failedStep}（日志第 ${found.start}–${found.end} 行）`;
+    const body = redact(found.text);
+    parts.push(
+      `<details>\n<summary>${escapeHtml(summary)}</summary>\n\n`
+      + `失败位置：第 ${found.marker} 行，共 ${contextLines} 行\n\n`
+      + '```\n' + body + '\n```\n\n</details>',
+    );
   }
   return parts;
+}
+
+// Job and step names come from the API and the log body sits inside a code
+// fence, so only the summary text needs HTML escaping.
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function main(env = process.env) {

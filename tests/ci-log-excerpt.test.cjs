@@ -81,7 +81,7 @@ test('the excerpt step fails loudly when no marker exists', () => temporaryTest(
   assert.match(run.stderr, /No failure marker/);
 }));
 
-test('the excerpt step writes a bounded excerpt and reports collected', () => temporaryTest(directory => {
+test('the excerpt step writes a collapsible excerpt and reports collected', () => temporaryTest(directory => {
   const evidence = path.join(directory, 'evidence.json');
   fs.writeFileSync(evidence, JSON.stringify([
     {job: 'Test PR #1786', steps: ['Prepare test dependencies and device'],
@@ -96,9 +96,24 @@ test('the excerpt step writes a bounded excerpt and reports collected', () => te
   assert.equal(run.status, 0, run.stderr);
   const body = fs.readFileSync(out, 'utf8');
   assert.match(body, /no selectable NPU/);
-  assert.match(body, /失败步骤：Prepare test dependencies and device/);
+  // The summary must identify the job and step; the log body must be collapsed.
+  assert.match(body, /<details>/);
+  assert.match(body, /<\/details>/);
+  assert.match(body, /<summary>.*Test PR #1786.*Prepare test dependencies and device.*<\/summary>/);
+  assert.match(body, /失败位置：第 \d+ 行/);
+  // Exactly one details block per failed job.
+  assert.equal((body.match(/<details>/g) || []).length, 1);
+  assert.equal((body.match(/<\/details>/g) || []).length, 1);
   assert.match(fs.readFileSync(outputs, 'utf8'), /status=collected/);
 }));
+
+test('the summary escapes HTML from job and step names', () => {
+  const parts = collect([{job: 'Build <b>', steps: ['run & check'], log: '##[error]boom'}], 200);
+  const text = parts.join('\n');
+  assert.match(text, /Build &lt;b&gt;/);
+  assert.match(text, /run &amp; check/);
+  assert.doesNotMatch(text, /<b>/);
+});
 
 test('render falls back when the excerpt is missing, empty or unreadable', () => temporaryTest(directory => {
   for (const prepare of [() => {}, d => fs.writeFileSync(path.join(d, 'e.md'), ''),
@@ -114,11 +129,24 @@ test('render falls back when the excerpt is missing, empty or unreadable', () =>
   }
 }));
 
-test('render truncates an oversized excerpt instead of dropping it', () => {
-  const big = 'x'.repeat(render.MAX_BYTES + 5000);
-  const out = render.truncate(big);
-  assert.ok(Buffer.byteLength(out) <= render.MAX_BYTES);
+test('render truncates an oversized excerpt by character, not byte', () => {
+  // AtomGit counts characters, so CJK text must not be cut early.
+  const cjk = '中'.repeat(render.MAX_CHARS + 5000);
+  const out = render.truncate(cjk);
+  assert.ok(out.length <= render.MAX_CHARS, `kept ${out.length} chars`);
   assert.match(out, /已截断/);
+  // A plain ASCII overflow is bounded the same way.
+  const ascii = render.truncate('x'.repeat(render.MAX_CHARS + 5000));
+  assert.ok(ascii.length <= render.MAX_CHARS);
+  // A fitting excerpt passes through untouched.
+  assert.equal(render.truncate('short'), 'short');
+});
+
+test('render keeps a large CJK excerpt that would fail a byte-based cap', () => {
+  // 30000 CJK characters are 90000 bytes but well under the 65536 char limit.
+  const text = '中'.repeat(30000);
+  assert.ok(Buffer.byteLength(text) > 65536, 'precondition: exceeds a byte cap');
+  assert.equal(render.truncate(text), text);
 });
 
 test('render appends the run link so the full log stays reachable', () => temporaryTest(directory => {
@@ -164,12 +192,21 @@ test('the removed analysis feature leaves no references behind', () => {
 });
 
 const bashAvailable = spawnSync('bash', ['--version']).status === 0;
-test('RDV Bash assembles the literal log excerpt with a safe size limit',
+test('RDV Bash appends the literal excerpt and guards the comment limit',
   {skip: !bashAvailable}, () => {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'rdv-comment-'));
     try {
-      for (const [result, attachment] of [['failure', '##[error]boom\n`$(touch injected)`'],
-        ['success', 'do not append'], ['cancelled', 'do not append'], ['failure', 'x'.repeat(8193)], ['failure', null]]) {
+      // A real excerpt now exceeds the old 8 KiB cap, so it must still be
+      // appended; only a body past the AtomGit character limit is dropped.
+      const cases = [
+        ['failure', '##[error]boom\n`$(touch injected)`', true],
+        ['success', 'do not append', false],
+        ['cancelled', 'do not append', false],
+        ['failure', 'x'.repeat(20000), true],
+        ['failure', 'x'.repeat(70000), false],
+        ['failure', null, false],
+      ];
+      for (const [result, attachment, appended] of cases) {
         const file = path.join(temp, 'analysis.md');
         if (attachment === null) fs.rmSync(file, {force: true}); else fs.writeFileSync(file, attachment);
         const output = path.join(temp, 'outputs');
@@ -182,7 +219,7 @@ test('RDV Bash assembles the literal log excerpt with a safe size limit',
         assert.equal(run.status, 0, run.stderr);
         const bodyFile = fs.readFileSync(output, 'utf8').trim().split('=')[1];
         const expected = (result === 'success' ? '✅ RDV Succeeded' : '❌ RDV Failed') + ': https://github.com/run/123'
-          + (result === 'failure' && attachment && attachment.length <= 8192 ? '\n\n' + attachment : '');
+          + (appended ? '\n\n' + attachment : '');
         assert.equal(fs.readFileSync(bodyFile, 'utf8'), expected);
         assert.ok(!fs.existsSync(path.join(root, 'injected')));
       }
