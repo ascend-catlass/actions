@@ -10,9 +10,6 @@ on:
         required: true
         type: string
 
-env:
-  TRAE_CN_HOST: ${{ vars.TRAE_CN_HOST }}
-
 permissions:
   contents: read
 
@@ -290,31 +287,30 @@ jobs:
             fi
           fi
 
-  analyze-failure:
-    name: Analyze failed TestPR logs with DeepSeek
+  collect-logs:
+    name: Collect failed test logs
     if: ${{ github.ref == 'refs/heads/main' && always() && needs.prepare.outputs.head_sha != '' && (needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure') }}
     needs: [prepare, merge-and-test]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 12
     permissions:
       contents: read
       actions: read
     steps:
-      - name: Analyze failed workflow jobs
-        id: diagnosis
+      - name: Extract the failing log excerpt
+        id: excerpt
         continue-on-error: true
-        uses: ascend-catlass/actions/.github/actions/analyze-ci-failure@main
+        uses: ascend-catlass/actions/.github/actions/collect-ci-logs@main
         with:
           github-token: ${{ github.token }}
-          trae-pat: ${{ secrets.TRAE_CN_PAT }}
           run-id: ${{ github.run_id }}
           run-attempt: ${{ github.run_attempt }}
-      - name: Save comment attachment
-        if: ${{ always() && steps.diagnosis.outputs.analysis-file != '' }}
+      - name: Save the comment attachment
+        if: ${{ always() && steps.excerpt.outputs.excerpt-file != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: rdv-failure-analysis-${{ github.run_attempt }}
-          path: ${{ steps.diagnosis.outputs.analysis-file }}
+          name: rdv-failure-logs-${{ github.run_attempt }}
+          path: ${{ steps.excerpt.outputs.excerpt-file }}
           retention-days: 7
 
   report:
@@ -323,24 +319,24 @@ jobs:
     needs:
       - prepare
       - merge-and-test
-      - analyze-failure
+      - collect-logs
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download failure diagnosis
+      - name: Download the failing log excerpt
         if: ${{ needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: rdv-failure-analysis-${{ github.run_attempt }}
+          name: rdv-failure-logs-${{ github.run_attempt }}
           path: _rdv-failure/
-      - name: Keep failure reporting available when analysis fails
+      - name: Keep failure reporting available when log collection fails
         if: ${{ always() && (needs.prepare.result == 'failure' || needs.merge-and-test.result == 'failure') }}
         shell: bash
         run: |
           mkdir -p _rdv-failure
           if [[ ! -s _rdv-failure/analysis.md ]]; then
-            printf '%s\n' '失败原因自动分析暂不可用，请查看上方流水线日志。' > _rdv-failure/analysis.md
+            printf '%s\n' '失败日志片段暂不可用，请查看上方流水线日志。' > _rdv-failure/analysis.md
           fi
       - name: Report the result to AtomGit
         if: ${{ always() }}
