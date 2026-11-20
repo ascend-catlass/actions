@@ -2,16 +2,19 @@
 const fs = require('node:fs');
 
 const fallback = '失败日志片段暂不可用，请查看上方流水线日志。';
-// AtomGit accepts a bounded comment body; keep the attachment well under it.
-const MAX_BYTES = 60000;
+// AtomGit rejects a comment body longer than 65536 characters (measured: 60000
+// CJK characters pass, 66000 ASCII fail, so the limit counts characters, not
+// bytes). Leave room for the RDV prefix and the log link.
+const MAX_CHARS = 60000;
 
 function truncate(body) {
-  if (Buffer.byteLength(body) <= MAX_BYTES) return body;
-  const notice = '\n\n（日志过长，已截断；完整日志见上方链接。）\n';
-  const room = MAX_BYTES - Buffer.byteLength(notice);
-  let kept = Buffer.from(body, 'utf8').subarray(0, room).toString('utf8');
-  // Drop a trailing partial character rather than emitting a broken one.
-  kept = kept.replace(/\uFFFD$/, '');
+  if (body.length <= MAX_CHARS) return body;
+  const notice = '\n\n（日志过长，已截断；完整日志见下方链接。）\n';
+  const room = MAX_CHARS - notice.length;
+  let kept = body.slice(0, room);
+  // Prefer cutting at a line boundary so the excerpt stays readable.
+  const lastBreak = kept.lastIndexOf('\n');
+  if (lastBreak > room * 0.8) kept = kept.slice(0, lastBreak);
   return kept + notice;
 }
 
@@ -35,5 +38,5 @@ function main(env = process.env) {
   }
 }
 
-module.exports = {main, truncate, fallback, MAX_BYTES};
+module.exports = {main, truncate, fallback, MAX_CHARS};
 if (require.main === module) main();
