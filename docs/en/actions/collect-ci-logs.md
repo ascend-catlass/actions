@@ -67,8 +67,9 @@ Required follows action.yml. Some optional fields become necessary for a particu
 
 ## Notes and common questions
 
-- One excerpt per failed job, listed in order. When no marker exists the step fails and the render step falls back to the unavailable note.
-- The attachment is capped at 60000 bytes; larger excerpts are truncated with a notice, and the full log link is always appended.
+- One `<details>` block per failed job. The `<summary>` shows the job, the failed step and the line range, so a reader can tell what broke without expanding anything; the log body stays collapsed.
+- When no marker exists the step fails and the render step falls back to the unavailable note.
+- The attachment is capped at 60000 **characters** (AtomGit rejects a comment body past 65536 characters; measured as characters, not bytes). Larger excerpts are cut at a line boundary with a notice, and the full log link is always appended.
 - No model is called and no TRAE CN credential is needed.
 
 ## Implementation and callers

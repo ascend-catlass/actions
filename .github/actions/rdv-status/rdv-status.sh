@@ -10,10 +10,16 @@ case "${RDV_PHASE}" in
             comment_body="❌ RDV Failed: ${RDV_RESULT_URL}"
         fi
         if [[ "${RDV_RESULT}" == failure && -n "${RDV_FAILURE_ANALYSIS_FILE:-}" && -s "${RDV_FAILURE_ANALYSIS_FILE}" ]]; then
-            if [[ "$(wc -c < "$RDV_FAILURE_ANALYSIS_FILE")" -le 8192 ]]; then
-                comment_body+=$'\n\n'"$(cat -- "$RDV_FAILURE_ANALYSIS_FILE")"
+            # AtomGit caps a comment body at 65536 characters. The collector
+            # already bounds its excerpt well below that, so this only guards
+            # against a caller passing something oversized.
+            limit=${RDV_COMMENT_CHAR_LIMIT:-65536}
+            prefix_chars=$(printf '%s' "${comment_body}" | wc -m)
+            excerpt_chars=$(wc -m < "${RDV_FAILURE_ANALYSIS_FILE}")
+            if (( prefix_chars + excerpt_chars > limit )); then
+                echo 'Failure excerpt would exceed the comment limit; publishing the original RDV result' >&2
             else
-                echo 'Failure analysis exceeds 8 KiB; publishing the original RDV result' >&2
+                comment_body+=$'\n\n'"$(cat -- "${RDV_FAILURE_ANALYSIS_FILE}")"
             fi
         fi
         ;;

@@ -47,7 +47,7 @@ This is a steps excerpt, not a complete workflow. Prepare the source directory, 
 | `result` | No | — | Job result used by the finish phase |
 | `result-url` | Yes | — | CI result URL published in the status comment |
 | `comment-id` | No | — | Reserved input; the current finish script does not use it or edit this comment. |
-| `failure-analysis-file` | No | `""` | Optional UTF-8 Markdown log excerpt, appended only for finish result=failure; maximum 8 KiB. |
+| `failure-analysis-file` | No | `""` | Optional UTF-8 Markdown log excerpt, appended only for finish result=failure, bounded by the 65536-character comment limit. |
 
 Required follows action.yml. Some optional fields become necessary for a particular operation; see the process and notes.
 
