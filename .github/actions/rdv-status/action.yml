@@ -21,7 +21,7 @@ inputs:
     description: Reserved input; current finish phase posts a new comment and does not use this ID
     required: false
   failure-analysis-file:
-    description: Optional UTF-8 Markdown file appended only when finish result is failure (at most 8 KiB)
+    description: Optional UTF-8 Markdown log excerpt appended only when finish result is failure (at most 8 KiB)
     default: ''
 
 outputs:

@@ -10,7 +10,7 @@
 | Action | 做什么 |
 | --- | --- |
 | [catlass-ai](actions/catlass-ai.md) | 统一模型选择、只读沙箱及公共 TRAE 安装和执行 |
-| [analyze-ci-failure](actions/analyze-ci-failure.md) | 分析任意 GitHub CI 失败日志，返回可供评论使用的说明 |
+| [collect-ci-logs](actions/collect-ci-logs.md) | 截取 GitHub CI 失败 job 日志中失败位置附近 200 行，作为评论附件 |
 | [community-repo-roles](actions/community-repo-roles.md) | 查询社区维护者与 Committer |
 | [create-ascend-container](actions/create-ascend-container.md) | 创建昇腾测试容器 |
 | [atomgit-api](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-api) | 调用 AtomGit API |
