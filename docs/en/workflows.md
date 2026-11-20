@@ -114,9 +114,9 @@ alongside the daily workflow; it does not retain Jenkins's separate cron.
 To roll back, remove/disable the Actions documentation job before restoring
 Jenkins scheduling so that only one scheduler triggers the builds.
 
-## TestPR failure diagnosis
+## TestPR failure logs
 
-After RDV has started, a failed preparation or test job starts a separate GitHub-hosted diagnostic job. It calls the generic [`analyze-ci-failure`](actions/analyze-ci-failure.md) Action with the run ID and attempt. That Action composes official `actions/github-script` for logs, [`setup-trae-cn`](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) for installation and `trae-cn` for DeepSeek-V4.1-Flash analysis. A small standalone script extracts and redacts bounded evidence and formats the comment attachment. Issue analysis, fixes and PR review also share the installation Action. No PR source is checked out or executed for diagnosis.
+After RDV has started, a failed preparation or test job starts a separate GitHub-hosted collection job. It calls the [`collect-ci-logs`](actions/collect-ci-logs.md) Action with the run ID and attempt. That Action composes official `actions/github-script` to fetch the failed job logs, then a small standalone script locates the failure marker, keeps 200 lines around it and redacts credentials before publishing the excerpt as the comment attachment. There is **no AI analysis**: the pipeline stops at the first failure, so the surrounding log already identifies it. No PR source is checked out or executed for collection.
 
 The report job appends cause, log evidence and a next step below the existing RDV Failed run link. Missing logs, invalid model output, timeout or missing artifacts produce an unavailable-analysis note instead; RDV-FAIL is still reported. Success and cancellation comments are unchanged. The optional job has a 12-minute limit and the model a 5-minute budget. The comment attachment is retained for seven days. Only the collector gets Actions read permission; the model receives no publishing token.
 

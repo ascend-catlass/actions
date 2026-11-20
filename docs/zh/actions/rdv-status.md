@@ -47,7 +47,7 @@ PR 测试启动时调用 start；测试完成后由报告步骤调用 finish。
 | `result` | 否 | — | finish 使用的测试结果；只有 success 被判定为成功。 |
 | `result-url` | 是 | — | 评论中发布的 CI 结果链接。 |
 | `comment-id` | 否 | — | 保留字段；当前 finish 脚本不使用，也不会编辑此评论。 |
-| `failure-analysis-file` | 否 | `""` | 可选 UTF-8 Markdown 文件；仅 finish 且 result=failure 时追加，最多 8 KiB。 |
+| `failure-analysis-file` | 否 | `""` | 可选 UTF-8 Markdown 日志片段；仅 finish 且 result=failure 时追加，最多 8 KiB。 |
 
 “必填”按 action.yml 标记；某些可选字段在特定操作下仍必须提供，见执行过程与说明。
 

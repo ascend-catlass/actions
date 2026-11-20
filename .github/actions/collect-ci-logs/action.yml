@@ -1,0 +1,77 @@
+name: Collect failed job logs
+description: Read a GitHub run attempt and return a bounded, redacted log excerpt around the first failure
+
+inputs:
+  github-token:
+    description: GitHub token with Actions read permission for the caller repository
+    required: true
+  run-id:
+    description: GitHub workflow run to inspect in the caller repository
+    required: true
+  run-attempt:
+    description: Attempt number to inspect
+    default: '1'
+  context-lines:
+    description: Log lines to keep around the failure marker
+    default: '200'
+outputs:
+  excerpt-file:
+    description: UTF-8 Markdown log excerpt, or an unavailable note; caller decides how to publish it
+    value: ${{ steps.render.outputs.excerpt-file }}
+  status:
+    description: collected or unavailable
+    value: ${{ steps.render.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - name: Download failed job logs with the official GitHub client
+      id: logs
+      continue-on-error: true
+      uses: actions/github-script@v9
+      env:
+        RUN_ID: ${{ inputs.run-id }}
+        RUN_ATTEMPT: ${{ inputs.run-attempt }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        retries: 2
+        script: |
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+            ...context.repo, run_id: Number(process.env.RUN_ID),
+            attempt_number: Number(process.env.RUN_ATTEMPT), per_page: 100
+          });
+          const evidence = [];
+          for (const job of jobs.filter(job => job.conclusion === 'failure').slice(0, 4)) {
+            const {data} = await github.rest.actions.downloadJobLogsForWorkflowRun({
+              ...context.repo, job_id: job.id, request: {timeout: 60000}
+            });
+            evidence.push({job: job.name,
+              steps: job.steps.filter(s => s.conclusion === 'failure').map(s => s.name),
+              log: typeof data === 'string' ? data : Buffer.from(data).toString('utf8')});
+          }
+          if (!evidence.length) throw new Error('No failed jobs in this run attempt');
+          const out = path.join(process.env.RUNNER_TEMP,
+            `failed-jobs-${process.env.RUN_ID}-${process.env.RUN_ATTEMPT}.json`);
+          fs.writeFileSync(out, JSON.stringify(evidence));
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `evidence-file=${out}\n`);
+    - name: Extract the log excerpt around the first failure
+      id: excerpt
+      if: ${{ steps.logs.outcome == 'success' }}
+      continue-on-error: true
+      shell: bash
+      env:
+        EVIDENCE_FILE: ${{ steps.logs.outputs.evidence-file }}
+        EXCERPT_OUT: ${{ runner.temp }}/ci-log-excerpt.md
+        CONTEXT_LINES: ${{ inputs.context-lines }}
+      run: node "${GITHUB_ACTION_PATH}/excerpt.cjs"
+    - name: Write the comment attachment
+      id: render
+      if: ${{ always() }}
+      shell: bash
+      env:
+        EXCERPT_FILE: ${{ steps.excerpt.outputs.excerpt-file }}
+        ANALYSIS_FILE: ${{ runner.temp }}/analysis.md
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.run-id }}/attempts/${{ inputs.run-attempt }}
+      run: node "${GITHUB_ACTION_PATH}/render.cjs"

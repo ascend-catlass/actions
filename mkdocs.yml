@@ -41,7 +41,7 @@ nav:
   - 术语: zh/glossary.md
   - Actions:
     - catlass-ai · 统一 AI 执行策略: zh/actions/catlass-ai.md
-    - analyze-ci-failure · 分析 CI 失败原因: zh/actions/analyze-ci-failure.md
+    - collect-ci-logs · 截取 CI 失败日志: zh/actions/collect-ci-logs.md
     - community-repo-roles · 查询社区维护者与 Committer: zh/actions/community-repo-roles.md
     - create-ascend-container · 创建昇腾测试容器: zh/actions/create-ascend-container.md
     - atomgit-ci-passed · CI 通过后提醒代码检视: zh/actions/atomgit-ci-passed.md
@@ -63,7 +63,7 @@ nav:
   - Glossary: en/glossary.md
   - Actions:
     - catlass-ai · Shared AI execution policy: en/actions/catlass-ai.md
-    - analyze-ci-failure · Analyze CI failure: en/actions/analyze-ci-failure.md
+    - collect-ci-logs · Collect failed CI logs: en/actions/collect-ci-logs.md
     - community-repo-roles · Look up community maintainers and committers: en/actions/community-repo-roles.md
     - create-ascend-container · Create an Ascend test container: en/actions/create-ascend-container.md
     - atomgit-ci-passed · Send a review reminder after CI passes: en/actions/atomgit-ci-passed.md

@@ -46,8 +46,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Check CATLASS selective test behavior
         run: bash tests/test_targeted_ci.sh
-      - name: Check TestPR failure analysis Actions
-        run: node --test tests/rdv-failure-analysis.test.cjs
+      - name: Check CI log excerpt Actions
+        run: node --test tests/ci-log-excerpt.test.cjs
       - name: Check Action documentation and build the site
         run: |
           python scripts/check_docs.py

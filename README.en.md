@@ -27,7 +27,7 @@ Actions recheck current state and deduplicate before publication. The publishing
 
 | Category | Workflow | Purpose / schedule (Asia/Shanghai) |
 | --- | --- | --- |
-| PR testing | [test-atomgit-pr](.github/workflows/test-atomgit-pr.yml) | Manual PR number; Ascend 950 validation and RDV status; TRAE CN / DeepSeek adds log analysis to failure comments |
+| PR testing | [test-atomgit-pr](.github/workflows/test-atomgit-pr.yml) | Manual PR number; Ascend 950 validation and RDV status; a bounded log excerpt around the failure is attached to failure comments |
 | Daily build | [nightly-dsl-wheel](.github/workflows/nightly-dsl-wheel.yml) | Daily 01:00; dual-architecture wheels and GitHub package index |
 | Stable release | [release-dsl-wheel](.github/workflows/release-dsl-wheel.yml) | Manual tag validation, wheel build, PyPI and AtomGit publication |
 | Shared wheel build | [build-dsl-wheel](.github/workflows/build-dsl-wheel.yml) | Shared nightly/release build, also manual |
@@ -44,7 +44,7 @@ Schedules may queue. See [runner and build operations](docs/en/operations.md) fo
 | Community | [trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/traecn), [atomgit-issue](.github/actions/atomgit-issue/README.md), [atomgit-ci-passed](.github/actions/atomgit-ci-passed/README.md), [community-repo-roles](.github/actions/community-repo-roles/README.md) |
 | PR testing | [atomgit-pr-metadata](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-pr-metadata), [create-ascend-container](.github/actions/create-ascend-container/README.md), [prepare-ci-tests](.github/actions/prepare-ci-tests/README.md), [run-ci-tests](.github/actions/run-ci-tests/README.md), [rdv-status](.github/actions/rdv-status/README.md) |
 | Build / delivery | [npuir-local-archive](.github/actions/npuir-local-archive/README.md), [atomgit-release](.github/actions/atomgit-release/README.md) |
-| Analysis / runtime | [catlass-ai](.github/actions/catlass-ai/README.md), [analyze-ci-failure](.github/actions/analyze-ci-failure/README.md), [setup-trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) |
+| Analysis / runtime | [catlass-ai](.github/actions/catlass-ai/README.md), [collect-ci-logs](.github/actions/collect-ci-logs/README.md), [setup-trae-cn](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/setup-traecn) |
 | Shared API | [atomgit-api](https://github.com/yuantao313/actions/tree/02defff4ec04b38b33adfaec06bcb1406f5a2150/atomgit-api) |
 
 Each Action has bilingual usage, input/output and example documentation.

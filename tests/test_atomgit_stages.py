@@ -38,11 +38,16 @@ class StageContracts(unittest.TestCase):
             self.assertNotIn('TASK_RESPONSE', text)
             self.assertNotIn('model:', text)
             self.assertNotIn('expected-version: 0.209.1', text)
-        action = yaml.safe_load((ROOT / '.github/actions/analyze-ci-failure/action.yml').read_text(encoding='utf-8'))
-        render = next(step for step in action['runs']['steps'] if step.get('id') == 'render')
-        self.assertEqual(render['env']['TRAE_RESULT'], '${{ steps.model.outputs.result-directory }}')
-        self.assertNotIn('ANALYSIS_MODEL', render['env'])
-        self.assertNotIn('ANALYSIS_RESPONSE', render['env'])
+        # The log collector is not a model stage: it must not consume or
+        # reselect a model result at all.
+        action = yaml.safe_load(
+            (ROOT / '.github/actions/collect-ci-logs/action.yml').read_text(encoding='utf-8')
+        )
+        for step in action['runs']['steps']:
+            env = step.get('env', {})
+            self.assertNotIn('TRAE_RESULT', env)
+            self.assertNotIn('ANALYSIS_MODEL', env)
+            self.assertNotIn('ANALYSIS_RESPONSE', env)
 
     def test_release_workflow_uses_release_stage(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/release-dsl-wheel.yml").read_text(encoding="utf-8"))
