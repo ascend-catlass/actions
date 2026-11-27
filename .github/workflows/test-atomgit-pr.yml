@@ -109,8 +109,13 @@ jobs:
                 ;;
 
               # Include the DSL battery outside python/tla_dsl, without
-              # treating every file under tests/ as a DSL change.
+              # treating every file under tests/ as a DSL change. The Python
+              # DSL examples under examples/python/tla_dsl are executed by
+              # tests/run_dsl_test.sh and tests/dsl_battery, so they belong to
+              # the DSL suite; marking them non-DSL skipped the only tests that
+              # exercise them.
               python/tla_dsl/* | \
+              examples/python/tla_dsl/* | \
               tests/run_dsl_test.sh | \
               tests/dsl_battery/*)
                 change_type=dsl

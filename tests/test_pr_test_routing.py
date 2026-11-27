@@ -25,6 +25,11 @@ class RoutingTests(unittest.TestCase):
             (['README.md', 'docs/guide.md', 'python/tla_dsl/docs/guide.md'], False, False),
             (['python/tla_dsl/catlass/core.py'], True, False),
             (['tests/run_dsl_test.sh', 'tests/dsl_battery/case.py'], True, False),
+            # The Python DSL examples are executed by the DSL battery, so a
+            # change there must run the DSL suite rather than only the non-DSL one.
+            (['examples/python/tla_dsl/tla/kernel/vec/basic_vadd/basic_vadd.py'], True, False),
+            # A doc under the examples tree stays non-code.
+            (['examples/python/tla_dsl/README.md'], False, False),
             (['examples/55_case/main.cpp'], False, True),
             (['tests/test_example.py', 'README.md'], False, True),
             (['python/tla_dsl/core.py', 'include/catlass/core.hpp'], True, True),
