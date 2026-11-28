@@ -178,6 +178,20 @@ jobs:
       contents: read
 
     steps:
+      # Route git clones through a public accelerator when reachable, else fall
+      # back to direct GitHub; the self-hosted lab link to github.com is flaky.
+      - name: Accelerate GitHub clones on the slow self-hosted link
+        shell: bash
+        run: |
+          set -euo pipefail
+          mirror="https://ghfast.top/https://github.com/"
+          if curl -fsS -o /dev/null --max-time 8 "https://ghfast.top/" 2>/dev/null; then
+            git config --global url."${mirror}".insteadOf "https://github.com/"
+            echo "GitHub clones will use the ghfast.top accelerator"
+          else
+            git config --global --unset-all url."${mirror}".insteadOf 2>/dev/null || true
+            echo "Accelerator unreachable; falling back to direct GitHub"
+          fi
       # This job runs on a self-hosted worker behind a slow cross-border link.
       # A bare checkout has no retry and no slow-link tolerance, so a stall
       # fails the publish after the wheels and the PyPI release already
