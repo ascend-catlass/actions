@@ -229,6 +229,23 @@ jobs:
       SOURCE_DIR: ${{ github.workspace }}/.wheel-work/catlass-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
+      # Self-hosted workers in the lab cannot reliably reach github.com. Route
+      # git clones through a public accelerator when it is reachable, and fall
+      # back to direct GitHub otherwise, so the checkout does not hang on the
+      # cross-border link or require a manual re-run every day.
+      - name: Accelerate GitHub clones on the slow self-hosted link
+        shell: bash
+        run: |
+          set -euo pipefail
+          mirror="https://ghfast.top/https://github.com/"
+          if curl -fsS -o /dev/null --max-time 8 "https://ghfast.top/" 2>/dev/null; then
+            git config --global url."${mirror}".insteadOf "https://github.com/"
+            echo "GitHub clones will use the ghfast.top accelerator"
+          else
+            git config --global --unset-all url."${mirror}".insteadOf 2>/dev/null || true
+            echo "Accelerator unreachable; falling back to direct GitHub"
+          fi
+
       - name: Check out workflow definitions
         uses: actions/checkout@v4
         with:
