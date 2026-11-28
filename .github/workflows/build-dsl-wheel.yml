@@ -388,7 +388,7 @@ jobs:
             CC=/usr/bin/clang
             CXX=/usr/bin/clang++
             LDFLAGS=-fuse-ld=lld
-            SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ASCEND_CATLASS_DSL=${{ needs.resolve.outputs.package_version }}
+            SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ASCEND_CATLASS=${{ needs.resolve.outputs.package_version }}
             PIP_INDEX_URL=https://repo.huaweicloud.com/repository/pypi/simple
             PIP_TRUSTED_HOST=repo.huaweicloud.com
           CIBW_BEFORE_ALL: |
