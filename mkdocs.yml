@@ -50,6 +50,7 @@ nav:
     - atomgit-rdv-reset · 重置 RDV 标签: zh/actions/atomgit-rdv-reset.md
     - atomgit-release · 发布 AtomGit Release 安装包: zh/actions/atomgit-release.md
     - npuir-local-archive · 复用本机 AscendNPU-IR 构建归档: zh/actions/npuir-local-archive.md
+    - prepare-wheel-bundle · 准备与校验发布包: zh/actions/prepare-wheel-bundle.md
     - prepare-ci-tests · 准备测试依赖并选择 NPU: zh/actions/prepare-ci-tests.md
     - rdv-status · 把 RDV 测试状态写回 PR: zh/actions/rdv-status.md
     - run-ci-tests · 运行 CATLASS 测试阶段: zh/actions/run-ci-tests.md
@@ -72,6 +73,7 @@ nav:
     - atomgit-rdv-reset · Reset RDV labels: en/actions/atomgit-rdv-reset.md
     - atomgit-release · Publish a AtomGit release bundle: en/actions/atomgit-release.md
     - npuir-local-archive · Reuse local AscendNPU-IR build archives: en/actions/npuir-local-archive.md
+    - prepare-wheel-bundle · Prepare and validate release bundles: en/actions/prepare-wheel-bundle.md
     - prepare-ci-tests · Prepare test dependencies and select an NPU: en/actions/prepare-ci-tests.md
     - rdv-status · Report RDV test status on a PR: en/actions/rdv-status.md
     - run-ci-tests · Run a CATLASS test stage: en/actions/run-ci-tests.md

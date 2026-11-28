@@ -1,4 +1,4 @@
-name: Build PR ascend-catlass-dsl wheels
+name: Build PR ascend-catlass wheels
 
 on:
   workflow_dispatch:

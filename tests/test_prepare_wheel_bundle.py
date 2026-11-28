@@ -20,14 +20,14 @@ class PrepareWheelBundleTest(unittest.TestCase):
             wheel_names = []
             for python_tag in prepare_wheel_bundle.PYTHON_TAGS:
                 name = (
-                    f"ascend_catlass_dsl-{self.version}-{python_tag}-{python_tag}-"
+                    f"ascend_catlass-{self.version}-{python_tag}-{python_tag}-"
                     f"manylinux_2_27_{arch}.manylinux_2_28_{arch}.whl"
                 )
                 wheel_names.append(name)
                 with zipfile.ZipFile(input_dir / name, "w") as archive:
                     archive.writestr(
-                        f"ascend_catlass_dsl-{self.version}.dist-info/METADATA",
-                        f"Name: ascend-catlass-dsl\nVersion: {self.version}\n",
+                        f"ascend_catlass-{self.version}.dist-info/METADATA",
+                        f"Name: ascend-catlass\nVersion: {self.version}\nRequires-Python: >=3.10,<3.14\n",
                     )
             (input_dir / f"release-metadata-{arch}.json").write_text(
                 json.dumps(
@@ -79,6 +79,30 @@ class PrepareWheelBundleTest(unittest.TestCase):
                     self.source_sha,
                     "v2.1.0",
                 )
+
+    def test_rejects_legacy_names_wrong_versions_metadata_and_duplicate_matrix(self):
+        for case in ("legacy", "filename-version", "name", "version", "python", "duplicate"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                inputs = self.make_input(root)
+                wheel = next(inputs.glob("*cp310*aarch64.whl"))
+                if case == "legacy":
+                    wheel.rename(wheel.with_name(wheel.name.replace("ascend_catlass-", "ascend_catlass_dsl-")))
+                elif case == "filename-version":
+                    wheel.rename(wheel.with_name(wheel.name.replace(self.version, "2.0.0")))
+                elif case == "duplicate":
+                    other = next(inputs.glob("*cp311*aarch64.whl"))
+                    other.rename(wheel.with_name(wheel.name.replace("manylinux_2_27_", "manylinux_2_26_")))
+                else:
+                    name = "ascend-catlass-dsl" if case == "name" else "ascend-catlass"
+                    version = "2.0.0" if case == "version" else self.version
+                    python = ">=3.11,<3.14" if case == "python" else ">=3.10,<3.14"
+                    with zipfile.ZipFile(wheel, "w") as archive:
+                        archive.writestr(f"ascend_catlass-{self.version}.dist-info/METADATA",
+                                         f"Name: {name}\nVersion: {version}\nRequires-Python: {python}\n")
+                with self.assertRaises((RuntimeError, ValueError)):
+                    prepare_wheel_bundle.prepare(inputs, root / "output", self.version,
+                                                 self.source_sha, "v2.1.0")
 
 
 if __name__ == "__main__":

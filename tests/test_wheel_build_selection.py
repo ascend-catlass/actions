@@ -89,7 +89,7 @@ class WheelSelectionTests(unittest.TestCase):
 
     def test_expected_wheels_must_all_be_present_exactly_once(self):
         def wheel(tag):
-            return f'ascend_catlass_dsl-1.2.4.dev20261102+pr1280.gabcdef012345-{tag}-{tag}-manylinux_2_28_x86_64.whl'
+            return f'ascend_catlass-1.2.4.dev20261102+pr1280.gabcdef012345-{tag}-{tag}-manylinux_2_28_x86_64.whl'
         verify_wheels([wheel('cp310'), wheel('cp312')], '["3.10","3.12"]')
         for wheels in [[], [wheel('cp310')], [wheel('cp310'), wheel('cp310')],
                        [wheel('cp310'), wheel('cp311')], ['bad.whl']]:

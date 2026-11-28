@@ -13,9 +13,12 @@ import sys
 import zipfile
 from pathlib import Path
 
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-PACKAGE_NAME = "ascend-catlass-dsl"
-WHEEL_PREFIX = "ascend_catlass_dsl"
+
+PACKAGE_NAME = "ascend-catlass"
+WHEEL_PREFIX = "ascend_catlass"
 PYTHON_TAGS = ("cp310", "cp311", "cp312", "cp313")
 ARCHITECTURES = ("x86_64", "aarch64")
 
@@ -44,7 +47,7 @@ def wheel_identity(path: Path, version: str) -> tuple[str, str]:
     return match.group("python"), match.group("arch")
 
 
-def validate_wheel_metadata(path: Path, version: str) -> None:
+def validate_wheel_metadata(path: Path, version: str):
     with zipfile.ZipFile(path) as archive:
         metadata_names = [
             name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
@@ -58,6 +61,9 @@ def validate_wheel_metadata(path: Path, version: str) -> None:
         fail(f"{path.name} has package name {metadata['Name']!r}")
     if metadata["Version"] != version:
         fail(f"{path.name} has version {metadata['Version']!r}, expected {version}")
+    if not metadata["Requires-Python"]:
+        fail(f"{path.name} has no Requires-Python metadata")
+    return metadata
 
 
 def read_build_metadata(input_dir: Path, version: str, source_sha: str) -> list[dict]:
@@ -75,7 +81,8 @@ def read_build_metadata(input_dir: Path, version: str, source_sha: str) -> list[
     return result
 
 
-def prepare(input_dir: Path, output_dir: Path, version: str, source_sha: str, source_ref: str) -> None:
+def prepare(input_dir: Path, output_dir: Path, version: str, source_sha: str, source_ref: str,
+            with_compat: bool = False) -> None:
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:\.dev[0-9]{8})?", version):
         fail(f"Invalid package version: {version}")
     if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
@@ -135,7 +142,7 @@ def prepare(input_dir: Path, output_dir: Path, version: str, source_sha: str, so
     )
 
     notes = [
-        "# ascend-catlass-dsl wheels",
+        "# ascend-catlass wheels",
         "",
         f"- Package version: {version}",
         f"- CATLASS ref: {source_ref}",
@@ -151,6 +158,32 @@ def prepare(input_dir: Path, output_dir: Path, version: str, source_sha: str, so
         notes.append("")
     notes.extend(["## SHA256", "", "```", *checksum_lines, "```", ""])
     (output_dir / "release-notes.md").write_text("\n".join(notes), encoding="utf-8")
+    if with_compat:
+        from scripts.build_compat_wheel import build
+
+        requires_python = validate_wheel_metadata(wheels[0], version)["Requires-Python"]
+        compatibility_wheel = build(output_dir / "compat-wheels", version, requires_python)
+        manifest["compatibility"] = {
+            "package": "ascend-catlass-dsl",
+            "version": version,
+            "requires_dist": f"{PACKAGE_NAME}=={version}",
+            "requires_python": requires_python,
+            "wheels": [{
+                "name": compatibility_wheel.name,
+                "size": compatibility_wheel.stat().st_size,
+                "sha256": sha256(compatibility_wheel),
+            }],
+        }
+        (output_dir / "release-manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        (output_dir / "compat-SHA256SUMS").write_text(
+            f"{sha256(compatibility_wheel)}  {compatibility_wheel.name}\n", encoding="utf-8"
+        )
+
+    from scripts.validate_release_bundle import validate
+
+    validate(output_dir, version, source_sha, source_ref, require_compat=with_compat)
 
 
 def main() -> int:
@@ -160,6 +193,7 @@ def main() -> int:
     parser.add_argument("--version", required=True)
     parser.add_argument("--source-sha", required=True)
     parser.add_argument("--source-ref", required=True)
+    parser.add_argument("--with-compat", action="store_true")
     args = parser.parse_args()
     try:
         prepare(
@@ -168,6 +202,7 @@ def main() -> int:
             args.version,
             args.source_sha,
             args.source_ref,
+            with_compat=args.with_compat,
         )
     except (OSError, ValueError, RuntimeError, zipfile.BadZipFile) as error:
         print(f"error: {error}", file=sys.stderr)
