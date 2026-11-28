@@ -85,15 +85,21 @@
   CMake; CANN-dependent bitcode compilation happens at runtime. NPUIR source revisions still follow the selected
   CATLASS commit's exact gitlink, including builds of older release tags.
 - `nightly-dsl-wheel.yml` runs the build workflow every day at 01:00
-  Asia/Shanghai and publishes the validated wheels to the GitHub Release-backed
-  package index. Its independent Read the Docs matrix job also triggers Chinese
+  Asia/Shanghai and publishes the validated `ascend-catlass` wheels to GitHub Releases.
+  The separate package index still filters the old name; download wheels directly
+  until that index is migrated. Its independent Read the Docs matrix job also triggers Chinese
   and English `latest` builds; see [secret setup and Jenkins cutover](workflows.md#read-the-docs-daily-builds).
 - `release-dsl-wheel.yml` verifies that an exact AtomGit tag exists before it
   starts a build, then publishes the same validated wheels to PyPI and the
-  corresponding AtomGit Release. AtomGit uploads use the dedicated X64 DSL
+  corresponding AtomGit Release. PyPI additionally receives a same-version
+  metadata-only `ascend-catlass-dsl` wheel requiring `ascend-catlass==X.Y.Z`,
+  after the main upload succeeds. The compatibility wheel is excluded from
+  AtomGit assets. See [migration and retry requirements](workflows.md#python-package-names-and-compatibility-releases). AtomGit uploads use the dedicated X64 DSL
   worker (`179.214.4.3`), which can reach GitHub and AtomGit from the same host.
-  The job has a 30-minute timeout. Use `artifact_run_id`
-  to retry publication with an existing bundle without rebuilding wheels.
+  The job has a 60-minute timeout. Use `artifact_run_id`
+  to retry publication with an existing new-format bundle without rebuilding wheels.
+  Both publishers revalidate its identity and hashes; bundles without the
+  compatibility wheel must be rebuilt.
   The public AtomGit Release Action is pinned to
   `451e2bce3a3049ef0e5777b4e2579e1d6918080c`, which updates releases by tag.
   This repository uploads assets only and never supplies a body, so an existing
@@ -111,7 +117,7 @@ The workflows prefer `ATOMGIT_TOKEN` and fall back to the existing `GITCODE_TOKE
 when it is empty. The selected token must have Release write access for stable
 releases. The existing `gitcode-release` environment and `CATLASS_DEPLOY_KEY`
 configuration remain in use. PyPI publishing also requires a Trusted Publisher bound to the `pypi`
-environment and `release-dsl-wheel.yml`.
+environment and `release-dsl-wheel.yml` for both PyPI projects.
 
 The former DSL workers 124 and 125 have moved to `179.214.4.3`
 (`ci-310p3-x64-214-4-3`) and `179.214.4.2`

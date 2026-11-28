@@ -4,7 +4,7 @@
 
 ## PR wheel packages
 
-Run **Build PR ascend-catlass-dsl wheels** (`pr-dsl-wheel.yml`) from `main`.
+Run **Build PR ascend-catlass wheels** (`pr-dsl-wheel.yml`) from `main`.
 Enter the PR number in AtomGit `cann/catlass`, or leave it empty to build the
 default branch's current HEAD. Then check Python 3.10, 3.11,
 3.12 and/or 3.13 and CPU x86_64 and/or aarch64 (ARM64). All six boxes are
@@ -79,7 +79,7 @@ Publication uses AtomGit's [inline comment endpoint](https://docs.atomgit.com/en
 | Workflow | Purpose / schedule (Asia/Shanghai) |
 | --- | --- |
 | `test-atomgit-pr.yml` | Manual PR number; selective Ascend 950 tests and RDV status. A failing test stage stops the remaining stages and goes straight to diagnosis and reporting |
-| `nightly-dsl-wheel.yml` | Daily 01:00: development wheels, GitHub package index and Chinese/English Read the Docs triggers |
+| `nightly-dsl-wheel.yml` | Daily 01:00: ascend-catlass development wheels, GitHub Releases and Chinese/English Read the Docs triggers |
 | `release-dsl-wheel.yml` | Manual stable-tag validation, wheel build, PyPI and AtomGit release |
 | `build-dsl-wheel.yml` | Shared build, called by nightly/release or manually |
 | `build-ascendnpu-ir-20261013.yml` | Current NPUIR preparation/archive baseline |
@@ -119,6 +119,27 @@ Jenkins scheduling so that only one scheduler triggers the builds.
 After RDV has started, a failed preparation or test job starts a separate GitHub-hosted collection job. It calls the [`collect-ci-logs`](actions/collect-ci-logs.md) Action with the run ID and attempt. That Action composes official `actions/github-script` to fetch the failed job logs, then a small standalone script locates the failure marker, keeps 200 lines around it and redacts credentials before publishing the excerpt as the comment attachment. There is **no AI analysis**: the pipeline stops at the first failure, so the surrounding log already identifies it. No PR source is checked out or executed for collection.
 
 The report job appends cause, log evidence and a next step below the existing RDV Failed run link. Missing logs, invalid model output, timeout or missing artifacts produce an unavailable-analysis note instead; RDV-FAIL is still reported. Success and cancellation comments are unchanged. The optional job has a 12-minute limit and the model a 5-minute budget. The comment attachment is retained for seven days. Only the collector gets Actions read permission; the model receives no publishing token.
+
+## Python package names and compatibility releases
+
+Build sources must already use the `ascend-catlass` distribution name; older tags are not renamed dynamically. PR builds and nightly runs produce native wheels only. Stable preparation uses [prepare-wheel-bundle](actions/prepare-wheel-bundle.md) to build one metadata-only `ascend-catlass-dsl` wheel at the same version, requiring exactly `ascend-catlass==X.Y.Z` with the same Python range as the main package.
+
+PyPI publication uploads eight main-package wheels first, then the compatibility wheel only after success. Either failure fails the PyPI job; the summary records both results separately. AtomGit receives only the eight native wheels and `SHA256SUMS`, preserving the existing release body.
+
+Both PyPI projects need a Trusted Publisher for `ascend-catlass/actions`, `release-dsl-wheel.yml` and the `pypi` environment; configure a Pending Publisher before a new project's first release. New users install `python -m pip install ascend-catlass`. Installing `ascend-catlass-dsl==X.Y.Z` resolves the same version of the main package.
+
+The older native `ascend-catlass-dsl` distribution and the new main package own the same `catlass` files. Uninstall the old distribution before installing the new one to avoid shared files being removed during an upgrade:
+
+```bash
+python -m pip uninstall -y ascend-catlass-dsl
+python -m pip install --upgrade --force-reinstall ascend-catlass
+```
+
+If the old distribution name is still needed, install the matching compatibility version afterwards. `import catlass` is unchanged.
+
+Every publication, including `artifact_run_id` retries, revalidates package name, version, source ref/commit, wheel matrix, metadata and checksums. Retries reuse the existing compatibility wheel without rebuilding it. Older bundles without it must be rebuilt. Existing PyPI files are skipped only when filenames and SHA256 hashes match; conflicting versions fail. Historical releases are not backfilled or overwritten; use an unpublished stable version for the first renamed release.
+
+Nightly wheels are published as `ascend-catlass` GitHub Release assets. The separate index repository currently only collects the old name and is outside this change. Until it is migrated, download the matching nightly wheel directly from the GitHub Release.
 
 ## Credentials and rollout
 

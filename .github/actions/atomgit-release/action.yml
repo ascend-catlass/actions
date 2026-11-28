@@ -38,5 +38,5 @@ runs:
         token: ${{ inputs.token }}
         repository: ${{ inputs.owner }}/${{ inputs.repo }}
         tag: ${{ inputs.tag }}
-        name: ascend-catlass-dsl ${{ inputs.version }}
+        name: ascend-catlass ${{ inputs.version }}
         assets-file: ${{ inputs.bundle }}/assets.json

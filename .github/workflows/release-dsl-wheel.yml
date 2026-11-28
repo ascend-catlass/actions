@@ -1,4 +1,4 @@
-name: Release ascend-catlass-dsl from AtomGit tag
+name: Release ascend-catlass from AtomGit tag
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ on:
         required: false
         type: string
 
-run-name: Release ascend-catlass-dsl ${{ inputs.catlass_tag }}
+run-name: Release ascend-catlass ${{ inputs.catlass_tag }}
 
 permissions:
   contents: read
@@ -111,22 +111,13 @@ jobs:
           path: wheels
           merge-multiple: true
 
-      - name: Validate wheels and generate checksums
-        shell: bash
-        env:
-          PACKAGE_VERSION: ${{ needs.preflight.outputs.version }}
-          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
-          CATLASS_TAG: ${{ needs.preflight.outputs.tag }}
-        run: |
-          set -euo pipefail
-          python3 scripts/prepare_wheel_bundle.py \
-            --input-dir wheels \
-            --output-dir release-bundle \
-            --version "${PACKAGE_VERSION}" \
-            --source-sha "${SOURCE_SHA}" \
-            --source-ref "${CATLASS_TAG}"
-          python3 -m pip install --disable-pip-version-check twine
-          python3 -m twine check release-bundle/wheels/*.whl
+      - name: Prepare validated wheel bundle
+        uses: ./.github/actions/prepare-wheel-bundle
+        with:
+          version: ${{ needs.preflight.outputs.version }}
+          source-sha: ${{ needs.preflight.outputs.source_sha }}
+          source-ref: ${{ needs.preflight.outputs.tag }}
+          compatibility-package: 'true'
 
       - name: Upload validated release bundle
         uses: actions/upload-artifact@v4
@@ -137,18 +128,26 @@ jobs:
           retention-days: 30
 
   publish-pypi:
-    name: Publish wheels to PyPI
+    name: Publish main and compatibility packages to PyPI
     needs: [preflight, prepare]
     if: ${{ github.ref == 'refs/heads/main' && (always() && needs.preflight.result == 'success' && (needs.prepare.result == 'success' || inputs.artifact_run_id != '')) }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/ascend-catlass-dsl/${{ needs.preflight.outputs.version }}/
+      url: https://pypi.org/project/ascend-catlass/${{ needs.preflight.outputs.version }}/
     permissions:
       actions: read
       id-token: write
+      contents: read
+    outputs:
+      main_result: ${{ steps.publish-main.outcome }}
+      compat_result: ${{ steps.publish-compat.outcome }}
 
     steps:
+      - name: Check out release validation tooling
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Download validated release bundle
         uses: actions/download-artifact@v4
         with:
@@ -157,10 +156,28 @@ jobs:
           run-id: ${{ inputs.artifact_run_id || github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish package distributions
+      - name: Revalidate bundle and check PyPI retry compatibility
+        uses: ./.github/actions/prepare-wheel-bundle
+        with:
+          operation: validate-pypi
+          version: ${{ needs.preflight.outputs.version }}
+          source-sha: ${{ needs.preflight.outputs.source_sha }}
+          source-ref: ${{ needs.preflight.outputs.tag }}
+          compatibility-package: 'true'
+
+      - name: Publish ascend-catlass distributions
+        id: publish-main
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: release-bundle/wheels
+          print-hash: true
+          skip-existing: true
+
+      - name: Publish matching ascend-catlass-dsl compatibility distribution
+        id: publish-compat
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: release-bundle/compat-wheels
           print-hash: true
           skip-existing: true
 
@@ -232,6 +249,15 @@ jobs:
           run-id: ${{ inputs.artifact_run_id || github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Revalidate downloaded release bundle
+        uses: ./.github/actions/prepare-wheel-bundle
+        with:
+          operation: validate
+          version: ${{ needs.preflight.outputs.version }}
+          source-sha: ${{ needs.preflight.outputs.source_sha }}
+          source-ref: ${{ needs.preflight.outputs.tag }}
+          compatibility-package: 'true'
+
       - name: Attach wheels to the corresponding AtomGit tag release
         uses: ./.github/actions/atomgit-release
         with:
@@ -255,19 +281,26 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           PREPARE_RESULT: ${{ needs.prepare.result }}
           PYPI_RESULT: ${{ needs.publish-pypi.result }}
+          MAIN_PYPI_RESULT: ${{ needs.publish-pypi.outputs.main_result || 'skipped' }}
+          COMPAT_PYPI_RESULT: ${{ needs.publish-pypi.outputs.compat_result || 'skipped' }}
           ATOMGIT_RESULT: ${{ needs.publish-atomgit.result }}
         run: |
           {
-            echo "## ascend-catlass-dsl ${VERSION}"
+            echo "## ascend-catlass ${VERSION}"
             echo
             echo "- AtomGit tag: ${TAG}"
             echo "- CATLASS commit: ${SOURCE_SHA}"
             echo "- Build: ${BUILD_RESULT}"
             echo "- Bundle validation: ${PREPARE_RESULT}"
             echo "- PyPI: ${PYPI_RESULT}"
+            echo "- ascend-catlass PyPI: ${MAIN_PYPI_RESULT}"
+            echo "- ascend-catlass-dsl compatibility PyPI: ${COMPAT_PYPI_RESULT}"
             echo "- AtomGit Release: ${ATOMGIT_RESULT}"
-            if [[ "${PYPI_RESULT}" == success ]]; then
-              echo "- PyPI URL: https://pypi.org/project/ascend-catlass-dsl/${VERSION}/"
+            if [[ "${MAIN_PYPI_RESULT}" == success ]]; then
+              echo "- PyPI URL: https://pypi.org/project/ascend-catlass/${VERSION}/"
+            fi
+            if [[ "${COMPAT_PYPI_RESULT}" == success ]]; then
+              echo "- Compatibility PyPI URL: https://pypi.org/project/ascend-catlass-dsl/${VERSION}/"
             fi
             if [[ "${ATOMGIT_RESULT}" == success ]]; then
               echo "- AtomGit Release: https://atomgit.com/cann/catlass/releases/${TAG}"

@@ -87,20 +87,12 @@ jobs:
           path: wheels
           merge-multiple: true
 
-      - name: Validate wheels and generate checksums
-        env:
-          PACKAGE_VERSION: ${{ needs.build.outputs.package_version }}
-          SOURCE_SHA: ${{ needs.build.outputs.source_sha }}
-        run: |
-          set -euo pipefail
-          python3 scripts/prepare_wheel_bundle.py \
-            --input-dir wheels \
-            --output-dir release-bundle \
-            --version "${PACKAGE_VERSION}" \
-            --source-sha "${SOURCE_SHA}" \
-            --source-ref master
-          python3 -m pip install --disable-pip-version-check twine
-          python3 -m twine check release-bundle/wheels/*.whl
+      - name: Prepare validated wheel bundle
+        uses: ./.github/actions/prepare-wheel-bundle
+        with:
+          version: ${{ needs.build.outputs.package_version }}
+          source-sha: ${{ needs.build.outputs.source_sha }}
+          source-ref: master
 
       - name: Upload validated nightly bundle
         uses: actions/upload-artifact@v4
@@ -119,11 +111,23 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out release validation tooling
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Download validated nightly bundle
         uses: actions/download-artifact@v4
         with:
           name: dsl-nightly-release-bundle
           path: release-bundle
+
+      - name: Revalidate downloaded nightly bundle
+        uses: ./.github/actions/prepare-wheel-bundle
+        with:
+          operation: validate
+          version: ${{ needs.build.outputs.package_version }}
+          source-sha: ${{ needs.build.outputs.source_sha }}
+          source-ref: master
 
       - name: Publish wheels for the package index
         env:
@@ -146,7 +150,7 @@ jobs:
             release-bundle/SHA256SUMS \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "ascend-catlass-dsl ${PACKAGE_VERSION}" \
+            --title "ascend-catlass ${PACKAGE_VERSION}" \
             --notes-file release-bundle/release-notes.md \
             --draft
           gh release edit "${tag_name}" \
@@ -157,9 +161,10 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --json url --jq .url)
           {
-            echo "## Daily ascend-catlass-dsl ${PACKAGE_VERSION}"
+            echo "## Daily ascend-catlass ${PACKAGE_VERSION}"
             echo
             echo "- CATLASS commit: ${SOURCE_SHA}"
             echo "- GitHub Release: ${release_url}"
-            echo "- Package index: https://ascend-catlass.github.io/simple/ascend-catlass-dsl/"
+            echo "- Install: download the matching ascend-catlass wheel from this GitHub Release."
+            echo "- Nightly package index migration is tracked separately; new wheels may not appear there yet."
           } >> "${GITHUB_STEP_SUMMARY}"

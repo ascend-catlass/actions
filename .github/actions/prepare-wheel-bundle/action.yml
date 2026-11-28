@@ -1,0 +1,70 @@
+name: Prepare or validate CATLASS wheel bundle
+description: Validate CATLASS provenance and wheel matrix, optionally build the stable PyPI compatibility package
+inputs:
+  operation:
+    description: prepare, validate, or validate-pypi (also check existing PyPI files)
+    default: prepare
+  version:
+    description: Exact package version from the source resolution stage
+    required: true
+  source-sha:
+    description: Exact CATLASS commit from the source resolution stage
+    required: true
+  source-ref:
+    description: CATLASS source ref (master or the exact stable tag)
+    required: true
+  input-dir:
+    description: Downloaded architecture wheel artifact directory
+    default: wheels
+  bundle:
+    description: Output bundle for prepare, or existing bundle for validation
+    default: release-bundle
+  compatibility-package:
+    description: Build or require the stable PyPI-only ascend-catlass-dsl compatibility wheel
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Install wheel validation tools
+      if: ${{ inputs.operation == 'prepare' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 -m pip install --disable-pip-version-check -r requirements-release.txt
+    - name: Prepare or validate the immutable bundle
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+        PACKAGE_VERSION: ${{ inputs.version }}
+        SOURCE_SHA: ${{ inputs.source-sha }}
+        SOURCE_REF: ${{ inputs.source-ref }}
+        INPUT_DIR: ${{ inputs.input-dir }}
+        BUNDLE: ${{ inputs.bundle }}
+        COMPATIBILITY_PACKAGE: ${{ inputs.compatibility-package }}
+      run: |
+        set -euo pipefail
+        common=(--version "$PACKAGE_VERSION" --source-sha "$SOURCE_SHA" --source-ref "$SOURCE_REF")
+        compat=()
+        case "$COMPATIBILITY_PACKAGE" in
+          true) compat=(--require-compat) ;;
+          false) ;;
+          *) echo '::error::compatibility-package must be true or false'; exit 1 ;;
+        esac
+        case "$OPERATION" in
+          prepare)
+            if [[ "$COMPATIBILITY_PACKAGE" == true ]]; then compat=(--with-compat); fi
+            python3 -m scripts.prepare_wheel_bundle --input-dir "$INPUT_DIR" \
+              --output-dir "$BUNDLE" "${common[@]}" "${compat[@]}"
+            python3 -m twine check "$BUNDLE"/wheels/*.whl
+            if [[ "$COMPATIBILITY_PACKAGE" == true ]]; then
+              python3 -m twine check "$BUNDLE"/compat-wheels/*.whl
+            fi
+            ;;
+          validate|validate-pypi)
+            extra=()
+            if [[ "$OPERATION" == validate-pypi ]]; then extra=(--check-pypi); fi
+            python3 -m scripts.validate_release_bundle --bundle "$BUNDLE" \
+              "${common[@]}" "${compat[@]}" "${extra[@]}"
+            ;;
+          *) echo '::error::Unknown bundle operation'; exit 1 ;;
+        esac

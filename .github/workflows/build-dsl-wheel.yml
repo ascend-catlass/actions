@@ -1,4 +1,4 @@
-name: Build ascend-catlass-dsl wheels
+name: Build ascend-catlass wheels
 
 on:
   workflow_call:
@@ -59,7 +59,7 @@ on:
         default: dev
         type: string
 
-run-name: Build ascend-catlass-dsl ${{ inputs.package_version || 'dev' }} from ${{ inputs.catlass_ref || 'master' }}
+run-name: Build ascend-catlass ${{ inputs.package_version || 'dev' }} from ${{ inputs.catlass_ref || 'master' }}
 
 env:
   NPUIR_ARCHIVE_ROOT: /opt/AscendNPU-IR
@@ -217,7 +217,7 @@ jobs:
 
   build:
     if: ${{ github.ref == 'refs/heads/main' }}
-    name: Build ascend-catlass-dsl wheel (${{ matrix.target_arch }})
+    name: Build ascend-catlass wheel (${{ matrix.target_arch }})
     needs: [resolve, npuir]
     strategy:
       fail-fast: false
@@ -476,7 +476,7 @@ jobs:
           for wheel in "${wheels[@]}"; do
             wheel_name=$(basename "${wheel}")
             case "${wheel_name}" in
-              "ascend_catlass_dsl-${EXPECTED_VERSION}-"*.whl) ;;
+              "ascend_catlass-${EXPECTED_VERSION}-"*.whl) ;;
               *) echo "::error::Unexpected wheel version: ${wheel_name}; expected ${EXPECTED_VERSION}"; exit 1 ;;
             esac
             case "${wheel_name}" in
@@ -551,7 +551,7 @@ jobs:
           set -euo pipefail
 
           {
-            echo "## ascend-catlass-dsl build"
+            echo "## ascend-catlass build"
             echo
             echo "- Build: ${BUILD_RESULT}"
             echo "- NPUIR preparation: ${NPUIR_RESULT}"

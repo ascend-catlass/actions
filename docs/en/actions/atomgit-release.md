@@ -14,7 +14,7 @@ Use it in the AtomGit distribution step of a stable release. It neither builds w
 
 ## What happens
 
-1. Check that the bundle contains eight wheels and SHA256SUMS.
+1. Check that the bundle contains eight `ascend-catlass` native wheels and SHA256SUMS.
 2. Find the Release for the selected tag, create it if needed, and upload missing assets.
 3. Verify SHA-256 for existing assets and read back the Release to check expected asset visibility.
 
@@ -55,6 +55,8 @@ Required follows action.yml. Some optional fields become necessary for a particu
 No Action output fields are defined. Check the step status, logs or the external result it writes.
 
 ## Notes and common questions
+
+- The release workflow revalidates bundle version, commit and hashes before calling this Action. The PyPI-only compatibility wheel in `compat-wheels/` is never uploaded to AtomGit.
 
 - No Action output fields are defined. Use the step exit status and logs to determine success.
 - Assets only: no release body is supplied, so a curated body on an existing Release is never overwritten. Wheel hashes are published through the SHA256SUMS asset rather than the body.
