@@ -1,0 +1,83 @@
+name: Install CANN release on bz hosts
+
+on:
+  schedule:
+    # Monday 03:00 Asia/Shanghai (Sunday 19:00 UTC).
+    - cron: '0 19 * * 0'
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: Unique host label; empty keeps both bz architecture pools
+        required: false
+        default: ''
+        type: string
+      target_arch:
+        description: CPU architecture when runner_label selects one host
+        required: false
+        default: x86_64
+        type: choice
+        options: [x86_64, aarch64]
+
+run-name: Install CANN release - ${{ inputs.runner_label || 'bz hosts' }}
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize with weekly installers, which also update global CANN registration.
+  group: install-cann-weekly
+  cancel-in-progress: false
+
+jobs:
+  tools:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/package-hardware-tools.yml
+
+  resolve:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      matrix: ${{ steps.runners.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Select dependency runners
+        id: runners
+        env:
+          TARGET_RUNNER_LABEL: ${{ inputs.runner_label }}
+          TARGET_ARCH: ${{ inputs.target_arch || 'x86_64' }}
+          DEFAULT_RUNNER_LABEL: bz
+        run: python3 scripts/dependency_runner_matrix.py
+      - id: release
+        uses: ./.github/actions/install-cann-release
+        with:
+          operation: resolve
+
+  install:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: [resolve, tools]
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: catlass-hardware-tools
+          path: hardware-tools
+      - uses: ./hardware-tools/.github/actions/install-cann-release
+        with:
+          operation: install
+          version: ${{ needs.resolve.outputs.version }}
+          expected-cpu: ${{ matrix.cpu }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cann-release-${{ matrix.cpu }}-${{ github.run_attempt }}
+          path: release-logs/
+          if-no-files-found: warn
+          retention-days: 30
